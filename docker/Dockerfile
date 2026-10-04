@@ -39,6 +39,8 @@ RUN sed -ri 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-avail
     && printf '<Directory /var/www/html/public>\n    AllowOverride All\n</Directory>\n' > /etc/apache2/conf-available/laravel.conf \
     && a2enconf laravel
 COPY docker/php.ini /usr/local/etc/php/conf.d/zz-app.ini
+COPY docker/apache-security.conf /etc/apache2/conf-available/zz-security-hardening.conf
+RUN a2enconf zz-security-hardening && echo 'ServerName localhost' > /etc/apache2/conf-available/servername.conf && a2enconf servername
 
 WORKDIR /var/www/html
 COPY --from=vendor /app /var/www/html
