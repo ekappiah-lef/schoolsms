@@ -19,3 +19,4 @@ storage
 docker/seed/*.sql
 /public/build
 /.claude
+*.pem

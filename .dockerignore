@@ -18,3 +18,4 @@ composer.phar
 _ide_helper.php
 tests
 *.log
+*.pem

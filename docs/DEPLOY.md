@@ -50,7 +50,7 @@ Git remote `server` = `lav-sms-test:lav-sms.git`.
 
 ```bash
 # once: install Docker, add the deploy key, create the repo + deploy hook
-ssh -i aws-key.pem ubuntu@ELASTIC_IP 'bash -s' < deploy/server-setup.sh "$(cat ~/.ssh/lav_sms_server.pub)"
+ssh -i aws-key.pem ubuntu@ELASTIC_IP "bash -s -- '$(cat ~/.ssh/lav_sms_server.pub)'" < deploy/server-setup.sh
 git push server main                                         # first push: code only
 scp docker/seed/lav_sms.sql lav-sms-test:~/lav-sms/docker/seed/   # demo data (not in git)
 ssh lav-sms-test                                             # create ~/lav-sms/.env and .env.docker (step 4)

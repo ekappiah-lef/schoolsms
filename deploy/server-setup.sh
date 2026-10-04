@@ -1,7 +1,7 @@
 #!/bin/bash
 # One-time setup of the LAV SMS test server (Ubuntu). Run from your laptop with the AWS key:
 #
-#   ssh -i aws-key.pem ubuntu@SERVER_IP 'bash -s' < deploy/server-setup.sh "$(cat ~/.ssh/lav_sms_server.pub)"
+#   ssh -i aws-key.pem ubuntu@SERVER_IP "bash -s -- '$(cat ~/.ssh/lav_sms_server.pub)'" < deploy/server-setup.sh
 #
 # It adds your deploy key, installs Docker, and creates ~/lav-sms.git: pushing to it checks the
 # code out into ~/lav-sms and rebuilds/restarts the containers.
