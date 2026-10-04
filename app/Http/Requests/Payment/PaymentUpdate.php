@@ -21,6 +21,7 @@ class PaymentUpdate extends FormRequest
     {
         return [
             'title' => 'required|string|min:3',
+            'term' => 'nullable|in:1,2,3',
         ];
     }
 

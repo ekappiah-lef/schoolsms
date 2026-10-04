@@ -29,6 +29,16 @@ class Qs
         return self::getSetting('system_title') ?: 'CJ';
     }
 
+    /** Rebuild an absolute URL to this app's storage/asset folders against the current host. */
+    public static function localAsset($url)
+    {
+        if ($url && preg_match('#^https?://[^/]+/((?:storage|global_assets)/.*)$#i', $url, $m)) {
+            return asset(preg_replace('#/{2,}#', '/', $m[1]));
+        }
+
+        return $url;
+    }
+
     public static function getDefaultUserImage()
     {
         return asset('global_assets/images/user.png');
@@ -258,7 +268,7 @@ class Qs
 
     public static function getSetting($type)
     {
-        return Setting::where('type', $type)->first()->description;
+        return optional(Setting::where('type', $type)->first())->description;
     }
 
     public static function getCurrentSession()

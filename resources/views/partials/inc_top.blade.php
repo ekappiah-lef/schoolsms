@@ -16,6 +16,12 @@
 {{-- Custom App CSS--}}
 <link href=" {{ asset('assets/css/qs.css') }}" rel="stylesheet" type="text/css">
 
+{{-- New interface skin for pages not yet migrated to React (off in the classic interface) --}}
+@unless(\App\Helpers\Ui::isClassic())
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="{{ asset('assets/css/modern-skin.css') }}" rel="stylesheet" type="text/css">
+@endunless
+
 {{--   Core JS files --}}
     <script src="{{ asset('global_assets/js/main/jquery.min.js') }} "></script>
     <script src="{{ asset('global_assets/js/main/bootstrap.bundle.min.js') }} "></script>

@@ -7,6 +7,7 @@ use App\Helpers\Qs;
 
 class StudentRecordCreate extends FormRequest
 {
+    use AdmissionRules;
 
     public function authorize()
     {
@@ -20,7 +21,7 @@ class StudentRecordCreate extends FormRequest
      */
     public function rules()
     {
-        return [
+        $base = [
             'name' => 'required|string|min:6|max:150',
             'adm_no' => 'sometimes|nullable|alpha_num|min:3|max:150|unique:student_records',
             'gender' => 'required|string',
@@ -38,11 +39,14 @@ class StudentRecordCreate extends FormRequest
             'my_parent_id' => 'sometimes|nullable',
             'dorm_id' => 'sometimes|nullable',
         ];
+
+        // The classic (Blade) form does not send the new admission fields.
+        return $this->input('form_version') === '2' ? array_merge($base, $this->detailRules(true), $this->parentRules()) : $base;
     }
 
     public function attributes()
     {
-        return  [
+        return $this->admissionAttributes() + [
             'section_id' => 'Section',
             'nal_id' => 'Nationality',
             'my_class_id' => 'Class',
@@ -58,7 +62,14 @@ class StudentRecordCreate extends FormRequest
     {
         $input = $this->all();
 
-        $input['my_parent_id'] = $input['my_parent_id'] ? Qs::decodeHash($input['my_parent_id']) : NULL;
+        $mode = $input['parent_mode'] ?? (empty($input['my_parent_id']) ? 'none' : 'existing');
+        $input['parent_mode'] = $mode;
+        $input['my_parent_id'] = ($mode === 'existing' && !empty($input['my_parent_id'])) ? Qs::decodeHash($input['my_parent_id']) : NULL;
+        $this->composeName($input);
+        // The year in usernames/reports comes from the full admission date.
+        if (!empty($input['admission_date']) && preg_match('/^(\d{4})-\d{2}-\d{2}$/', $input['admission_date'], $m)) {
+            $input['year_admitted'] = $m[1];
+        }
 
         $this->getInputSource()->replace($input);
 

@@ -20,7 +20,7 @@
                             </div>
                         </div>
                         <div class="form-group row">
-                            <label for="current_session" class="col-lg-3 col-form-label font-weight-semibold">Current Session <span class="text-danger">*</span></label>
+                            <label for="current_session" class="col-lg-3 col-form-label font-weight-semibold">Current Year <span class="text-danger">*</span></label>
                             <div class="col-lg-9">
                                 <select data-placeholder="Choose..." required name="current_session" id="current_session" class="select-search form-control">
                                     <option value=""></option>

@@ -6,12 +6,18 @@ Auth::routes();
 Route::get('/privacy-policy', 'HomeController@privacy_policy')->name('privacy_policy');
 Route::get('/terms-of-use', 'HomeController@terms_of_use')->name('terms_of_use');
 
+/* Fees statement linked from admission email/SMS: no login, signed + expiring URL */
+Route::get('fees/statement/{student}', 'FeeStatementController@show')->name('fees.statement')->middleware('signed');
+
 
 Route::group(['middleware' => 'auth'], function () {
 
     Route::get('/', 'HomeController@dashboard')->name('home');
     Route::get('/home', 'HomeController@dashboard')->name('home');
     Route::get('/dashboard', 'HomeController@dashboard')->name('dashboard');
+
+    /* Switch between the new interface and the classic Blade interface */
+    Route::get('/ui/{mode}', 'HomeController@ui_mode')->where('mode', 'new|classic')->name('ui.mode');
 
     Route::group(['prefix' => 'my_account'], function() {
         Route::get('/', 'MyAccountController@edit_profile')->name('my_account');
@@ -28,6 +34,8 @@ Route::group(['middleware' => 'auth'], function () {
             Route::get('graduated', 'StudentRecordController@graduated')->name('students.graduated');
             Route::put('not_graduated/{id}', 'StudentRecordController@not_graduated')->name('st.not_graduated');
             Route::get('list/{class_id}', 'StudentRecordController@listByClass')->name('students.list')->middleware('teamSAT');
+            Route::get('search', 'StudentRecordController@search')->name('students.search')->middleware('teamSAT');
+            Route::post('notify/{id}', 'StudentRecordController@notify')->name('students.notify')->middleware('teamSA');
 
             /* Promotions */
             Route::post('promote_selector', 'PromotionController@selector')->name('students.promote_selector');
@@ -92,6 +100,49 @@ Route::group(['middleware' => 'auth'], function () {
             Route::post('select_class', 'PaymentController@select_class')->name('payments.select_class');
             Route::delete('reset_record/{id}', 'PaymentController@reset_record')->name('payments.reset_record');
             Route::post('pay_now/{id}', 'PaymentController@pay_now')->name('payments.pay_now');
+        });
+
+        /*************** Single payment receipts (view / PDF / send to parent) *****************/
+        Route::group(['prefix' => 'receipts', 'where' => ['kind' => 'school|optional']], function(){
+            Route::get('{kind}/{id}', 'ReceiptController@show')->name('receipts.show');
+            Route::get('{kind}/{id}/pdf', 'ReceiptController@pdf')->name('receipts.pdf');
+            Route::post('{kind}/{id}/send', 'ReceiptController@send')->name('receipts.send');
+        });
+
+        /*************** Finance: dashboard, income & expenses, service rosters *****************/
+        Route::get('finance', 'FinanceDashboardController@index')->name('finance.dashboard');
+        Route::get('finance/ledger', 'FinanceLedgerController@index')->name('finance.ledger');
+        Route::get('finance/fee-breakdown', 'FeeBreakdownController@index')->name('finance.fee_breakdown');
+        Route::get('finance/sales', 'SalesController@index')->name('finance.sales');
+        Route::post('finance/sales/items', 'SalesController@storeItem')->name('finance.sales.items.store');
+        Route::put('finance/sales/items/{item}', 'SalesController@updateItem')->name('finance.sales.items.update');
+        Route::post('finance/sales/items/{item}/restock', 'SalesController@restock')->name('finance.sales.items.restock');
+        Route::post('finance/sales/sell', 'SalesController@sell')->name('finance.sales.sell');
+        Route::delete('finance/sales/return/{id}', 'SalesController@returnSale')->name('finance.sales.return');
+        Route::get('finance/transactions', 'FinanceTransactionController@index')->name('finance.transactions');
+        Route::post('finance/transactions', 'FinanceTransactionController@store')->name('finance.transactions.store');
+        Route::get('finance/transactions/{id}/edit', 'FinanceTransactionController@edit')->name('finance.transactions.edit');
+        Route::put('finance/transactions/{id}', 'FinanceTransactionController@update')->name('finance.transactions.update');
+        Route::delete('finance/transactions/{id}', 'FinanceTransactionController@destroy')->name('finance.transactions.destroy');
+        Route::get('finance/services/{group}', 'ServiceRosterController@show')->where('group', 'feeding|bus|extracurricular|sales')->name('finance.services');
+
+        /*************** Optional fees (feeding, bus, extra-curricular, books) *****************/
+        Route::post('optional_fees/pay/{id}', 'OptionalFeeController@pay')->name('optional_fees.pay');
+        Route::delete('optional_fees/reset/{id}', 'OptionalFeeController@reset')->name('optional_fees.reset');
+
+        /*************** Finance configuration *****************/
+        Route::group(['prefix' => 'finance'], function(){
+            Route::get('config', 'FinanceConfigController@index')->name('finance.config');
+            Route::post('options', 'FinanceConfigController@storeOption')->name('finance.options.store');
+            Route::put('options/{fee_option}', 'FinanceConfigController@updateOption')->name('finance.options.update');
+            Route::delete('options/{fee_option}', 'FinanceConfigController@destroyOption')->name('finance.options.destroy');
+            Route::post('routes', 'FinanceConfigController@storeRoute')->name('finance.routes.store');
+            Route::put('routes/{bus_route}', 'FinanceConfigController@updateRoute')->name('finance.routes.update');
+            Route::delete('routes/{bus_route}', 'FinanceConfigController@destroyRoute')->name('finance.routes.destroy');
+            Route::post('notices', 'FinanceConfigController@saveNotices')->name('finance.notices');
+            Route::post('discounts', 'FinanceConfigController@storeDiscount')->name('finance.discounts.store');
+            Route::put('discounts/{fee_discount}', 'FinanceConfigController@updateDiscount')->name('finance.discounts.update');
+            Route::delete('discounts/{fee_discount}', 'FinanceConfigController@destroyDiscount')->name('finance.discounts.destroy');
         });
 
         /*************** Pins *****************/

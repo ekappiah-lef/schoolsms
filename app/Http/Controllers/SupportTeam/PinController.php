@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\SupportTeam;
 
 use App\Helpers\Qs;
+use App\Helpers\Ui;
 use App\Http\Requests\Pin\PinCreate;
 use App\Http\Requests\Pin\PinVerify;
 use App\Repositories\PinRepo;
@@ -29,7 +30,36 @@ class PinController extends Controller
         $d['pin_count'] = $this->pin->countValid();
         $d['valid_pins'] = $this->pin->getValid();
         $d['used_pins'] = $this->pin->getInValid();
-        return view('pages.support_team.pins.index', $d);
+
+        return Ui::render('Pins/Index', function () use ($d) { return $this->indexProps($d); }, 'pages.support_team.pins.index', $d);
+    }
+
+    /** Exam pins page: unused pins, used pins (who used them, for which student) and the generate form. */
+    protected function indexProps(array $d, string $tab = 'valid'): array
+    {
+        $link = function ($u) {
+            if (!$u) return null;
+            if ($u->user_type === 'student') {
+                $sr = Qs::getSRByUserID($u->id);
+                return $sr ? route('students.show', Qs::hash($sr->id)) : null;
+            }
+            return route('users.show', Qs::hash($u->id));
+        };
+
+        return [
+            'tab' => $tab,
+            'valid' => $d['valid_pins']->pluck('code')->values(),
+            'used' => $d['used_pins']->map(function ($p) use ($link) {
+                return [
+                    'code' => $p->code, 'times' => (int) $p->times_used,
+                    'by' => optional($p->user)->name, 'by_type' => optional($p->user)->user_type ? ucwords(str_replace('_', ' ', $p->user->user_type)) : null, 'by_url' => $link($p->user),
+                    'student' => optional($p->student)->name, 'student_url' => $link($p->student),
+                    'date' => optional($p->updated_at)->toDateTimeString(),
+                ];
+            })->values(),
+            'max' => 500,
+            'urls' => ['store' => route('pins.store'), 'destroy' => route('pins.destroy'), 'index' => route('pins.index')],
+        ];
     }
 
     public function create()
@@ -38,7 +68,11 @@ class PinController extends Controller
             return redirect()->route('pins.index')->with('flash_danger', __('msg.pin_max'));
         }
 
-        return view('pages.support_team.pins.create');
+        $d['pin_count'] = $this->pin->countValid();
+        $d['valid_pins'] = $this->pin->getValid();
+        $d['used_pins'] = $this->pin->getInValid();
+
+        return Ui::render('Pins/Index', function () use ($d) { return $this->indexProps($d, 'create'); }, 'pages.support_team.pins.create');
     }
 
     public function enter_pin($student_id)
@@ -53,7 +87,9 @@ class PinController extends Controller
         }
         $d['student'] = $this->user->find($student_id);
 
-        return view('pages.support_team.pins.enter', $d);
+        return Ui::render('Pins/Enter', function () use ($d, $student_id) {
+            return ['student' => optional($d['student'])->name, 'urls' => ['verify' => route('pins.verify', Qs::hash($student_id))]];
+        }, 'pages.support_team.pins.enter', $d);
     }
 
     public function verify(PinVerify $req, $student_id)

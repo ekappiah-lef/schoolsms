@@ -6,14 +6,14 @@
     <div class="card">
         <div class="card-body text-center
 ">
-            <button id="promotion-reset-all" class="btn btn-danger btn-large">Reset All Promotions for the Session</button>
+            <button id="promotion-reset-all" class="btn btn-danger btn-large">Reset All Promotions for the Year</button>
         </div>
     </div>
 
 {{-- Reset Promotions --}}
     <div class="card">
         <div class="card-header header-elements-inline">
-            <h5 class="card-title font-weight-bold">Manage Promotions - Students Who Were Promoted From <span class="text-danger">{{ $old_year }}</span> TO <span class="text-success">{{ $new_year }}</span> Session</h5>
+            <h5 class="card-title font-weight-bold">Manage Promotions - Students Who Were Promoted From <span class="text-danger">{{ $old_year }}</span> TO <span class="text-success">{{ $new_year }}</span> Year</h5>
             {!! Qs::getPanelOptions() !!}
         </div>
 

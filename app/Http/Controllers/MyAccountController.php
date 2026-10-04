@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 
 use App\Helpers\Qs;
+use App\Helpers\Ui;
 use App\Http\Requests\UserChangePass;
 use App\Http\Requests\UserUpdate;
 use App\Repositories\UserRepo;
@@ -21,8 +22,18 @@ class MyAccountController extends Controller
 
     public function edit_profile()
     {
-        $d['my'] = Auth::user();
-        return view('pages.support_team.my_account', $d);
+        $d['my'] = $my = Auth::user();
+
+        return Ui::render('Account/Index', function () use ($my) {
+            return [
+                'me' => [
+                    'name' => $my->name, 'photo' => $my->photo, 'username' => $my->username, 'email' => $my->email,
+                    'phone' => $my->phone, 'address' => $my->address,
+                ],
+                'canEditProfile' => Qs::userIsPTA(),
+                'urls' => ['update' => route('my_account.update'), 'password' => route('my_account.change_pass')],
+            ];
+        }, 'pages.support_team.my_account', $d);
     }
 
     public function update_profile(UserUpdate $req)

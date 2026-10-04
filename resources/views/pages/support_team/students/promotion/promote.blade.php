@@ -6,7 +6,7 @@
             <th>#</th>
             <th>Photo</th>
             <th>Name</th>
-            <th>Current Session</th>
+            <th>Current Year</th>
             <th>Action</th>
         </tr>
         </thead>

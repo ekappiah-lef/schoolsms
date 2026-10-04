@@ -54,6 +54,10 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // Proxies whose X-Forwarded-* headers are trusted (e.g. "*" behind the server's nginx), so
+    // links are generated with https and the public port.
+    'trusted_proxies' => env('TRUSTED_PROXIES'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone
@@ -159,7 +163,7 @@ return [
         // App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
-        Barryvdh\DomPDF\ServiceProvider::class,
+        // PDFs use dompdf 3 through App\Support\Pdf (the old laravel-dompdf wrapper did not run on PHP 8).
     ],
 
     /*
@@ -208,7 +212,7 @@ return [
         'URL' => Illuminate\Support\Facades\URL::class,
         'Validator' => Illuminate\Support\Facades\Validator::class,
         'View' => Illuminate\Support\Facades\View::class,
-        'PDF' => Barryvdh\DomPDF\Facade::class,
+        'PDF' => App\Support\Pdf::class,
         'Qs' => App\Helpers\Qs::class,
         'Mk' => App\Helpers\Mk::class,
         'Pay' => App\Helpers\Pay::class,

@@ -37,6 +37,21 @@ class LoginController extends Controller
         $this->middleware('guest')->except('logout');
     }
 
+    public function showLoginForm()
+    {
+        return \App\Helpers\Ui::render('Auth/Login', function () {
+            return [
+                'school' => \App\Helpers\Qs::getSystemName(),
+                'address' => \App\Helpers\Qs::getSetting('address'),
+                'phone' => \App\Helpers\Qs::getSetting('phone'),
+                'urls' => [
+                    'login' => route('login'),
+                    'forgot' => route('password.request'),
+                ],
+            ];
+        }, 'auth.login');
+    }
+
     /*
      *  Login with Username or Email
      * */

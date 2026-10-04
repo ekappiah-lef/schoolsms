@@ -1,0 +1,34 @@
+# Test deployment of LAV SMS.
+#   docker compose up -d --build
+# By default the app listens on 127.0.0.1:8081 only, for the host's nginx to publish on
+# https://dev.lefsignature.com:8443. On a stand-alone test instance set APP_BIND=80 in a
+# file named .env next to this file. See docs/DEPLOY.md.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: lav-sms:latest
+    restart: unless-stopped
+    env_file: .env.docker
+    depends_on:
+      - db
+    ports:
+      # Behind the server's nginx (default): 127.0.0.1:8081. On its own test instance: APP_BIND=80
+      - "${APP_BIND:-127.0.0.1:8081}:80"
+    volumes:
+      - uploads:/var/www/html/storage/app/public
+      - logs:/var/www/html/storage/logs
+      - ./docker/seed:/docker/seed:ro
+
+  db:
+    image: mariadb:10.6
+    restart: unless-stopped
+    env_file: .env.docker   # MARIADB_* variables
+    volumes:
+      - dbdata:/var/lib/mysql
+
+volumes:
+  dbdata:
+  uploads:
+  logs:

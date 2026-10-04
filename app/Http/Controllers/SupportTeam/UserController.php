@@ -3,7 +3,11 @@
 namespace App\Http\Controllers\SupportTeam;
 
 use App\Helpers\Qs;
+use App\Helpers\Ui;
 use App\Http\Requests\UserRequest;
+use App\Models\ParentDetail;
+use App\Models\StudentRecord;
+use App\Support\Fees;
 use App\Repositories\LocationRepo;
 use App\Repositories\MyClassRepo;
 use App\Repositories\UserRepo;
@@ -38,7 +42,39 @@ class UserController extends Controller
         $d['users'] = $this->user->getPTAUsers();
         $d['nationals'] = $this->loc->getAllNationals();
         $d['blood_groups'] = $this->user->getBloodGroups();
-        return view('pages.support_team.users.index', $d);
+
+        return Ui::render('Users/Index', function () use ($d) { return $this->indexProps($d['user_types'], $d['users']); }, 'pages.support_team.users.index', $d);
+    }
+
+    /** Props for the users page (create / show users), also used when editing one. */
+    protected function indexProps($types, $users, $editing = null): array
+    {
+        $isSA = Qs::userIsSuperAdmin();
+        $typeNames = $this->user->getAllTypes()->pluck('name', 'title');
+
+        return [
+            'userTypes' => $types->map(function ($t) { return ['id' => Qs::hash($t->id), 'title' => $t->title, 'name' => $t->name]; })->values(),
+            'users' => $users->map(function ($u) use ($isSA, $typeNames) {
+                $h = Qs::hash($u->id);
+                return [
+                    'id' => $h, 'name' => $u->name, 'photo' => $u->photo, 'username' => $u->username, 'phone' => $u->phone, 'email' => $u->email,
+                    'type' => $u->user_type, 'type_name' => $typeNames[$u->user_type] ?? ucwords(str_replace('_', ' ', $u->user_type)),
+                    'urls' => array_filter([
+                        'show' => route('users.show', $h),
+                        'edit' => route('users.edit', $h),
+                        'reset_pass' => $isSA && !Qs::headSA($u->id) ? route('users.reset_pass', $h) : null,
+                        'destroy' => $isSA && !Qs::headSA($u->id) ? route('users.destroy', $h) : null,
+                    ]),
+                ];
+            })->values(),
+            'options' => [
+                'states' => $this->loc->getAllStates()->map->only(['id', 'name'])->values(),
+                'nationals' => $this->loc->getAllNationals()->map->only(['id', 'name'])->values(),
+                'blood_groups' => $this->user->getBloodGroups()->map->only(['id', 'name'])->values(),
+            ],
+            'editing' => $editing,
+            'urls' => ['store' => route('users.store'), 'index' => route('users.index'), 'lgas' => route('get_lga', ':id')],
+        ];
     }
 
     public function edit($id)
@@ -49,7 +85,24 @@ class UserController extends Controller
         $d['users'] = $this->user->getPTAUsers();
         $d['blood_groups'] = $this->user->getBloodGroups();
         $d['nationals'] = $this->loc->getAllNationals();
-        return view('pages.support_team.users.edit', $d);
+        if (!$d['user']) {
+            return Qs::goWithDanger('users.index');
+        }
+
+        return Ui::render('Users/Index', function () use ($d) {
+            $u = $d['user'];
+            $ut = $this->user->getAllTypes();
+            return $this->indexProps(Qs::userIsAdmin() ? $ut->where('level', '>', 2) : $ut, $d['users'], [
+                'url' => route('users.update', Qs::hash($u->id)),
+                'name' => $u->name, 'type' => $u->user_type, 'type_name' => optional($ut->firstWhere('title', $u->user_type))->name,
+                'address' => $u->address, 'email' => $u->email, 'phone' => $u->phone, 'phone2' => $u->phone2,
+                'gender' => $u->gender, 'nal_id' => $u->nal_id, 'state_id' => $u->state_id, 'lga_id' => $u->lga_id, 'bg_id' => $u->bg_id,
+                'emp_date' => optional($u->staff->first())->emp_date ? date('Y-m-d', strtotime($u->staff->first()->emp_date)) : '',
+                'photo' => $u->photo, 'username' => $u->username,
+                'is_staff' => in_array($u->user_type, Qs::getStaff()),
+                'lgas' => $u->state_id ? $this->loc->getLGAs($u->state_id)->map->only(['id', 'name'])->values() : [],
+            ]);
+        }, 'pages.support_team.users.edit', $d);
     }
 
     public function reset_pass($id)
@@ -128,12 +181,9 @@ class UserController extends Controller
         $data['name'] = ucwords($req->name);
         $data['user_type'] = $user_type;
 
-        if($user_is_staff && !$user_is_teamSA){
-            $data['username'] = Qs::getAppCode().'/STAFF/'.date('Y/m', strtotime($req->emp_date)).'/'.mt_rand(1000, 9999);
-        }
-        else {
-            $data['username'] = $user->username;
-        }
+        // Keep the login ID. (It used to be regenerated with a random number on every save,
+        // which locked staff out of their accounts.)
+        $data['username'] = $user->username;
 
         if($req->hasFile('photo')) {
             $photo = $req->file('photo');
@@ -148,7 +198,6 @@ class UserController extends Controller
         /* UPDATE STAFF RECORD */
         if($user_is_staff){
             $d2 = $req->only(Qs::getStaffRecord());
-            $d2['code'] = $data['username'];
             $this->user->updateStaffRecord(['user_id' => $id], $d2);
         }
 
@@ -167,7 +216,71 @@ class UserController extends Controller
             return redirect(route('dashboard'))->with('pop_error', __('msg.denied'));
         }
 
-        return view('pages.support_team.users.show', $data);
+        if ($data['user'] && $data['user']->user_type === 'parent') {
+            return Ui::render('Users/Parent', function () use ($data) { return $this->parentProps($data['user']); }, 'pages.support_team.users.show', $data);
+        }
+
+        return Ui::render('Users/Show', function () use ($data) { return $this->showProps($data['user']); }, 'pages.support_team.users.show', $data);
+    }
+
+    /** Profile of a staff member (admin, teacher, accountant, librarian…). */
+    protected function showProps($u): array
+    {
+        $u->loadMissing(['blood_group', 'nationality', 'state', 'lga']);
+        $h = Qs::hash($u->id);
+        $type = optional($this->user->getAllTypes()->firstWhere('title', $u->user_type))->name ?? ucwords(str_replace('_', ' ', $u->user_type));
+
+        return [
+            'user' => [
+                'name' => $u->name, 'photo' => $u->photo, 'type' => $type, 'gender' => $u->gender, 'address' => $u->address,
+                'email' => $u->email, 'username' => $u->username, 'phone' => $u->phone, 'phone2' => $u->phone2, 'dob' => $u->dob,
+                'blood_group' => optional($u->blood_group)->name, 'nationality' => optional($u->nationality)->name,
+                'state' => optional($u->state)->name, 'lga' => optional($u->lga)->name,
+                'emp_date' => optional($u->staff->first())->emp_date,
+                'staff_code' => optional($u->staff->first())->code,
+            ],
+            'subjects' => $u->user_type === 'teacher' ? Qs::findTeacherSubjects($u->id)->map(function ($s) {
+                return ['name' => $s->name, 'class' => optional($s->my_class)->name];
+            })->values() : [],
+            'urls' => array_filter([
+                'back' => Qs::userIsTeamSA() ? route('users.index') : null,
+                'edit' => Qs::userIsTeamSA() ? route('users.edit', $h) : null,
+            ]),
+        ];
+    }
+
+    /** A parent with all their children: class, status and what each still owes. */
+    protected function parentProps($p): array
+    {
+        $children = StudentRecord::where('my_parent_id', $p->id)->with(['user', 'my_class', 'section'])->get()
+            ->filter(function ($sr) { return $sr->user; })
+            ->sortBy(function ($sr) { return [$sr->grad, $sr->user->name]; })
+            ->map(function ($sr) {
+                $t = Qs::userIsTeamAccount() ? Fees::statement($sr->user_id)['totals'] : null;
+                return [
+                    'name' => $sr->user->name, 'photo' => $sr->user->photo, 'gender' => $sr->user->gender,
+                    'adm_no' => $sr->adm_no, 'class' => trim(optional($sr->my_class)->name.' '.optional($sr->section)->name),
+                    'status' => $sr->grad ? 'graduated' : 'active',
+                    'fees' => $t, 'url' => route('students.show', Qs::hash($sr->id)),
+                    'invoice_url' => $t ? route('payments.invoice', Qs::hash($sr->user_id)) : null,
+                ];
+            })->values();
+
+        return [
+            'parent' => [
+                'name' => $p->name, 'photo' => $p->photo, 'email' => $p->email, 'phone' => $p->phone, 'phone2' => $p->phone2,
+                'address' => $p->address, 'username' => $p->username,
+                'details' => Qs::userIsTeamSA() ? optional(ParentDetail::where('user_id', $p->id)->first())->only(ParentDetail::fields()) : null,
+            ],
+            'children' => $children,
+            'totals' => $children->pluck('fees')->filter()->reduce(function ($a, $t) {
+                return ['amount' => $a['amount'] + $t['amount'], 'paid' => $a['paid'] + $t['paid'], 'balance' => $a['balance'] + $t['balance']];
+            }, ['amount' => 0, 'paid' => 0, 'balance' => 0]),
+            'urls' => array_filter([
+                'edit' => Qs::userIsTeamSA() ? route('users.edit', Qs::hash($p->id)) : null,
+                'back' => Qs::userIsTeamSAT() ? route('users.index') : null,
+            ]),
+        ];
     }
 
     public function destroy($id)

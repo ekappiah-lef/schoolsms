@@ -4,6 +4,8 @@ namespace App\Http\Controllers\SupportTeam;
 
 use App\Helpers\Qs;
 use App\Helpers\Mk;
+use App\Helpers\Ui;
+use App\Support\ClassOrder;
 use App\Http\Requests\Mark\MarkSelector;
 use App\Models\Setting;
 use App\Repositories\ExamRepo;
@@ -38,11 +40,40 @@ class MarkController extends Controller
         $d['subjects'] = $this->my_class->getAllSubjects();
         $d['selected'] = false;
 
-        return view('pages.support_team.marks.index', $d);
+        return Ui::render('Marks/Index', function () use ($d) {
+            return $this->selectorProps($d['exams'], null);
+        }, 'pages.support_team.marks.index', $d);
+    }
+
+    /** Options for the exam/class/section/subject picker (sections & subjects load per class via /ajax). */
+    protected function selectorProps($exams, ?array $current): array
+    {
+        return [
+            'session' => $this->year,
+            'current' => $current,
+            'exams' => $exams->map(function ($e) {
+                return ['id' => $e->id, 'name' => $e->name, 'term' => $e->term];
+            })->values(),
+            'classes' => ClassOrder::sort($this->my_class->all())->map(function ($c) {
+                return ['id' => $c->id, 'name' => $c->name];
+            })->values(),
+            'urls' => [
+                'select' => route('marks.selector'),
+                'classSubjects' => route('get_class_subjects', ':id'),
+            ],
+        ];
     }
 
     public function year_selector($student_id)
     {
+        if (!Ui::isClassic()) {
+            $years = $this->exam->getExamYears($student_id);
+            if ($this->student->exists($student_id) && $years->count()) {
+                return redirect()->route('marks.show', [Qs::hash($student_id), $years->sortByDesc('year')->first()->year]);
+            }
+            return $this->noStudentRecord();
+        }
+
        return $this->verifyStudentExamYear($student_id);
     }
 
@@ -89,7 +120,62 @@ class MarkController extends Controller
         //$d['ct'] = $d['class_type']->code;
         //$d['mark_type'] = Qs::getMarkType($d['ct']);
 
-        return view('pages.support_team.marks.show.index', $d);
+        return Ui::render('Marks/Sheet', function () use ($d, $student_id, $year) { return $this->sheetProps($d, $student_id, $year); }, 'pages.support_team.marks.show.index', $d);
+    }
+
+    /** A student's results for one year: every exam with subject scores, comments and skill ratings. */
+    protected function sheetProps(array $d, $student_id, $year): array
+    {
+        $sr = $d['sr'];
+        $hash = Qs::hash($student_id);
+        $skills = $d['skills'] ?: collect();
+        $ratings = function ($csv, $n) { $v = $csv ? explode(',', $csv) : []; return array_map(function ($i) use ($v) { return isset($v[$i]) && $v[$i] !== '' ? (int) $v[$i] : null; }, range(0, max($n - 1, -1))); };
+        $af = $skills->where('skill_type', 'AF')->pluck('name')->values();
+        $ps = $skills->where('skill_type', 'PS')->pluck('name')->values();
+
+        $exams = [];
+        foreach ($d['exams']->sortBy('term') as $ex) {
+            foreach ($d['exam_records']->where('exam_id', $ex->id) as $exr) {
+                $tex = 'tex'.$ex->term;
+                $exams[] = [
+                    'id' => $ex->id, 'name' => $ex->name, 'term' => (int) $ex->term,
+                    'subjects' => $d['subjects']->map(function ($sub) use ($d, $ex, $tex) {
+                        $mk = $d['marks']->where('subject_id', $sub->id)->where('exam_id', $ex->id)->first();
+                        return [
+                            'name' => $sub->name,
+                            't1' => $mk->t1 ?? null, 't2' => $mk->t2 ?? null, 'exm' => $mk->exm ?? null, 'total' => $mk->$tex ?? null,
+                            'grade' => optional(optional($mk)->grade)->name, 'remark' => optional(optional($mk)->grade)->remark,
+                            'pos' => $mk && $mk->grade ? $mk->sub_pos : null,
+                        ];
+                    })->values(),
+                    'total' => $exr->total, 'ave' => $exr->ave, 'class_ave' => $exr->class_ave, 'pos' => $exr->pos,
+                    't_comment' => $exr->t_comment, 'p_comment' => $exr->p_comment,
+                    'af' => $ratings($exr->af, $af->count()), 'ps' => $ratings($exr->ps, $ps->count()),
+                    'urls' => [
+                        'print' => route('marks.print', [$hash, $ex->id, $year]),
+                        'comment' => route('marks.comment_update', $exr->id),
+                        'af' => route('marks.skills_update', ['AF', $exr->id]),
+                        'ps' => route('marks.skills_update', ['PS', $exr->id]),
+                    ],
+                ];
+            }
+        }
+
+        return [
+            'student' => [
+                'name' => $sr->user->name, 'photo' => $sr->user->photo, 'adm_no' => $sr->adm_no,
+                'class' => trim(optional($d['my_class'])->name.' '.optional($sr->section)->name),
+                'profile' => Qs::userIsTeamSAT() || Qs::userIsMyChild($student_id, Auth::id()) ? route('students.show', Qs::hash($sr->id)) : null,
+            ],
+            'year' => $year,
+            'years' => $this->exam->getExamYears($student_id)->pluck('year')->sort()->reverse()->values()->map(function ($y) use ($hash) {
+                return ['value' => $y, 'url' => route('marks.show', [$hash, $y])];
+            }),
+            'exams' => $exams,
+            'skills' => ['af' => $af, 'ps' => $ps],
+            'canComment' => Qs::userIsTeamSAT(),
+            'canHeadComment' => Qs::userIsTeamSA(),
+        ];
     }
 
     public function print_view($student_id, $exam_id, $year)
@@ -176,9 +262,51 @@ class MarkController extends Controller
             $d['subjects'] = $this->my_class->findSubjectByTeacher(Auth::user()->id)->where('my_class_id', $class_id);
         }
         $d['selected'] = true;
-        $d['class_type'] = $this->my_class->findTypeByClass($class_id);
+        $d['class_type'] = $ct = $this->my_class->findTypeByClass($class_id);
 
-        return view('pages.support_team.marks.manage', $d);
+        return Ui::render('Marks/Manage', function () use ($d, $ct, $exam_id, $class_id, $section_id, $subject_id) {
+            $m = $d['m'];
+            $exam = $m->exam;
+            $tex = 'tex'.$exam->term;
+            $marks = $d['marks']->load('user.student_record')->sortBy('user.name')->values();
+
+            // Grade bands for this class type, falling back to the general bands (as MarkRepo::getGrade does).
+            $grades = \App\Models\Grade::where('class_type_id', $ct->id)->get();
+            $general = \App\Models\Grade::whereNull('class_type_id')->get();
+
+            return array_merge($this->selectorProps($this->exam->getExam(['year' => $this->year]), [
+                'exam_id' => (int) $exam_id, 'my_class_id' => (int) $class_id, 'section_id' => (int) $section_id, 'subject_id' => (int) $subject_id,
+            ]), [
+                'context' => [
+                    'exam' => $exam->name,
+                    'term' => $exam->term,
+                    'year' => $m->year,
+                    'class' => optional($m->my_class)->name,
+                    'section' => optional($m->section)->name,
+                    'subject' => optional($m->subject)->name,
+                ],
+                'grades' => $grades->map(function ($g) { return ['name' => $g->name, 'from' => (int) $g->mark_from, 'to' => (int) $g->mark_to, 'remark' => $g->remark]; })->values(),
+                'generalGrades' => $general->map(function ($g) { return ['name' => $g->name, 'from' => (int) $g->mark_from, 'to' => (int) $g->mark_to, 'remark' => $g->remark]; })->values(),
+                'rows' => $marks->map(function ($mk) use ($tex) {
+                    return [
+                        'id' => $mk->id,
+                        'name' => optional($mk->user)->name,
+                        'photo' => optional($mk->user)->photo,
+                        'adm_no' => optional(optional($mk->user)->student_record)->adm_no,
+                        't1' => $mk->t1,
+                        't2' => $mk->t2,
+                        'exm' => $mk->exm,
+                        'total' => $mk->$tex,
+                        'grade' => optional($mk->grade)->name,
+                        'position' => $mk->sub_pos,
+                    ];
+                }),
+                'urls' => array_merge($this->selectorProps(collect(), null)['urls'], [
+                    'update' => route('marks.update', [$exam_id, $class_id, $section_id, $subject_id]),
+                    'tabulation' => Qs::userIsTeamSA() ? route('marks.tabulation', [$exam_id, $class_id, $section_id]) : null,
+                ]),
+            ]);
+        }, 'pages.support_team.marks.manage', $d);
     }
 
     public function update(Request $req, $exam_id, $class_id, $section_id, $subject_id)
@@ -265,7 +393,7 @@ class MarkController extends Controller
         $d['sections'] = $this->my_class->getAllSections();
         $d['selected'] = false;
 
-        return view('pages.support_team.marks.batch_fix', $d);
+        return Ui::render('Marks/Tools', function () use ($d) { return $this->toolsProps('fix', $d); }, 'pages.support_team.marks.batch_fix', $d);
     }
 
     public function batch_update(Request $req): \Illuminate\Http\JsonResponse
@@ -355,7 +483,34 @@ class MarkController extends Controller
             $d['section_id'] = $section_id;
         }
 
-        return view('pages.support_team.marks.bulk', $d);
+        return Ui::render('Marks/Tools', function () use ($d) {
+            return array_merge($this->toolsProps('sheets', $d), [
+                'selected' => $d['selected'] ? ['class' => (int) $d['my_class_id'], 'section' => (int) $d['section_id']] : null,
+                'students' => $d['selected'] ? $d['students']->map(function ($s) {
+                    return ['name' => $s->user->name, 'photo' => $s->user->photo, 'adm_no' => $s->adm_no, 'url' => route('marks.year_selector', Qs::hash($s->user_id))];
+                })->values() : [],
+            ]);
+        }, 'pages.support_team.marks.bulk', $d);
+    }
+
+    /** Shared props for the marks tools page: tabulation, marksheets by class and fixing totals. */
+    protected function toolsProps(string $tool, array $d): array
+    {
+        return [
+            'tool' => $tool,
+            'year' => $this->year,
+            'exams' => $this->exam->getExam(['year' => $this->year])->map(function ($e) { return ['id' => $e->id, 'name' => $e->name, 'term' => (int) $e->term]; })->values(),
+            'classes' => ClassOrder::sort($this->my_class->all())->map(function ($c) { return ['id' => $c->id, 'name' => $c->name]; })->values(),
+            'sections' => $this->my_class->getAllSections()->map(function ($x) { return ['id' => $x->id, 'name' => $x->name, 'class_id' => $x->my_class_id]; })->values(),
+            'selected' => null,
+            'urls' => [
+                'tabulation' => route('marks.tabulation'),
+                'sheets' => route('marks.bulk'),
+                'fix' => route('marks.batch_fix'),
+                'fixUpdate' => route('marks.batch_update'),
+                'entry' => route('marks.index'),
+            ],
+        ];
     }
 
     public function bulk_select(Request $req)
@@ -400,7 +555,28 @@ class MarkController extends Controller
             //$d['ct'] = $ct = $d['class_type']->code;
         }
 
-        return view('pages.support_team.marks.tabulation.index', $d);
+        return Ui::render('Marks/Tools', function () use ($d) {
+            $props = $this->toolsProps('tabulation', $d);
+            if (!$d['selected']) return $props;
+            $tex = $d['tex'];
+            return array_merge($props, [
+                'selected' => ['exam' => (int) $d['exam_id'], 'class' => (int) $d['my_class_id'], 'section' => (int) $d['section_id']],
+                'sheet' => [
+                    'title' => $d['my_class']->name.' '.$d['section']->name.' · '.$d['ex']->name.' · '.$d['year'],
+                    'subjects' => $d['subjects']->map(function ($s) { return ['id' => $s->id, 'name' => $s->name, 'short' => strtoupper($s->slug ?: $s->name)]; })->values(),
+                    'rows' => $d['students']->values()->map(function ($s) use ($d, $tex) {
+                        $r = $d['exr']->where('student_id', $s->user_id)->first();
+                        return [
+                            'name' => $s->user->name,
+                            'scores' => $d['subjects']->map(function ($sub) use ($d, $s, $tex) { return optional($d['marks']->where('student_id', $s->user_id)->where('subject_id', $sub->id)->first())->$tex; })->values(),
+                            'total' => optional($r)->total, 'ave' => optional($r)->ave, 'pos' => optional($r)->pos,
+                            'url' => route('marks.year_selector', Qs::hash($s->user_id)),
+                        ];
+                    }),
+                    'print' => route('marks.print_tabulation', [$d['exam_id'], $d['my_class_id'], $d['section_id']]),
+                ],
+            ]);
+        }, 'pages.support_team.marks.tabulation.index', $d);
     }
 
     public function print_tabulation($exam_id, $class_id, $section_id)

@@ -20,4 +20,14 @@ class TrustProxies extends Middleware
      * @var int
      */
     protected $headers = Request::HEADER_X_FORWARDED_ALL;
+
+    public function handle(Request $request, \Closure $next)
+    {
+        // Set from TRUSTED_PROXIES (config/app.php), e.g. "*" when served behind a reverse proxy.
+        if ($proxies = config('app.trusted_proxies')) {
+            $this->proxies = $proxies === '*' ? '*' : array_map('trim', explode(',', $proxies));
+        }
+
+        return parent::handle($request, $next);
+    }
 }

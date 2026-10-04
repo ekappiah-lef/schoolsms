@@ -23,6 +23,7 @@ class SectionUpdate extends FormRequest
         return [
             'name' => 'required|string',
             'teacher_id' => 'sometimes|nullable|exists:users,id',
+            'capacity' => 'nullable|integer|min:1|max:500',
         ];
     }
 

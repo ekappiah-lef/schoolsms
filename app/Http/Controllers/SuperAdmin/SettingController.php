@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Helpers\Qs;
+use App\Helpers\Ui;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SettingUpdate;
 use App\Repositories\MyClassRepo;
@@ -25,7 +26,24 @@ class SettingController extends Controller
          $d['s'] = $s->flatMap(function($s){
             return [$s->type => $s->description];
         });
-        return view('pages.super_admin.settings', $d);
+        return Ui::render('Settings/Index', function () use ($d) {
+            $s = $d['s'];
+            $years = [];
+            for ($y = (int) date('Y', strtotime('-3 years')); $y <= (int) date('Y', strtotime('+1 years')); $y++) {
+                $years[] = ($y - 1).'-'.$y;
+            }
+            return [
+                'settings' => collect(['system_name', 'system_title', 'current_session', 'phone', 'system_email', 'address', 'term_ends', 'term_begins', 'lock_exam'])
+                    ->mapWithKeys(function ($k) use ($s) { return [$k => (string) ($s[$k] ?? '')]; }),
+                'fees' => $d['class_types']->map(function ($ct) use ($s) {
+                    $k = 'next_term_fees_'.strtolower($ct->code);
+                    return ['key' => $k, 'name' => $ct->name, 'value' => (string) ($s[$k] ?? '')];
+                })->values(),
+                'logo' => $s['logo'] ?? null,
+                'years' => $years,
+                'urls' => ['update' => route('settings.update')],
+            ];
+        }, 'pages.super_admin.settings', $d);
     }
 
     public function update(SettingUpdate $req)

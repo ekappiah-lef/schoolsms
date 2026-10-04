@@ -15,3 +15,7 @@ _ide_helper.php
 storage
 .phpstorm.meta.php
 .editorconfig
+.env.docker
+docker/seed/*.sql
+/public/build
+/.claude

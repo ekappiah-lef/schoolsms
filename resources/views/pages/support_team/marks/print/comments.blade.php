@@ -15,7 +15,7 @@
         </tr>
         <tr>
             <td><strong>NEXT TERM FEES:</strong></td>
-            <td><del style="text-decoration-style: double">N</del>{{ $s['next_term_fees_'.strtolower($ct)] }}</td>
+            <td>GHS {{ is_numeric($s['next_term_fees_'.strtolower($ct)]) ? number_format($s['next_term_fees_'.strtolower($ct)]) : $s['next_term_fees_'.strtolower($ct)] }}</td>
         </tr>
         </tbody>
     </table>

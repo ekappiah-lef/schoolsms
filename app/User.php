@@ -35,6 +35,15 @@ class User extends Authenticatable
         'password', 'remember_token',
     ];
 
+    /**
+     * Photos are stored as absolute URLs built from the host used at upload
+     * time; rebuild local ones against the current host so they always load.
+     */
+    public function getPhotoAttribute($value)
+    {
+        return \App\Helpers\Qs::localAsset($value);
+    }
+
     public function student_record()
     {
         return $this->hasOne(StudentRecord::class);

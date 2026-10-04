@@ -22,7 +22,7 @@
                                 <th>S/N</th>
                                 <th>Name</th>
                                 <th>Term</th>
-                                <th>Session</th>
+                                <th>Year</th>
                                 <th>Action</th>
                             </tr>
                             </thead>
@@ -67,7 +67,7 @@
                             <div class="alert alert-info border-0 alert-dismissible">
                                 <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
 
-                                <span>You are creating an Exam for the Current Session <strong>{{ Qs::getSetting('current_session') }}</strong></span>
+                                <span>You are creating an Exam for the Current Year <strong>{{ Qs::getSetting('current_session') }}</strong></span>
                             </div>
                         </div>
                     </div>

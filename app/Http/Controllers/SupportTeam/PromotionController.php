@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\SupportTeam;
 
 use App\Helpers\Qs;
+use App\Helpers\Ui;
+use App\Support\ClassOrder;
 use App\Http\Controllers\Controller;
 use App\Models\Mark;
 use App\Repositories\MyClassRepo;
@@ -43,7 +45,23 @@ class PromotionController extends Controller
             }
         }
 
-        return view('pages.support_team.students.promotion.index', $d);
+        return Ui::render('Promotions/Index', function () use ($d) {
+            $sel = $d['selected'];
+            return [
+                'oldYear' => $d['old_year'], 'newYear' => $d['new_year'],
+                'classes' => ClassOrder::sort($d['my_classes'])->map(function ($c) { return ['id' => $c->id, 'name' => $c->name]; })->values(),
+                'sections' => $d['sections']->map(function ($x) { return ['id' => $x->id, 'name' => $x->name, 'class_id' => $x->my_class_id]; })->values(),
+                'selected' => $sel ? ['fc' => (int) $d['fc'], 'fs' => (int) $d['fs'], 'tc' => (int) $d['tc'], 'ts' => (int) $d['ts']] : null,
+                'students' => $sel ? $d['students']->sortBy('user.name')->map(function ($sr) {
+                    return ['id' => $sr->id, 'name' => $sr->user->name, 'photo' => $sr->user->photo, 'adm_no' => $sr->adm_no, 'session' => $sr->session];
+                })->values() : [],
+                'urls' => [
+                    'base' => route('students.promotion'),
+                    'promote' => $sel ? route('students.promote', [$d['fc'], $d['fs'], $d['tc'], $d['ts']]) : null,
+                    'manage' => route('students.promotion_manage'),
+                ],
+            ];
+        }, 'pages.support_team.students.promotion.index', $d);
     }
 
     public function selector(Request $req)
@@ -106,7 +124,20 @@ class PromotionController extends Controller
         $data['old_year'] = Qs::getCurrentSession();
         $data['new_year'] = Qs::getNextSession();
 
-        return view('pages.support_team.students.promotion.reset', $data);
+        return Ui::render('Promotions/Manage', function () use ($data) {
+            $label = ['P' => 'Promoted', 'D' => 'Not promoted', 'G' => 'Graduated'];
+            return [
+                'oldYear' => $data['old_year'], 'newYear' => $data['new_year'],
+                'promotions' => $data['promotions']->sortBy('student.name')->map(function ($p) use ($label) {
+                    return [
+                        'id' => $p->id, 'name' => optional($p->student)->name, 'photo' => optional($p->student)->photo,
+                        'from' => trim(optional($p->fc)->name.' '.optional($p->fs)->name), 'to' => trim(optional($p->tc)->name.' '.optional($p->ts)->name),
+                        'status' => $p->status, 'status_label' => $label[$p->status] ?? $p->status,
+                    ];
+                })->values(),
+                'urls' => ['reset' => route('students.promotion_reset', ':id'), 'resetAll' => route('students.promotion_reset_all'), 'promote' => route('students.promotion')],
+            ];
+        }, 'pages.support_team.students.promotion.reset', $data);
     }
 
     public function reset($promotion_id)
