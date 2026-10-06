@@ -7,13 +7,13 @@ import { useConfirmAction } from '@/components/app/confirm-action';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Segmented } from '@/components/ui/tabs';
 import { useModuleForm } from '@/lib/use-module-form';
-import { PeriodPicker } from '@/components/fees/period-picker';
+import { PeriodFilter } from '@/components/fees/period-picker';
 import { cn, formatDate, formatMoney } from '@/lib/utils';
 
-const METHODS = ['Cash', 'Bank transfer', 'Mobile money', 'Cheque', 'Other'];
+const METHODS = ['Cash', 'Mobile payment', 'Bank transfer', 'Cheque', 'Other'];
 
 /** Income & expenses outside student fees — Record / Show pattern (FinanceTransactionController, JSON store & update). */
-export default function FinanceTransactions({ session, categories, usedCategories, balance, termTotals, period, periods, transactions, editing, urls }) {
+export default function FinanceTransactions({ session, categories, usedCategories, totals, selection, transactions, editing, urls }) {
     const [tab, setTab] = useModuleTab(editing ? 'create' : 'list');
     const [confirm, confirmDialog] = useConfirmAction();
     const [typeFilter, setTypeFilter] = useState('all');
@@ -24,7 +24,7 @@ export default function FinanceTransactions({ session, categories, usedCategorie
         editing,
         storeUrl: urls.store,
         indexUrl: urls.index,
-        only: ['transactions', 'balance', 'termTotals', 'usedCategories'],
+        only: ['transactions', 'totals', 'usedCategories'],
         onCreated: () => setTab('list'),
         validate: (d) => ({
             ...(!d.category.trim() ? { category: 'Choose or type a category.' } : {}),
@@ -131,21 +131,13 @@ export default function FinanceTransactions({ session, categories, usedCategorie
                 ) : (
                     <>
                         <div className="flex justify-end">
-                            <PeriodPicker period={period} groups={periods} url={urls.index} />
+                            <PeriodFilter selection={selection} url={urls.index} />
                         </div>
-                        {termTotals ? (
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                <Tile label={`Money received · ${period.label}`} value={termTotals.received} tone="success" />
-                                <Tile label={`Expenses · ${period.label}`} value={termTotals.expenses} tone="danger" />
-                                <Tile label={`${period.term ? 'Term' : 'Year'} balance · ${period.label}`} value={termTotals.balance} strong />
-                            </div>
-                        ) : (
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <Tile label={period.current ? 'Current balance' : `Closing balance · ${formatDate(period.to, 'dd/MM/yyyy')}`} value={balance} strong />
-                            <Tile label={`Other income · ${period.label}`} value={income} tone="success" />
-                            <Tile label={`Expenses · ${period.label}`} value={expenses} tone="danger" />
+                            <Tile label={`Money received · ${selection.label}`} value={totals.received} tone="success" />
+                            <Tile label={`Expenses · ${selection.label}`} value={totals.expenses} tone="danger" />
+                            <Tile label={`${selection.balanceName} · ${selection.label}`} value={totals.balance} strong />
                         </div>
-                        )}
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <Segmented
                                 value={typeFilter}

@@ -202,7 +202,7 @@ export default function ServiceRoster({
                     <div className="flex flex-wrap items-center gap-3">
                         <SearchInput
                             value={q}
-                            onChange={(v) => setQ}
+                            onChange={setQ}
                             placeholder="Search student or admission no."
                             className="w-full sm:w-72"
                             delay={0}

@@ -9,21 +9,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Segmented } from "@/components/ui/tabs";
-import { PeriodTree, summary as periodSummary } from "@/components/fees/period-tree";
+import { PeriodFilter } from "@/components/fees/period-picker";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { downloadCsv } from "@/lib/use-visit-state";
 import { cn, formatMoney } from "@/lib/utils";
 
-const SUM_KEYS = ['invoiced', 'school', 'services', 'sales', 'discount', 'paid', 'outstanding', 'paidBefore', 'paidDuring', 'paidAfter', 'fees', 'feesThis', 'feesEarlier', 'feesLater', 'other', 'expenses', 'net'];
+const SUM_KEYS = ['invoiced', 'paid', 'outstanding', 'fees', 'other', 'expenses', 'net'];
 const sumRows = (rs) => Object.fromEntries(SUM_KEYS.map((k) => [k, rs.reduce((a, r) => a + (r[k] ?? 0), 0)]));
 
 /**
  * Fee breakdown, for management and audit. One Academic Period filter drives the whole page:
- *  1. Term by term: bills, money received, expenses and cash for every chosen term.
- *  2. How it adds up: the bills and the cash for the selection, line by line.
- *  3. Fee items: what each item (Tuition, P.T.A, Feeding, Bus …) comes to, and who has paid it.
+ *  1. Term by term: bills, money received, expenses and the balance of every chosen term.
+ *  2. Fee items: what each item (Tuition, P.T.A, Feeding, Bus …) comes to, and who has paid it.
  */
-export default function FeeBreakdown({ picked, item, items, termly, rows, urls }) {
+export default function FeeBreakdown({ selection, item, items, termly, rows, urls }) {
+    const picked = selection.keys;
     const go = (changes, scrollTo) =>
         router.get(
             urls.self,
@@ -34,17 +34,8 @@ export default function FeeBreakdown({ picked, item, items, termly, rows, urls }
             },
         );
 
-    const tree = useMemo(() => {
-        const g = [];
-        termly.forEach((r) => {
-            let y = g.find((x) => x.session === r.session);
-            if (!y) g.push((y = { session: r.session, terms: [] }));
-            y.terms.push(r.term);
-        });
-        return g.map((y) => ({ ...y, terms: y.terms.sort() }));
-    }, [termly]);
     const chosen = termly.filter((r) => picked.includes(r.key));
-    const label = periodSummary(tree, picked);
+    const label = selection.label;
 
     return (
         <>
@@ -54,12 +45,10 @@ export default function FeeBreakdown({ picked, item, items, termly, rows, urls }
                     crumbs={["Finance", "Fee breakdown"]}
                     title="Fee breakdown"
                     description="What was billed, received and spent each term, and every fee item by student and parent."
-                    aside={<PeriodTree years={tree} value={picked} onChange={(v) => go({ periods: v.join(",") })} label={null} className="w-72" />}
+                    aside={<PeriodFilter selection={selection} url={urls.self} params={{ item }} />}
                 />
 
                 <TermTable rows={chosen} ledgerUrl={urls.ledger} onPick={(r) => go({ periods: r.key }, "fee-items")} />
-
-                {chosen.length > 0 && <Statement rows={chosen} all={termly} label={label} ledgerUrl={urls.ledger} />}
 
                 <section id="fee-items" className="flex scroll-mt-6 flex-col gap-4">
                     <div className="flex flex-wrap items-end justify-between gap-3">
@@ -125,15 +114,13 @@ const TERM_COLUMNS = [
     { key: 'invoiced', label: 'Invoiced', help: 'Bills for the term (after discounts)' },
     { key: 'paid', label: 'Paid so far', help: 'Paid against those bills, whenever it was paid', tone: 'success' },
     { key: 'outstanding', label: 'Still owed', help: 'Not yet paid', tone: 'owed' },
-    { key: 'opening', label: 'Cash at start', help: 'School cash on the first day of the term', muted: true, cash: true },
     { key: 'fees', label: 'Fees received', help: 'Fee payments made during the term, for any bill', tone: 'success', cash: true },
     { key: 'other', label: 'Other income', help: 'Capital, grants, donations', tone: 'success', cash: true },
     { key: 'expenses', label: 'Expenses', help: 'Spent during the term', tone: 'danger', cash: true },
-    { key: 'net', label: 'Term balance', help: 'Fees received + other income − expenses', signed: true, strong: true, cash: true },
-    { key: 'closing', label: 'Cash at end', help: 'Cash at start + term balance', muted: true, cash: true },
+    { key: 'net', label: 'Term balance', help: 'Fees received + other income − expenses (each term starts from zero)', signed: true, strong: true, cash: true },
 ];
 const DEFAULT_COLUMNS = TERM_COLUMNS.map((c) => c.key);
-const COLUMNS_KEY = 'fee-breakdown.term-columns.v2';
+const COLUMNS_KEY = 'fee-breakdown.term-columns.v3';
 
 /** The chosen terms grouped by school year; choose which figures to show. */
 function TermTable({ rows, ledgerUrl, onPick }) {
@@ -159,20 +146,20 @@ function TermTable({ rows, ledgerUrl, onPick }) {
         });
     const shownCols = TERM_COLUMNS.filter((c) => cols.includes(c.key));
 
-    // rows arrive newest first; a year's (or the selection's) cash at start is its oldest term's, cash at end its newest term's.
+    // rows arrive newest first
     const groups = [];
     rows.forEach((r) => {
         let g = groups.find((x) => x.session === r.session);
         if (!g) groups.push((g = { session: r.session, terms: [] }));
         g.terms.push(r);
     });
-    const total = (rs) => ({ ...sumRows(rs), opening: rs[rs.length - 1]?.opening ?? 0, closing: rs[0]?.closing ?? 0, upcoming: rs.every((r) => r.upcoming) });
+    const total = (rs) => ({ ...sumRows(rs), upcoming: rs.every((r) => r.upcoming) });
     const visible = groups.map((g) => ({ ...g, ...total(g.terms) }));
     const grand = visible.length > 1 ? total(rows) : null;
 
     const cell = (c, r, strongRow) => {
         const v = r[c.key];
-        if (c.cash && r.upcoming && c.key !== 'opening' && c.key !== 'closing') {
+        if (c.cash && r.upcoming) {
             return (
                 <td key={c.key} className="px-4 py-2.5 text-right text-fg-subtle">
                     —
@@ -215,7 +202,7 @@ function TermTable({ rows, ledgerUrl, onPick }) {
                             ))}
                         </DropdownMenuContent>
                     </DropdownMenu>
-                    <Link href={ledgerUrl} className="px-1 text-sm font-medium text-primary hover:underline">
+                    <Link href={`${ledgerUrl}?periods=${rows.map((r) => r.key).join(",")}`} className="px-1 text-sm font-medium text-primary hover:underline">
                         Ledger
                     </Link>
                 </div>
@@ -277,103 +264,6 @@ function TermTable({ rows, ledgerUrl, onPick }) {
                 </table>
             </div>
         </section>
-    );
-}
-
-/**
- * The selection line by line, as an auditor would check it:
- * the bills (invoiced = paid so far + still owed) and the cash (start + received − spent = end),
- * and how the fees received relate to the bills.
- */
-function Statement({ rows, all, label, ledgerUrl }) {
-    const t = sumRows(rows);
-    const many = rows.length > 1;
-    // Cash at start / end only make sense for terms that follow one another.
-    const order = [...all].reverse().map((r) => r.key);
-    const idx = rows.map((r) => order.indexOf(r.key)).sort((a, b) => a - b);
-    const continuous = idx.every((v, i) => i === 0 || v === idx[i - 1] + 1);
-    const first = rows[rows.length - 1];
-    const last = rows[0];
-    const anyUpcoming = rows.some((r) => r.upcoming);
-    const during = many ? 'during their terms' : 'during the term';
-    const ledger = `${ledgerUrl}?${new URLSearchParams({ from: first.from, to: last.upcoming ? new Date().toISOString().slice(0, 10) : last.to })}`;
-
-    return (
-        <section className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                    <h2 className="text-lg font-semibold">How it adds up</h2>
-                    <p className="text-sm text-fg-muted">{label}</p>
-                </div>
-                {continuous && (
-                    <Link href={ledger} className="text-sm font-medium text-primary hover:underline">
-                        Every payment and expense in the ledger
-                    </Link>
-                )}
-            </div>
-            <div className="grid gap-6 lg:grid-cols-2">
-                <Lines
-                    title="Bills"
-                    note="What parents were billed and how much of it has been paid."
-                    lines={[
-                        ['School fees', t.school, t.discount ? `after ${formatMoney(t.discount)} discounts` : null],
-                        ['Optional services', t.services, 'feeding, bus, clubs: a third of the year each term'],
-                        ['Shop sales', t.sales],
-                        ['Invoiced', t.invoiced, null, 'total'],
-                        ['Paid before the term started', t.paidBefore, 'paid in advance'],
-                        [`Paid ${during}`, t.paidDuring],
-                        ['Paid after the term ended', t.paidAfter, 'paid late'],
-                        ['Paid so far', t.paid, null, 'total'],
-                        ['Still owed', t.outstanding, 'invoiced − paid so far', 'owed'],
-                    ]}
-                />
-                <Lines
-                    title="Cash"
-                    note={anyUpcoming ? 'Upcoming terms have no money in or out yet.' : 'Money that came in and went out in the period.'}
-                    lines={[
-                        ...(continuous ? [['Cash at start', first.opening, `on ${fmtDate(first.from)}`, 'muted']] : []),
-                        [`Fees for these bills`, t.feesThis, `same money as "paid ${during}"`],
-                        ['Fees for earlier bills', t.feesEarlier, 'arrears from earlier terms'],
-                        ['Fees for later bills', t.feesLater, 'paid in advance for coming terms'],
-                        ['Fees received', t.fees, null, 'total'],
-                        ['Other income', t.other],
-                        ['Expenses', -t.expenses],
-                        ['Term balance', t.net, 'fees received + other income − expenses', 'total'],
-                        ...(continuous ? [['Cash at end', last.closing, `cash at start + term balance${last.upcoming ? '' : last.current ? ', today' : `, on ${fmtDate(last.to)}`}`, 'total']] : []),
-                    ]}
-                    footer={continuous ? null : 'Cash at start and end are shown when the chosen terms follow one another.'}
-                />
-            </div>
-        </section>
-    );
-}
-
-const fmtDate = (d) => d.split('-').reverse().join('/');
-
-function Lines({ title, note, lines, footer }) {
-    return (
-        <div className="overflow-hidden rounded-lg bg-surface shadow-card">
-            <div className="px-6 pb-3 pt-5">
-                <h3 className="font-semibold">{title}</h3>
-                <p className="text-sm text-fg-muted">{note}</p>
-            </div>
-            <table className="w-full text-sm">
-                <tbody>
-                    {lines.map(([name, v, hint, kind]) => (
-                        <tr key={name} className={cn('border-t border-border', kind === 'total' && 'bg-canvas font-semibold')}>
-                            <td className="px-6 py-2.5">
-                                <div>{name}</div>
-                                {hint && <div className="text-xs font-normal text-fg-muted">{hint}</div>}
-                            </td>
-                            <td className={cn('tabular px-6 py-2.5 text-right', kind === 'owed' && (v > 0 ? 'font-semibold text-danger-fg' : 'text-fg-subtle'), kind === 'muted' && 'text-fg-muted', v < 0 && 'text-danger-fg')}>
-                                {signed(v)}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-            {footer && <p className="border-t border-border px-6 py-3 text-xs text-fg-muted">{footer}</p>}
-        </div>
     );
 }
 

@@ -357,7 +357,7 @@ function ReceiptMenu({ urls, number }) {
 }
 
 /** Amount field + Pay button. The balance after payment is shown as you type. */
-export const PAY_METHODS = ['Cash', 'MTN MoMo', 'Telecel Cash', 'AirtelTigo Money', 'Bank transfer', 'Cheque'];
+export const PAY_METHODS = ['Cash', 'Mobile payment', 'Bank transfer', 'Cheque'];
 
 export function PayInline({ title, balance, url, onPaid }) {
     const [value, setValue] = useState('');

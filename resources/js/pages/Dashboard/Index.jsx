@@ -467,20 +467,16 @@ function FinanceBreakdown({ finance, session }) {
                         </div>
                         <dl className="tabular space-y-1.5 text-sm">
                             <div className="flex justify-between">
-                                <dt className="text-fg-muted">Opening Balance</dt>
-                                <dd>{formatMoney(cashflow.opening)}</dd>
-                            </div>
-                            <div className="flex justify-between">
-                                <dt className="text-fg-muted">+ Cash Inflows</dt>
+                                <dt className="text-fg-muted">Money received this year</dt>
                                 <dd className="text-success-fg">{formatMoney(cashflow.income)}</dd>
                             </div>
                             <div className="flex justify-between">
-                                <dt className="text-fg-muted">− Cash Outflows</dt>
+                                <dt className="text-fg-muted">Expenses this year</dt>
                                 <dd className="text-danger-fg">{formatMoney(cashflow.expenses)}</dd>
                             </div>
                             <div className="flex justify-between border-t border-border pt-1.5 font-semibold">
-                                <dt>Current Balance</dt>
-                                <dd className={cn(cashflow.closing < 0 && 'text-danger-fg')}>{formatMoney(cashflow.closing)}</dd>
+                                <dt>Year balance</dt>
+                                <dd className={cn(cashflow.net < 0 && 'text-danger-fg')}>{formatMoney(cashflow.net)}</dd>
                             </div>
                         </dl>
                     </div>

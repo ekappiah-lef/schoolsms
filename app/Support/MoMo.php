@@ -128,7 +128,7 @@ class MoMo
                 return;
             }
             if ($status === 'SUCCESSFUL') {
-                Fees::applyPayment($p->student_id, (int) $p->amount, 'MTN MoMo', $txn ?: $p->reference);
+                Fees::applyPayment($p->student_id, (int) $p->amount, 'Mobile payment', 'MTN MoMo '.($txn ?: $p->reference));
                 $p->update(['status' => 'successful', 'financial_transaction_id' => $txn, 'applied_at' => now()]);
             } else {
                 $p->update(['status' => 'failed', 'reason' => is_string($reason) ? mb_substr($reason, 0, 250) : 'Payment was not completed']);

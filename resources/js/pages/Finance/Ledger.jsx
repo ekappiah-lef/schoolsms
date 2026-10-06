@@ -8,29 +8,27 @@ import { SearchInput, usePaged } from "@/components/app/data-table";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Segmented } from "@/components/ui/tabs";
-import { BalanceCards, PeriodPicker } from "@/components/fees/period-picker";
+import { BalanceCards, PeriodFilter } from "@/components/fees/period-picker";
 import { downloadCsv } from "@/lib/use-visit-state";
 import { cn, formatDate, formatMoney } from "@/lib/utils";
 
 /**
  * Ledger: every movement of money (school-fee receipts, optional-service
- * receipts, other income, expenses) with the cash balance after each one.
- * Opening + money in − money out = closing, for any period.
+ * receipts, other income, expenses) in the chosen terms, with the balance after
+ * each one counted from zero at the start of the selection.
  */
 const signedMoney = (v) =>
     v < 0 ? `−${formatMoney(Math.abs(v))}` : formatMoney(v);
 
 export default function Ledger({
-    period,
-    periods,
-    opening,
-    closing,
+    selection,
     invoiced,
+    received,
+    expenses,
     rows,
     filters,
     urls,
 }) {
-    const { from, to } = period;
     const [dir, setDir] = useState(filters.dir || "all");
     const [source, setSource] = useState(filters.source || "");
     const [category, setCategory] = useState(filters.category || "");
@@ -71,12 +69,6 @@ export default function Ledger({
         );
     }, [rows, dir, source, category, q]);
 
-    const moneyIn = rows
-        .filter((r) => r.dir === "in")
-        .reduce((a, r) => a + r.amount, 0);
-    const moneyOut = rows
-        .filter((r) => r.dir === "out")
-        .reduce((a, r) => a + r.amount, 0);
     const fIn = filtered
         .filter((r) => r.dir === "in")
         .reduce((a, r) => a + r.amount, 0);
@@ -84,18 +76,14 @@ export default function Ledger({
         .filter((r) => r.dir === "out")
         .reduce((a, r) => a + r.amount, 0);
     const isFiltered = dir !== "all" || source || category || q;
-    // For a term or school year the running balance counts from the start of that period.
-    const own = !!invoiced;
-    const base = own ? opening : 0;
-    const balanceLabel = own
-        ? `${period.term ? "Term" : "Year"} balance after`
-        : "Balance after";
+    // The running balance counts from zero at the start of the chosen terms.
+    const balanceLabel = `${selection.balanceName} after`;
 
-    const { shown, pager, offset } = usePaged(filtered);
+    const { shown, pager } = usePaged(filtered);
 
     const exportCsv = () =>
         downloadCsv(
-            `ledger-${from}-to-${to}.csv`,
+            `ledger ${selection.label}.csv`,
             [
                 {
                     label: "Date",
@@ -114,7 +102,7 @@ export default function Ledger({
                     label: "Money out",
                     value: (r) => (r.dir === "out" ? r.amount : ""),
                 },
-                { label: balanceLabel, value: (r) => r.balance - base },
+                { label: balanceLabel, value: (r) => r.balance },
             ],
             filtered,
         );
@@ -126,31 +114,22 @@ export default function Ledger({
                 <ModuleHeader
                     crumbs={["Finance", "Ledger"]}
                     title="Ledger"
-                    description="Every cedi in and out, oldest to newest, with the cash balance after each entry. Every figure on the finance dashboard comes from these entries."
+                    description="Every cedi in and out of the chosen terms, with the balance after each entry. Every figure on the finance dashboard comes from these entries."
+                    aside={<PeriodFilter selection={selection} url={urls.self} />}
                 />
 
-                <div className="flex justify-end">
-                    <PeriodPicker
-                        period={period}
-                        groups={periods}
-                        url={urls.self}
-                    />
-                </div>
-
                 <BalanceCards
-                    period={period}
-                    opening={opening}
+                    selection={selection}
                     invoiced={invoiced}
-                    received={moneyIn}
-                    expenses={moneyOut}
-                    closing={closing}
+                    received={received}
+                    expenses={expenses}
                 />
 
                 <div className="flex flex-col gap-3 rounded-lg bg-surface p-4 shadow-card">
                     <div className="flex flex-wrap items-center gap-3">
                         <SearchInput
                             value={q}
-                            onChange={(v) => setQ}
+                            onChange={setQ}
                             placeholder="Search name, item, reference…"
                             className="w-full sm:w-72"
                             delay={0}
@@ -158,7 +137,7 @@ export default function Ledger({
                         <Segmented
                             size="sm"
                             value={dir}
-                            onChange={(v) => setDir}
+                            onChange={setDir}
                             options={[
                                 { value: "all", label: "All" },
                                 { value: "in", label: "Money in" },
@@ -182,7 +161,7 @@ export default function Ledger({
                             size="sm"
                             className="w-56"
                             value={category}
-                            onChange={(v) => setCategory}
+                            onChange={setCategory}
                             options={categories}
                             clearable
                             clearLabel="All items"
@@ -328,36 +307,14 @@ export default function Ledger({
                                             <td
                                                 className={cn(
                                                     "px-4 py-2.5 text-right font-semibold",
-                                                    r.balance - base < 0 &&
+                                                    r.balance < 0 &&
                                                         "text-danger-fg",
                                                 )}
                                             >
-                                                {signedMoney(r.balance - base)}
+                                                {signedMoney(r.balance)}
                                             </td>
                                         </tr>
                                     ))}
-                                    {!own &&
-                                        !isFiltered &&
-                                        offset + shown.length ===
-                                            filtered.length && (
-                                            <tr className="bg-muted/40 text-fg-muted">
-                                                <td className="px-4 py-2.5">
-                                                    {formatDate(
-                                                        from,
-                                                        "dd/MM/yyyy",
-                                                    )}
-                                                </td>
-                                                <td
-                                                    className="px-3 py-2.5 font-medium"
-                                                    colSpan={5}
-                                                >
-                                                    Opening balance
-                                                </td>
-                                                <td className="px-4 py-2.5 text-right font-semibold text-fg">
-                                                    {formatMoney(opening)}
-                                                </td>
-                                            </tr>
-                                        )}
                                 </tbody>
                             </table>
                             {pager}
@@ -368,15 +325,13 @@ export default function Ledger({
                             description={
                                 isFiltered
                                     ? "No entries match these filters."
-                                    : "No money moved in this period."
+                                    : "No money moved in the chosen terms."
                             }
                         />
                     )}
                 </div>
                 <p className="text-xs text-fg-muted">
-                    {own
-                        ? `“${balanceLabel}” is money received less expenses from the start of ${period.label} up to each entry,`
-                        : "“Balance after” is the school’s cash right after each entry,"}{" "}
+                    “{balanceLabel}” is money received less expenses from the start of {selection.label} up to each entry (each term starts from zero),
                     counting every entry (not only the filtered ones). Fee
                     payments come from receipts; other income and expenses from{" "}
                     <Link

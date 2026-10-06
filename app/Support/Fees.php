@@ -24,7 +24,7 @@ use Illuminate\Support\Collection;
 class Fees
 {
     /** How a payment was made (shown on receipts and the finance dashboard). */
-    const METHODS = ['Cash', 'MTN MoMo', 'Telecel Cash', 'AirtelTigo Money', 'Bank transfer', 'Cheque'];
+    const METHODS = ['Cash', 'Mobile payment', 'Bank transfer', 'Cheque'];
 
     /** "new" when the student joined in the given session, otherwise "old". */
     public static function categoryFor(StudentRecord $sr, string $year): string

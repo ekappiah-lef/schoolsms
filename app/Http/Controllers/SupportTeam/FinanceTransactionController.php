@@ -6,7 +6,7 @@ use App\Helpers\Qs;
 use App\Helpers\Ui;
 use App\Http\Controllers\Controller;
 use App\Models\FinanceTransaction;
-use App\Support\FinancePeriod;
+use App\Support\TermSelection;
 use App\Support\FinanceSummary;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,7 +28,7 @@ class FinanceTransactionController extends Controller
 
     public function index(Request $req)
     {
-        return Inertia::render('Finance/Transactions', $this->pageProps(null, FinancePeriod::fromRequest($req)));
+        return Inertia::render('Finance/Transactions', $this->pageProps(null, TermSelection::fromRequest($req)));
     }
 
     public function edit($id)
@@ -85,26 +85,19 @@ class FinanceTransactionController extends Controller
         ]);
     }
 
-    protected function pageProps($editing = null, ?FinancePeriod $p = null): array
+    protected function pageProps($editing = null, ?TermSelection $sel = null): array
     {
-        $p = $p ?: FinancePeriod::fromRequest(request());
-        $rows = FinanceTransaction::with('recorder')->whereBetween('date', [$p->from->toDateString(), $p->to->toDateString()])
-            ->orderByDesc('date')->orderByDesc('id')->get();
+        $sel = $sel ?: TermSelection::fromRequest(request());
+        $rows = $sel->apply(FinanceTransaction::with('recorder'), 'date', true)->orderByDesc('date')->orderByDesc('id')->get();
+        $cf = FinanceSummary::cashflow($sel);
 
         return [
             'session' => Qs::getCurrentSession(),
             'categories' => self::CATEGORIES,
             'usedCategories' => $rows->groupBy('type')->map(function ($g) { return $g->pluck('category')->unique()->values(); }),
-            // Balance at the end of the chosen period (today's balance for current periods).
-            'balance' => FinanceSummary::balanceAt($p->to),
-            // For a term or school year the figures cover that period only: all money received
-            // (fees included), expenses and the period's balance, so the three tiles tally.
-            'termTotals' => $p->session ? (function () use ($p) {
-                $cf = FinanceSummary::cashflow($p->from, $p->to);
-                return ['received' => $cf['income'], 'expenses' => $cf['expenses'], 'balance' => $cf['income'] - $cf['expenses']];
-            })() : null,
-            'period' => $p->toArray(),
-            'periods' => FinancePeriod::options(),
+            // The chosen terms only, each starting from zero: all money received (fees included), expenses, balance.
+            'totals' => ['received' => $cf['income'], 'fees' => $cf['fees'], 'other' => $cf['otherIncome'], 'expenses' => $cf['expenses'], 'balance' => $cf['net']],
+            'selection' => $sel->toArray(),
             'transactions' => $rows->map(function ($t) {
                 $hash = Qs::hash($t->id);
                 return [

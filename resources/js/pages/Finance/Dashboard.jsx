@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ArrowDownLeft, ArrowRight, ArrowUpRight, ChevronRight, Plus } from 'lucide-react';
 import { withAppLayout } from '@/layouts/AppLayout';
@@ -8,11 +8,11 @@ import { EmptyState } from '@/components/app/page';
 import { HorizontalBars, Legend, Meter } from '@/components/app/charts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Sheet } from '@/components/ui/dialog';
+import { Modal } from '@/components/ui/dialog';
 import { usePaged } from '@/components/app/data-table';
 import http from '@/lib/http';
-import { BalanceCards, PeriodPicker } from '@/components/fees/period-picker';
-import { cn, formatCompact, formatDate, formatMoney, percent } from '@/lib/utils';
+import { BalanceCards, PeriodFilter, periodQuery as toQuery } from '@/components/fees/period-picker';
+import { cn, formatDate, formatMoney } from '@/lib/utils';
 
 const SCOPES = [
     { value: 'total', label: 'All fees' },
@@ -21,15 +21,15 @@ const SCOPES = [
 ];
 
 /**
- * Finance dashboard: fees billed / paid / due this year (by class type),
- * income and expenses for a period, cash position and trends.
+ * Finance dashboard for the terms / years ticked in the Academic Period: bills, fees paid and owed
+ * (by class type and service), money received, expenses, the balance and the modes of payment.
  */
-export default function FinanceDashboard({ session, period, periods, fees, cashflow, invoiced, byMethod = [], receivedFor, balance, monthly, recent, urls }) {
+export default function FinanceDashboard({ selection, fees, cashflow, invoiced, byMethod = [], monthly, recent, urls }) {
     const [scope, setScope] = useState('total');
     const [breakdown, setBreakdown] = useState(false);
     const f = fees[scope];
-    const periodLabel = period.label;
-    const periodQuery = new URLSearchParams(period.key === 'custom' ? { from: period.from, to: period.to } : { period: period.key }).toString();
+    const periodLabel = selection.label;
+    const periodQuery = toQuery(selection);
 
     const openBreakdown = () => {
         setBreakdown(true);
@@ -44,7 +44,6 @@ export default function FinanceDashboard({ session, period, periods, fees, cashf
                     crumbs={['Finance', 'Dashboard']}
                     title="Finance dashboard"
                     description="Fees billed, collected and still due, with the school’s other income and expenses."
-                    session={session}
                     aside={
                         <Button variant="primary" asChild>
                             <Link href={urls.transactions}>
@@ -59,27 +58,27 @@ export default function FinanceDashboard({ session, period, periods, fees, cashf
                 <section className="flex flex-col gap-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                            <h2 className="text-lg font-semibold">Cash flow</h2>
+                            <h2 className="text-lg font-semibold">{periodLabel}</h2>
                             <Link href={`${urls.ledger}?${periodQuery}`} className="text-sm text-primary hover:underline">
                                 See every entry in the ledger
                             </Link>
                         </div>
-                        <PeriodPicker period={period} groups={periods} url={urls.self} only={['period', 'cashflow', 'fees', 'session', 'invoiced', 'byMethod', 'receivedFor']} />
+                        <PeriodFilter selection={selection} url={urls.self} />
                     </div>
-                    <BalanceCards period={period} opening={cashflow.opening} invoiced={invoiced} received={cashflow.income} expenses={cashflow.expenses} closing={cashflow.closing} />
+                    <BalanceCards selection={selection} invoiced={invoiced} received={cashflow.income} expenses={cashflow.expenses} />
                 </section>
 
                 {/* Fees this year and optional services */}
                 <section className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-                    <FeesChartCard fees={fees} f={f} scope={scope} setScope={setScope} session={session} breakdown={breakdown} onBreakdown={() => (breakdown ? setBreakdown(false) : openBreakdown())} />
-                    <ServicesChartCard services={fees.services} session={session} />
+                    <FeesChartCard fees={fees} f={f} scope={scope} setScope={setScope} label={periodLabel} breakdown={breakdown} onBreakdown={() => (breakdown ? setBreakdown(false) : openBreakdown())} />
+                    <ServicesChartCard services={fees.services} label={periodLabel} />
                 </section>
 
                 {breakdown && <FeesByType types={fees.byType} scope={scope} onClose={() => setBreakdown(false)} />}
 
                 {/* Trends and categories */}
                 <section className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-                    <Card className="xl:col-span-3" title="Income and expenses" eyebrow="Last 12 months" action={<Legend items={[{ label: 'Fees', color: '#4f46e5' }, { label: 'Other income', color: '#0284c7' }, { label: 'Expenses', color: '#e11d48' }]} />}>
+                    <Card className="xl:col-span-3" title="Income and expenses" eyebrow={`${periodLabel} · by month`} action={<Legend items={[{ label: 'Fees', color: '#4f46e5' }, { label: 'Other income', color: '#0284c7' }, { label: 'Expenses', color: '#e11d48' }]} />}>
                         {monthly.some((m) => m.income || m.expenses) ? (
                             <div className="h-72">
                                 <ResponsiveContainer width="100%" height="100%">
@@ -108,7 +107,7 @@ export default function FinanceDashboard({ session, period, periods, fees, cashf
                 </section>
 
                 <Card title="Mode of payment" eyebrow={periodLabel}>
-                    <PaymentMethods rows={byMethod} split={receivedFor} session={session} url={urls.paymentMode} periodQuery={periodQuery} periodLabel={periodLabel} />
+                    <PaymentMethods rows={byMethod} url={urls.paymentMode} periodQuery={periodQuery} periodLabel={periodLabel} />
                 </Card>
 
                 <section className="grid grid-cols-1 gap-6 xl:grid-cols-5">
@@ -195,7 +194,7 @@ function MoneyTip({ active, payload, label }) {
 }
 
 /** Fees: donut (paid / owed / discounts) and paid vs owed per class type. */
-function FeesChartCard({ fees, f, scope, setScope, session, breakdown, onBreakdown }) {
+function FeesChartCard({ fees, f, scope, setScope, label, breakdown, onBreakdown }) {
     const discount = scope === 'optional' ? 0 : fees.school.discount;
     const slices = [
         { name: 'Paid', value: f.paid, fill: C_PAID },
@@ -208,7 +207,7 @@ function FeesChartCard({ fees, f, scope, setScope, session, breakdown, onBreakdo
         <div className="flex flex-col gap-5 rounded-lg bg-surface p-6 shadow-card xl:col-span-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">Year {session}</span>
+                    <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">{label}</span>
                     <h3 className="text-lg font-semibold tracking-tight">Fees</h3>
                 </div>
                 <div className="flex items-center gap-2">
@@ -297,13 +296,13 @@ function LegendRow({ color, label, value, tone }) {
 }
 
 /** Optional services: paid vs due per service, with the figures underneath. */
-function ServicesChartCard({ services, session }) {
+function ServicesChartCard({ services, label }) {
     const data = services.map((s) => ({ label: s.label, paid: s.paid, due: s.due }));
     return (
         <div className="flex flex-col gap-4 rounded-lg bg-surface p-6 shadow-card xl:col-span-2">
             <div className="flex items-start justify-between gap-3">
                 <div>
-                    <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">Year {session}</span>
+                    <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">{label}</span>
                     <h3 className="text-lg font-semibold tracking-tight">Optional services</h3>
                 </div>
                 <Legend items={[{ label: 'Paid', color: C_PAID }, { label: 'Due', color: C_DUE }]} />
@@ -447,8 +446,8 @@ function IncomeSources({ cashflow }) {
     );
 }
 
-/** Fee payments in the period by mode (cash, MTN MoMo, bank transfer…); click one to see who paid that way. */
-function PaymentMethods({ rows, split, session, url, periodQuery, periodLabel }) {
+/** Fee payments in the chosen terms by mode (cash, mobile payment, bank transfer, cheque); click one to see who paid that way. */
+function PaymentMethods({ rows, url, periodQuery, periodLabel }) {
     const [open, setOpen] = useState(null);
     const total = rows.reduce((a, r) => a + r.total, 0);
     if (!total) return <EmptyState compact title="No fee payments in this period" />;
@@ -460,7 +459,6 @@ function PaymentMethods({ rows, split, session, url, periodQuery, periodLabel })
                         <tr className="border-y border-border bg-canvas text-left text-2xs font-semibold uppercase text-fg-muted">
                             <th className="h-9 px-6">Mode</th>
                             <th className="h-9 px-3 text-right">Payments</th>
-                            <th className="h-9 px-3 text-right">Share</th>
                             <th className="h-9 px-6 text-right">Amount</th>
                         </tr>
                     </thead>
@@ -469,25 +467,16 @@ function PaymentMethods({ rows, split, session, url, periodQuery, periodLabel })
                             <tr key={r.method} onClick={() => setOpen(r.method)} className="cursor-pointer border-b border-border hover:bg-muted/50">
                                 <td className="px-6 py-2.5 font-medium text-primary">{r.method}</td>
                                 <td className="px-3 py-2.5 text-right text-fg-muted">{r.count}</td>
-                                <td className="px-3 py-2.5 text-right text-fg-muted">{Math.round((r.total / total) * 1000) / 10}%</td>
                                 <td className="px-6 py-2.5 text-right font-semibold">{formatMoney(r.total)}</td>
                             </tr>
                         ))}
                         <tr className="bg-canvas font-semibold">
                             <td className="px-6 py-2.5">Fees received</td>
                             <td className="px-3 py-2.5 text-right">{rows.reduce((a, r) => a + r.count, 0)}</td>
-                            <td className="px-3 py-2.5 text-right">100%</td>
                             <td className="px-6 py-2.5 text-right">{formatMoney(total)}</td>
                         </tr>
                     </tbody>
                 </table>
-                {split && (split.earlier > 0 || split.later > 0) && (
-                    <p className="tabular border-t border-border px-6 py-3 text-xs text-fg-muted">
-                        Fees received {formatMoney(total)} = {formatMoney(split.this)} for {session.replace('-', ' – ')} bills
-                        {split.earlier > 0 && ` + ${formatMoney(split.earlier)} for earlier years’ bills (arrears)`}
-                        {split.later > 0 && ` + ${formatMoney(split.later)} paid in advance for later years`}. “Paid” on the Fees card counts only {session.replace('-', ' – ')} bills.
-                    </p>
-                )}
             </div>
             <ModePayments method={open} onClose={() => setOpen(null)} url={url} periodQuery={periodQuery} periodLabel={periodLabel} />
         </>
@@ -517,7 +506,7 @@ function ModePayments({ method, onClose, url, periodQuery, periodLabel }) {
     const { shown, pager } = usePaged(rows, 10, 'payments');
 
     return (
-        <Sheet open={!!method} onOpenChange={(o) => !o && onClose()} title={method ?? ''} description={`Fee payments · ${periodLabel}`} className="sm:max-w-2xl">
+        <Modal open={!!method} onOpenChange={(o) => !o && onClose()} title={method ?? ''} description={`Fee payments · ${periodLabel}`} className="top-[6vh] max-w-3xl">
             {!data ? (
                 <p className="py-8 text-center text-sm text-fg-muted">Loading…</p>
             ) : (
@@ -579,6 +568,6 @@ function ModePayments({ method, onClose, url, periodQuery, periodLabel }) {
                     {pager}
                 </div>
             )}
-        </Sheet>
+        </Modal>
     );
 }

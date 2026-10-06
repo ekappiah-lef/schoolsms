@@ -122,8 +122,8 @@ class HomeController extends Controller
         if (Qs::userIsTeamAccount()) {
             $d['fees'] = $this->feeSummary($session);
             $d['finance'] = [
-                'fees' => \App\Support\FinanceSummary::fees($session),
-                'cashflow' => \App\Support\FinanceSummary::cashflow(now()->startOfYear(), now()->endOfDay()),
+                'fees' => \App\Support\FinanceSummary::fees(\App\Support\TermSelection::year($session)),
+                'cashflow' => \App\Support\FinanceSummary::cashflow(\App\Support\TermSelection::year($session)),
                 'balance' => \App\Support\FinanceSummary::cashBalance(),
                 'urls' => ['dashboard' => route('finance.dashboard'), 'transactions' => route('finance.transactions'), 'ledger' => route('finance.ledger')],
             ];
@@ -299,7 +299,7 @@ class HomeController extends Controller
         $row = function ($label, $expected, $collected) {
             return ['label' => $label, 'expected' => (int) $expected, 'collected' => (int) $collected];
         };
-        $fees = \App\Support\FinanceSummary::fees($session);
+        $fees = \App\Support\FinanceSummary::fees(\App\Support\TermSelection::year($session));
 
         $byFee = DB::table('payment_records as pr')
             ->join('payments as p', 'p.id', '=', 'pr.payment_id')

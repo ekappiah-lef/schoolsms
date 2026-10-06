@@ -6,7 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
 /**
- * DEMO DATA ONLY: gives the demo receipts a realistic mix of payment methods (cash, MTN MoMo,
+ * DEMO DATA ONLY: gives the demo receipts a realistic mix of payment methods (cash, mobile payment,
  * bank transfer…) so "Payments by method" has something to show. Never run on real data —
  * real payments record the method chosen when they are taken.
  */
@@ -16,7 +16,7 @@ class DemoPaymentMethods extends Command
 
     protected $description = 'Demo data only: spread demo receipts across payment methods';
 
-    const MIX = ['Cash' => 40, 'MTN MoMo' => 35, 'Bank transfer' => 11, 'Telecel Cash' => 8, 'AirtelTigo Money' => 4, 'Cheque' => 2];
+    const MIX = ['Cash' => 40, 'Mobile payment' => 47, 'Bank transfer' => 11, 'Cheque' => 2];
 
     public function handle()
     {

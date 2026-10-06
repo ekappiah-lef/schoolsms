@@ -5,7 +5,7 @@ namespace App\Http\Controllers\SupportTeam;
 use App\Helpers\Qs;
 use App\Http\Controllers\Controller;
 use App\Models\FinanceTransaction;
-use App\Support\FinancePeriod;
+use App\Support\TermSelection;
 use App\Support\FinanceSummary;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -20,26 +20,17 @@ class FinanceDashboardController extends Controller
 
     public function index(Request $req)
     {
-        $session = Qs::getCurrentSession();
-        // Opens on the current school year: its bills (total invoiced), money in and out, and balance.
-        [$sy] = FinancePeriod::termOf(now());
-        $p = FinancePeriod::fromRequest($req, 'school:'.$sy.'-'.($sy + 1));
-        // Fees belong to a school year: show the chosen one (or the term's year), otherwise the current year.
-        $feesYear = $p->session ?: $session;
+        // One filter: the terms / years ticked in the Academic Period (opens on the current school year).
+        $sel = TermSelection::fromRequest($req);
 
         return Inertia::render('Finance/Dashboard', [
-            'session' => $feesYear,
-            'period' => $p->toArray(),
-            'periods' => FinancePeriod::options(false),
-            'fees' => FinanceSummary::fees($feesYear),
-            'cashflow' => FinanceSummary::cashflow($p->from, $p->to),
-            'byMethod' => FinanceSummary::byMethod($p->from, $p->to),
-            'receivedFor' => FinanceSummary::receivedFor($p->from, $p->to, $feesYear),
-            // For a school year the first card is the bills sent for it instead of the opening balance.
-            'invoiced' => $p->session ? FinanceSummary::invoiced($p->session) : null,
-            'balance' => FinanceSummary::cashBalance(),
-            'monthly' => FinanceSummary::monthly(12),
-            'recent' => FinanceTransaction::orderByDesc('date')->orderByDesc('id')->limit(4)->get()->map(function ($t) {
+            'selection' => $sel->toArray(),
+            'fees' => FinanceSummary::fees($sel),
+            'cashflow' => FinanceSummary::cashflow($sel),
+            'byMethod' => FinanceSummary::byMethod($sel),
+            'invoiced' => FinanceSummary::invoiced($sel),
+            'monthly' => FinanceSummary::monthly($sel),
+            'recent' => $sel->apply(FinanceTransaction::query(), 'date', true)->orderByDesc('date')->orderByDesc('id')->limit(4)->get()->map(function ($t) {
                 return [
                     'type' => $t->type,
                     'category' => $t->category,
@@ -59,13 +50,11 @@ class FinanceDashboardController extends Controller
         ]);
     }
 
-    /** Who paid by one method (Cash, MTN MoMo …) in the chosen period. */
+    /** Who paid by one mode (Cash, Mobile payment …) in the chosen terms. */
     public function paymentMode(Request $req)
     {
         $req->validate(['method' => 'required|string|max:30']);
-        [$sy] = FinancePeriod::termOf(now());
-        $p = FinancePeriod::fromRequest($req, 'school:'.$sy.'-'.($sy + 1));
 
-        return response()->json(FinanceSummary::methodPayments($req->query('method'), $p->from, $p->to));
+        return response()->json(FinanceSummary::methodPayments($req->query('method'), TermSelection::fromRequest($req)));
     }
 }
