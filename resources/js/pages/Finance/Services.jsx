@@ -142,7 +142,6 @@ export default function ServiceRoster({
                 <ModuleHeader
                     crumbs={["Finance", "Services", label]}
                     title={label}
-                    description={`Students on ${label.toLowerCase()} this year, what they take and what they have paid.`}
                     session={year}
                     aside={
                         years.length > 1 ? (

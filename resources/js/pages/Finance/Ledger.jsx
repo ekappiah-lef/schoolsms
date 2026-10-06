@@ -114,7 +114,6 @@ export default function Ledger({
                 <ModuleHeader
                     crumbs={["Finance", "Ledger"]}
                     title="Ledger"
-                    description="Every cedi in and out of the chosen terms, with the balance after each entry. Every figure on the finance dashboard comes from these entries."
                     aside={<PeriodFilter selection={selection} url={urls.self} />}
                 />
 

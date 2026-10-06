@@ -78,8 +78,7 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                                         Graduated {student.grad_date ?? ''}
                                     </Badge>
                                 ) : (
-                                    <Badge tone="success" dot>
-                                        Active
+                                    <Badge >
                                     </Badge>
                                 )}
                             </div>

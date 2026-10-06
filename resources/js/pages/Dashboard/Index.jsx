@@ -262,7 +262,6 @@ function ClassMonitor({ classes }) {
             <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
                 <div className="flex flex-col gap-0.5">
                     <h2 className="text-2xl font-semibold tracking-tight">Class Enrolment Monitor</h2>
-                    <p className="text-base text-fg-muted">Select a class to inspect its enrolment, sections, class teachers and subjects.</p>
                 </div>
                 <Select
                     className="w-full sm:w-60"

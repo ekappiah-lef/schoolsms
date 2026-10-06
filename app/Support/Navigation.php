@@ -92,6 +92,7 @@ class Navigation
                 self::item('Fee setup', 'banknote', 'payments.index', ['payments.index', 'payments.edit', 'payments.show', 'payments.create']),
                 self::item('Income & expenses', 'receipt', 'finance.transactions', ['finance.transactions', 'finance.transactions.edit']),
                 self::item('Ledger', 'scroll-text', 'finance.ledger'),
+                self::item('Audit trail', 'shield-check', 'finance.audit'),
                 self::item('Fee breakdown', 'layers', 'finance.fee_breakdown'),
                 self::item('Sales & inventory', 'shopping-bag', 'finance.sales'),
                 self::group('Services', 'utensils', [

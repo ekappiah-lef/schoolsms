@@ -329,7 +329,7 @@ class Fees
                 })->values(),
                 'urls' => $withUrls ? [
                     'pay' => route('payments.pay_now', Qs::hash($pr->id)),
-                    'reset' => route('payments.reset_record', Qs::hash($pr->id)),
+                    'reset' => Qs::userIsTeamAdmin() ? route('payments.reset_record', Qs::hash($pr->id)) : null,
                     'receipt' => route('payments.receipts', Qs::hash($pr->id)),
                 ] : null,
             ];
@@ -356,7 +356,7 @@ class Fees
                 })->values(),
                 'urls' => $withUrls ? [
                     'pay' => route('optional_fees.pay', Qs::hash($c->id)),
-                    'reset' => route('optional_fees.reset', Qs::hash($c->id)),
+                    'reset' => Qs::userIsTeamAdmin() ? route('optional_fees.reset', Qs::hash($c->id)) : null,
                 ] : null,
             ];
         })->values();
@@ -427,6 +427,63 @@ class Fees
             'current' => ['lines' => $current, 'amount' => $sum($current, 'amount'), 'paid' => $sum($current, 'paid'), 'balance' => $currentDue],
             'forward' => ['lines' => $forward, 'total' => $forwardDue],
             'total' => $currentDue + $forwardDue,
+        ];
+    }
+
+    /**
+     * What a student will owe for the term after ($year, $term), for the report card, from Fee setup
+     * and the student's own bills (not typed in by hand):
+     *   school fees for the next term (their class and category, less their discount; what is left to
+     *   pay if already billed), plus their optional services' share for that term (feeding, bus, clubs),
+     *   plus everything still unpaid up to and including ($year, $term). set = false when the next
+     *   term's school fees are not in Fee setup yet.
+     */
+    public static function nextTermFees(StudentRecord $sr, string $year, int $term): array
+    {
+        $start = (int) substr($year, 0, 4);
+        [$nYear, $nTerm] = $term < 3 ? [$year, $term + 1] : [($start + 1).'-'.($start + 2), 1];
+        $nKey = $nYear.':'.$nTerm;
+        $upTo = $year.':'.$term;
+
+        // School fees: already billed for the next term, or from Fee setup.
+        $records = PaymentRecord::where('student_id', $sr->user_id)->with('payment.items')->get()->filter(function ($pr) { return $pr->payment; });
+        $billedNext = $records->filter(function ($pr) use ($nKey) { return $pr->year.':'.$pr->payment->term === $nKey; });
+        if ($billedNext->isNotEmpty()) {
+            $school = (int) $billedNext->sum(function ($pr) { return max((int) $pr->payment->amount - (int) $pr->discount - (int) $pr->amt_paid, 0); });
+            $set = true;
+        } else {
+            $percent = $sr->fee_discount_id ? (int) optional(FeeDiscount::find($sr->fee_discount_id))->percent : 0;
+            $fees = self::paymentsFor($sr, $nYear)->where('term', $nTerm);
+            $school = (int) $fees->sum(function ($p) use ($percent) { return (int) $p->amount - (int) round(self::tuitionBase($p) * $percent / 100); });
+            $set = $fees->isNotEmpty();
+        }
+
+        // Unpaid school fees up to this term.
+        $owed = (int) $records->filter(function ($pr) use ($upTo) { return $pr->year.':'.$pr->payment->term <= $upTo; })
+            ->sum(function ($pr) { return max((int) $pr->payment->amount - (int) $pr->discount - (int) $pr->amt_paid, 0); });
+
+        // Optional services and sales, cut into terms the same way as the finance pages.
+        $services = 0;
+        foreach (OptionalFeeCharge::where('student_id', $sr->user_id)->get() as $c) {
+            if ($c->group === 'sales') {
+                $due = [FinanceSummary::saleTerm($c->created_at, $c->year) => max((int) $c->amount - (int) $c->amt_paid, 0)];
+            } else {
+                $shares = FinanceSummary::termShares((int) $c->amount);
+                $paid = FinanceSummary::paidByTerm((int) $c->amount, (int) $c->amt_paid);
+                $due = array_map(function ($s, $p) { return max($s - $p, 0); }, $shares, $paid);
+                $due = array_combine([1, 2, 3], $due);
+            }
+            foreach ($due as $t => $amt) {
+                $k = $c->year.':'.$t;
+                if ($k <= $upTo) $owed += $amt;
+                elseif ($k === $nKey) $services += $amt;
+            }
+        }
+
+        return [
+            'label' => ['1st', '2nd', '3rd'][$nTerm - 1].' Term '.str_replace('-', ' – ', $nYear),
+            'set' => $set, 'school' => $school, 'services' => $services, 'owed' => $owed,
+            'total' => $school + $services + $owed,
         ];
     }
 

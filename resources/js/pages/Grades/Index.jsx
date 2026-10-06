@@ -40,7 +40,6 @@ export default function GradesIndex({ session, canDelete, types, remarks, grades
                 <ModuleHeader
                     crumbs={['Academics', 'Examinations']}
                     title="Grading Scales"
-                    description="Define score ranges, grades, and remarks used when evaluating student results. Class-specific scales override the default grading scale."
                     session={session}
                 />
                 <ModuleTabs value={tab} onChange={(t) => (editing && t === 'list' ? router.visit(urls.index) : setTab(t))} createLabel="Grade" createText="Add Grade" listLabel="View Grades" count={grades.length} editing={!!editing} />

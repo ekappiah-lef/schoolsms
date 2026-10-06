@@ -36,7 +36,6 @@ export default function ExamsIndex({ session, canDelete, exams, editing, urls })
                 <ModuleHeader
                     crumbs={['Academics', 'Examinations']}
                     title="Examinations"
-                    description="Create and manage examinations, record student marks, review performance, and prepare report sheets for each term."
                     session={session}
                 />
                 <ModuleTabs value={tab} onChange={(t) => (editing && t === 'list' ? router.visit(urls.index) : setTab(t))} createLabel="Examination" listLabel="View Examinations" count={exams.length} editing={!!editing} />

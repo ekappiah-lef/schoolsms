@@ -13,10 +13,14 @@ class Vite
     public static function tags(string $entry): HtmlString
     {
         $hot = public_path('hot');
+        $url = is_file($hot) ? rtrim(trim(file_get_contents($hot)), '/') : null;
 
-        if (is_file($hot)) {
-            $url = rtrim(trim(file_get_contents($hot)), '/');
-
+        // Use the dev server only while it is actually running; a left-over public/hot
+        // (dev server closed) would otherwise give a blank page.
+        // Only for a browser on this same computer: phones / other PCs on the network
+        // cannot reach the dev server (it listens on this machine only), so they get the build.
+        $local = in_array(request()->getHost(), ['localhost', '127.0.0.1', '::1', '[::1]'], true);
+        if ($url && $local && self::running($url)) {
             return new HtmlString(implode("\n", [
                 '<script type="module">'
                     .'import RefreshRuntime from "'.$url.'/@react-refresh";'
@@ -49,6 +53,18 @@ class Vite
         $tags[] = '<script type="module" src="'.asset('build/'.$chunk['file']).'"></script>';
 
         return new HtmlString(implode("\n", $tags));
+    }
+
+    /** Whether the Vite dev server answers at $url (e.g. http://[::1]:5173). */
+    protected static function running(string $url): bool
+    {
+        $p = parse_url($url);
+        $host = trim($p['host'] ?? 'localhost', '[]');
+        $conn = @fsockopen(strpos($host, ':') !== false ? '['.$host.']' : $host, $p['port'] ?? 5173, $errno, $errstr, 0.2);
+        if (!$conn) return false;
+        fclose($conn);
+
+        return true;
     }
 
     /** Asset version used by Inertia to force a reload after a new build. */

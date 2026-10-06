@@ -111,7 +111,7 @@ function NavGroup({ item, collapsed, onNavigate }) {
 export function SidebarNav({ nav, collapsed = false, onNavigate }) {
     return (
         <nav className={cn('scrollbar-thin flex-1 overflow-y-auto py-3', collapsed ? 'px-2' : 'px-3')} aria-label="Main">
-            {!collapsed && <div className="mb-1.5 px-3 text-2xs font-semibold uppercase tracking-wider text-fg-subtle">Workspace</div>}
+          
             {nav.map((section, i) => (
                 <div key={section.label ?? i} className={cn(i > 0 && 'mt-5')}>
                     {section.label &&

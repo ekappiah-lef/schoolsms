@@ -62,7 +62,6 @@ export default function Attendance({ sections, sectionId, date, saved, students,
                 <ModuleHeader
                     crumbs={['Academics', 'Attendance']}
                     title="Attendance"
-                    description="Take the daily register. Parents of absent children can be sent a short message asking after them."
                 />
 
                 {sections.length ? (

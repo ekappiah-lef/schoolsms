@@ -45,7 +45,6 @@ export default function FinanceTransactions({ session, categories, usedCategorie
                 <ModuleHeader
                     crumbs={['Finance', 'Income & expenses']}
                     title="Income & expenses"
-                    description="Money put into the school (capital, donations, other income) and the expenses paid from it. Student fee payments are counted automatically."
                     session={session}
                 />
                 <ModuleTabs

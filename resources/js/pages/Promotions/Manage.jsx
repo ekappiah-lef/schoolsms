@@ -37,7 +37,6 @@ export default function PromotionsManage({ oldYear, newYear, promotions, urls })
                 <ModuleHeader
                     crumbs={['Students', 'Promotion', 'Manage']}
                     title="Manage promotions"
-                    description={`Students moved from ${oldYear} to ${newYear}. Resetting puts a student back in their old class.`}
                     aside={
                         <div className="flex gap-2">
                             <Button asChild>

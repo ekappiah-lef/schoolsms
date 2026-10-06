@@ -52,7 +52,6 @@ export default function MarkTools({ tool, year, exams, classes, sections, select
                 <ModuleHeader
                     crumbs={['Examinations', TOOLS.find((t) => t.value === tool).label]}
                     title="Results tools"
-                    description={`Year ${year}. Marks are entered under Marks entry.`}
                     aside={
                         <Button asChild>
                             <Link href={urls.entry}>Marks entry</Link>

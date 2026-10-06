@@ -25,7 +25,7 @@ export default function DormsIndex({ session, canDelete, dorms, editing, urls })
         <>
             <Head title="Dormitories" />
             <div className={cn('mx-auto flex w-full flex-col gap-6', tab === 'create' ? 'max-w-4xl' : 'max-w-7xl')}>
-                <ModuleHeader crumbs={['Administration', 'Boarding']} title="Dormitories" description="Boarding houses students can be assigned to during admission." session={session} />
+                <ModuleHeader crumbs={['Administration', 'Boarding']} title="Dormitories"  session={session} />
                 <ModuleTabs value={tab} onChange={(t) => (editing && t === 'list' ? router.visit(urls.index) : setTab(t))} createLabel="Dormitory" listLabel="Show Dormitories" count={dorms.length} editing={!!editing} />
 
                 {tab === 'create' ? (

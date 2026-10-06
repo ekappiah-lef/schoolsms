@@ -469,7 +469,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                 </FormField>
             </FormSection>
 
-            <FormSection id="health" title="Health" description="Shared with staff who care for the student.">
+            <FormSection id="health" title="Health" description="For health and Medical Purposes.">
                 <FormField label="Allergies" error={err('allergies')}>
                     <Textarea id="field-allergies" value={data.allergies ?? ''} onChange={(e) => set('allergies', e.target.value)} placeholder="None known" />
                 </FormField>
@@ -548,15 +548,15 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
             </FormSection>
 
             {mode === 'create' && data.my_class_id && (
-                <FormSection id="school-fees" title="School fees" description={`What a new student in this class is billed for ${options.session}.`}>
+                <FormSection id="school-fees" title="School fees" description={`Year  ${options.session}`}>
                     <div className="sm:col-span-2">
                         <SchoolFeesPreview fees={schoolFees} discountOn={discountOn} />
                     </div>
                 </FormSection>
             )}
 
-            <FormSection id="discount" title="Fee discount" description="Applies to tuition in the school fees only, never to optional services.">
-                <FormField label="Discount" error={err('fee_discount_id')} hint={discount ? `${discount.percent}% off tuition.` : 'Most students have no discount.'}>
+            <FormSection id="discount" title="Fee discount" >
+                <FormField label="Discount" error={err('fee_discount_id')} hint={discount ? `${discount.percent}% off tuition.` : 'No discount.'}>
                     <Select
                         id="field-fee_discount_id"
                         value={data.fee_discount_id}
@@ -569,7 +569,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                 </FormField>
             </FormSection>
 
-            <FormSection id="services" title="Optional services & shop" description="Billed on a separate “Optional fees” invoice. Prices come from Finance configuration and the shop.">
+            <FormSection id="services" title="Optional services & shop" >
                 <div className="sm:col-span-2">
                     <ServicesPicker catalogue={options.services} value={data.services} onChange={(v) => set('services', v)} mode={mode} />
                     {err('services') && <p className="mt-2 text-xs text-danger-fg">{err('services')}</p>}
@@ -759,7 +759,7 @@ function ParentStep({ data, set, err, parents }) {
         <FormSection
             id={`parent-${p}`}
             title={title}
-            description={primary === p ? 'Main contact: the parent portal login is created for this person.' : 'Optional.'}
+            description={primary === p ? 'Main contact.' : 'Optional.'}
         >
             {field(`${p}_name`, 'Full name', { required: primary === p })}
             {field(`${p}_phone`, 'Contact number', { type: 'tel' })}
@@ -774,7 +774,7 @@ function ParentStep({ data, set, err, parents }) {
 
     return (
         <>
-            <FormSection id="guardian" title="Parent / guardian" description="Link the family’s existing account, or register a new parent.">
+            <FormSection id="guardian" title="Parent / guardian">
                 <div className="sm:col-span-2">
                     <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Parent">
                         {[
@@ -815,7 +815,7 @@ function ParentStep({ data, set, err, parents }) {
                 )}
 
                 {data.parent_mode === 'new' && (
-                    <FormField label="Main contact" className="sm:col-span-2" hint="Their name, phone and email are used for the parent login and for admission notices.">
+                    <FormField label="Main contact" className="sm:col-span-2" >
                         <Segmented
                             className="self-start"
                             value={primary}
@@ -830,7 +830,7 @@ function ParentStep({ data, set, err, parents }) {
                 )}
 
                 {data.parent_mode === 'none' && (
-                    <p className="text-sm text-fg-muted sm:col-span-2">No notices can be sent until a parent is linked. You can link one later from the student’s edit page.</p>
+                    <p className="text-sm text-fg-muted sm:col-span-2">No notices can't be sent until a parent is linked. You can link one later from the student’s edit page.</p>
                 )}
             </FormSection>
 
@@ -841,7 +841,7 @@ function ParentStep({ data, set, err, parents }) {
                     <FormSection
                         id="parent-guardian"
                         title="Guardian / nanny"
-                        description={primary === 'guardian' ? 'Main contact: the parent portal login is created for this person.' : 'Optional.'}
+                        description={primary === 'guardian' ? 'Main contact:' : 'Optional.'}
                     >
                         {field('guardian_name', 'Full name', { required: primary === 'guardian' })}
                         {field('guardian_phone', 'Contact number', { type: 'tel' })}

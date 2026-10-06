@@ -19,7 +19,6 @@ export default function StudentCreate({ options, urls }) {
                 <ModuleHeader
                     crumbs={['Academics', 'Admissions']}
                     title="Student Admission"
-                    description="Create a student record, assign their class and services, set up fees, and link a parent or guardian."
                     session={app.session}
                 />
                 <ModuleTabs value="create" onChange={(t) => t === 'list' && router.visit(urls.index)} createLabel="Student" listLabel="View Students" />

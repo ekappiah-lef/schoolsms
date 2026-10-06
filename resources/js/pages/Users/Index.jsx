@@ -60,7 +60,7 @@ export default function UsersIndex({ userTypes, users, options, editing, urls })
         <>
             <Head title="Users" />
             <div className={cn('mx-auto flex w-full flex-col gap-6', tab === 'create' ? 'max-w-4xl' : 'max-w-7xl')}>
-                <ModuleHeader crumbs={['People', 'Users']} title="Users" description="Staff and parent accounts: administrators, teachers, accountants, librarians and parents." />
+                <ModuleHeader crumbs={['People', 'Users']} title="Users" />
                 <ModuleTabs value={tab} onChange={(t) => (editing && t === 'list' ? router.visit(urls.index) : setTab(t))} createLabel="User" listLabel="Show Users" count={users.length} editing={!!editing} />
 
                 {tab === 'create' ? (

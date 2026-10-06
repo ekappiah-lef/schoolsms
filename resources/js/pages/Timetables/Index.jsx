@@ -152,13 +152,10 @@ export default function TimetablesIndex({ session, canCreate, records, summary, 
                                     exportValue: (r) => r.name,
                                     cell: (r) => (
                                         <div className="flex items-center gap-3">
-                                            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft/70 text-primary-hover">
-                                                {r.type === 'exam' ? <CalendarCheck className="size-[18px]" /> : <CalendarDays className="size-[18px]" />}
-                                            </div>
+                                           
                                             <div className="min-w-0">
                                                 <div className="truncate font-semibold uppercase text-fg">{r.name}</div>
                                                 <div className="flex items-center gap-1 text-xs text-fg-muted">
-                                                    <span className={cn('size-1.5 rounded-full', r.periods ? 'bg-success' : 'bg-border-strong')} />
                                                     {r.periods ? `Scheduled · ${r.periods} periods` : 'Draft · no periods yet'}
                                                 </div>
                                             </div>

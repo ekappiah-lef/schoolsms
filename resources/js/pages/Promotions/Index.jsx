@@ -65,7 +65,6 @@ export default function Promotions({ oldYear, newYear, classes, sections, select
                 <ModuleHeader
                     crumbs={['Students', 'Promotion']}
                     title="Student Promotion"
-                    description={`Move students from ${oldYear} to ${newYear}. Choose their current class; the next class is filled in for you and can be changed.`}
                     aside={
                         <Button asChild>
                             <Link href={urls.manage}>Manage promotions</Link>

@@ -40,12 +40,18 @@ class OptionalFeeController extends Controller
         return response()->json(['ok' => true, 'msg' => __('msg.update_ok'), 'receipt' => ReceiptController::urls('optional', $receipt->id)]);
     }
 
-    public function reset($id)
+    /** Reverse every payment on a charge (administrators only, with a reason); receipts go to the audit trail. */
+    public function reset(Request $req, $id)
     {
-        $c = OptionalFeeCharge::findOrFail($id);
-        $c->receipts()->delete();
-        $c->update(['amt_paid' => 0]);
+        if (!Qs::userIsTeamAdmin()) {
+            return Qs::json('Only an administrator can reverse payments.', false);
+        }
+        $reason = trim((string) $req->input('reason'));
+        if (mb_strlen($reason) < 5) {
+            return Qs::json('Give a reason for reversing these payments (at least 5 characters).', false);
+        }
+        $total = \App\Support\FinanceLog::voidCharge(OptionalFeeCharge::findOrFail($id), $reason);
 
-        return back()->with('flash_success', __('msg.update_ok'));
+        return Qs::json(number_format($total).' reversed. The receipts are kept in the audit trail.');
     }
 }

@@ -227,6 +227,9 @@ class MarkController extends Controller
         $d['student_id'] = $student_id;
         $d['exam_id'] = $exam_id;
 
+        // Next term fees: from Fee setup and the student's own bills (not typed in Settings).
+        $d['nextFees'] = $sr ? \App\Support\Fees::nextTermFees($sr, $year, (int) $exam->term) : null;
+
         $d['skills'] = $this->exam->getSkillByClassType() ?: NULL;
         $d['s'] = Setting::all()->flatMap(function($s){
             return [$s->type => $s->description];

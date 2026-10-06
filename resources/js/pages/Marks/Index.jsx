@@ -12,8 +12,7 @@ export default function MarksIndex({ session, exams, classes, urls }) {
             <PageHeader
                 breadcrumbs={[{ label: 'Academics' }, { label: 'Examinations' }, { label: 'Marks entry' }]}
                 title="Marks entry"
-                meta={<Badge tone="outline">{session} session</Badge>}
-                description="Pick an exam, class, section and subject to open its score sheet. Every student in the section is listed on one sheet."
+                meta={<Badge tone="outline">{session} year</Badge>}
             />
             <Panel title="Open a score sheet">
                 {exams.length ? (

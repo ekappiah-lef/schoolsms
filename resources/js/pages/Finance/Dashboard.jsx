@@ -43,7 +43,6 @@ export default function FinanceDashboard({ selection, fees, cashflow, invoiced, 
                 <ModuleHeader
                     crumbs={['Finance', 'Dashboard']}
                     title="Finance dashboard"
-                    description="Fees billed, collected and still due, with the school’s other income and expenses."
                     aside={
                         <Button variant="primary" asChild>
                             <Link href={urls.transactions}>

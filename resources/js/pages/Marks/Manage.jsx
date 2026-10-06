@@ -175,7 +175,6 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                         {context.exam} · {context.year}
                     </Badge>
                 }
-                description="Type scores and press Enter to move down. Totals and grades update as you type; positions are recalculated when you save."
                 actions={
                     <>
                         {urls.tabulation && (

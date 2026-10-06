@@ -1,5 +1,6 @@
 import {
     BedDouble,
+    ShieldCheck,
     BookOpen,
     CalendarClock,
     GraduationCap,
@@ -48,6 +49,7 @@ const icons = {
     receipt: ReceiptText,
     utensils: Utensils,
     'shopping-bag': ShoppingBag,
+    'shield-check': ShieldCheck,
     'clipboard-check': ClipboardCheck,
     megaphone: Megaphone,
 };

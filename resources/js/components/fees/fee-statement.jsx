@@ -120,18 +120,7 @@ export function SchoolFeesInvoice({ records, onPaid, confirm, actions }) {
                                                     <RowMenu
                                                         label={r.title}
                                                         receiptUrl={r.receipts.length ? r.urls.receipt : null}
-                                                        onReset={
-                                                            r.paid > 0
-                                                                ? () =>
-                                                                      confirm({
-                                                                          title: 'Reset this payment?',
-                                                                          description: `All payments recorded for "${r.title}" will be cleared and its receipts deleted. The balance returns to ${formatMoney(r.amount)}.`,
-                                                                          confirmLabel: 'Reset payment',
-                                                                          method: 'delete',
-                                                                          url: r.urls.reset,
-                                                                      })
-                                                                : null
-                                                        }
+                                                        onReset={r.paid > 0 && r.urls.reset ? () => reversePayments(r.urls.reset, r.title, r.paid, onPaid) : null}
                                                     />
                                                 )}
                                             </td>
@@ -213,20 +202,7 @@ export function OptionalFeesInvoice({ charges, onPaid, confirm }) {
                                                 <td className={cn('px-3 text-right font-semibold', c.balance > 0 ? 'text-danger-fg' : 'text-success-fg')}>{formatMoney(c.balance)}</td>
                                                 {payable && <td className="px-3 py-2">{c.balance > 0 ? <PayInline title={c.label} balance={c.balance} url={c.urls.pay} onPaid={onPaid} /> : <Badge tone="success">Paid</Badge>}</td>}
                                                 <td className="px-4 text-right">
-                                                    {c.urls && c.paid > 0 && (
-                                                        <RowMenu
-                                                            label={c.label}
-                                                            onReset={() =>
-                                                                confirm({
-                                                                    title: 'Reset this payment?',
-                                                                    description: `Payments recorded for "${c.label}" will be cleared. The balance returns to ${formatMoney(c.amount)}.`,
-                                                                    confirmLabel: 'Reset payment',
-                                                                    method: 'delete',
-                                                                    url: c.urls.reset,
-                                                                })
-                                                            }
-                                                        />
-                                                    )}
+                                                    {c.urls?.reset && c.paid > 0 && <RowMenu label={c.label} onReset={() => reversePayments(c.urls.reset, c.label, c.paid, onPaid)} />}
                                                 </td>
                                             </tr>
                                         ))}
@@ -255,6 +231,22 @@ function TotalsFoot({ t, cols }) {
     );
 }
 
+/**
+ * Reverse every payment on a bill (administrators only). A reason is required; the receipts are kept in
+ * the finance audit trail with who reversed them and why, and the bill returns to unpaid.
+ */
+async function reversePayments(url, label, paid, onDone) {
+    const reason = window.prompt(`Reverse ${formatMoney(paid)} paid on "${label}"?\n\nThe receipts are kept in the audit trail. Give the reason:`);
+    if (reason === null) return;
+    if (reason.trim().length < 5) {
+        toast.error('Give a reason of at least 5 characters.');
+        return;
+    }
+    const r = await submitForm(url, { reason: reason.trim() }, { method: 'delete' });
+    r.ok ? toast.success(r.message) : toast.error(r.message);
+    if (r.ok) onDone?.();
+}
+
 function RowMenu({ label, receiptUrl, onReset }) {
     if (!receiptUrl && !onReset) return null;
     return (
@@ -276,7 +268,7 @@ function RowMenu({ label, receiptUrl, onReset }) {
                 {onReset && (
                     <DropdownMenuItem destructive onSelect={onReset}>
                         <RotateCcw />
-                        Reset payment
+                        Reverse payments
                     </DropdownMenuItem>
                 )}
             </DropdownMenuContent>
@@ -293,7 +285,7 @@ export function PaymentHistory({ school, optional }) {
     const { shown, pager } = usePaged(history, 10, 'payments');
 
     return (
-        <Panel title="Payment history" description="Each payment has its own receipt: open it, download the PDF or send it to the parent" flush>
+        <Panel title="Payment history" description="Receipt: Download the PDF or send it to the parent" flush>
             {history.length ? (
                 <ul className="divide-y divide-border">
                     {shown.map((h) => (

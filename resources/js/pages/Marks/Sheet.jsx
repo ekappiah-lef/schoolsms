@@ -21,7 +21,6 @@ export default function MarkSheet({ student, year, years, exams, skills, canComm
                 <ModuleHeader
                     crumbs={['Examinations', 'Results']}
                     title="Results"
-                    description="Scores for every exam in the year. Print a report card from each exam."
                     aside={
                         years.length > 1 ? (
                             <NativeSelect value={year} onChange={(v) => router.visit(years.find((y) => y.value === v).url)} className="w-40">

@@ -18,14 +18,13 @@ const fromIso = (v) => {
     return m ? `${m[2]}/${m[3]}/${m[1]}` : '';
 };
 
-/** School settings (super admin): name, year, contacts, term dates, exam lock, next term fees and logo. */
-export default function Settings({ settings, fees, logo, years, urls }) {
+/** School settings (super admin): name, year, contacts, term dates, exam lock and logo. */
+export default function Settings({ settings, logo, years, urls }) {
     const errors = usePage().props.errors ?? {};
     const [data, setData] = useState({
         ...settings,
         term_ends: toIso(settings.term_ends),
         term_begins: toIso(settings.term_begins),
-        ...Object.fromEntries(fees.map((f) => [f.key, f.value])),
     });
     const [logoFile, setLogoFile] = useState(null);
     const [logoError, setLogoError] = useState(null);
@@ -52,7 +51,6 @@ export default function Settings({ settings, fees, logo, years, urls }) {
                 <ModuleHeader
                     crumbs={['Administration', 'Settings']}
                     title="School settings"
-                    description="Details printed on report cards and receipts, the current year, term dates and fees for next term."
                     aside={
                         <Button type="submit" variant="primary" disabled={processing}>
                             <Save />
@@ -104,15 +102,6 @@ export default function Settings({ settings, fees, logo, years, urls }) {
                     </Panel>
 
                     <div className="flex flex-col gap-6 lg:col-span-2">
-                        <Panel title="Next term fees" description="Printed on report cards, by class type.">
-                            <div className="grid gap-4">
-                                {fees.map((f) => (
-                                    <Field key={f.key} label={f.name} error={errors[f.key]}>
-                                        <input className={`${fieldInput} tabular`} inputMode="numeric" value={data[f.key]} onChange={(e) => set(f.key, e.target.value)} />
-                                    </Field>
-                                ))}
-                            </div>
-                        </Panel>
                         <Panel title="Logo">
                             <Field label="School logo" error={logoError || errors.logo}>
                                 <PhotoUploader value={logoFile} onChange={setLogoFile} currentUrl={logo} name={data.system_name} onError={setLogoError} camera={false} />
@@ -120,10 +109,7 @@ export default function Settings({ settings, fees, logo, years, urls }) {
                         </Panel>
                     </div>
                 </div>
-                <p className="flex items-center gap-2 text-xs text-fg-muted">
-                    <Building2 className="size-4" />
-                    Fee prices, optional services and discounts are set under Finance configuration.
-                </p>
+               
             </form>
         </>
     );

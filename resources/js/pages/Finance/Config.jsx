@@ -44,7 +44,6 @@ export default function FinanceConfig({ session, groups, options, routes, discou
                 <ModuleHeader
                     crumbs={['Finance', 'Configuration']}
                     title="Finance configuration"
-                    description="Prices for optional services and bus routes, school-fee breakdowns, and the notices parents receive at admission."
                     session={session}
                 />
 
@@ -698,22 +697,7 @@ function NoticeSettings({ notices, url, onSaved }) {
                 </div>
             </div>
 
-            <Panel title="Delivery" description="Set on the server in the .env file.">
-                <ul className="space-y-4 text-sm">
-                    <DeliveryRow
-                        ok={notices.mail_ready}
-                        title="Email"
-                        okText="Mail server configured."
-                        badText="Not configured. Set MAIL_HOST, MAIL_USERNAME, MAIL_PASSWORD and MAIL_FROM_ADDRESS. Until then emails are recorded as not sent."
-                    />
-                    <DeliveryRow
-                        ok={notices.sms_ready}
-                        title="SMS"
-                        okText={`Sending with ${notices.sms_driver}.`}
-                        badText="Not configured. Set SMS_DRIVER to arkesel or hubtel with its API keys and SMS_SENDER_ID. Until then SMS are written to the log only."
-                    />
-                </ul>
-            </Panel>
+           
         </div>
     );
 }

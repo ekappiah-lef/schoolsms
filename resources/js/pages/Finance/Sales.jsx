@@ -49,7 +49,6 @@ export default function Sales({
                 <ModuleHeader
                     crumbs={["Finance", "Sales & inventory"]}
                     title="Sales & inventory"
-                    description="The school shop: uniforms, socks, sweaters, books and stationery. Sales are charged to the student’s optional fees and paid like any other fee."
                     session={session}
                 />
 

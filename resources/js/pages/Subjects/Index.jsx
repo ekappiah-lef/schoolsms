@@ -29,7 +29,7 @@ export default function SubjectsIndex({ session, canDelete, classes, teachers, s
         <>
             <Head title="Subjects" />
             <div className={cn('mx-auto flex w-full flex-col gap-6', tab === 'create' ? 'max-w-4xl' : 'max-w-7xl')}>
-                <ModuleHeader crumbs={['Academics', 'Curriculum']} title="Subjects" description="Subjects taught in each class and the teacher responsible for entering their marks." session={session} />
+                <ModuleHeader crumbs={['Academics', 'Curriculum']} title="Subjects"  session={session} />
                 <ModuleTabs value={tab} onChange={(t) => (editing && t === 'list' ? router.visit(urls.index) : setTab(t))} createLabel="Subject" listLabel="Show Subjects" count={subjects.length} editing={!!editing} />
 
                 {tab === 'create' ? (

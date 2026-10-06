@@ -44,7 +44,6 @@ export default function FeeBreakdown({ selection, item, items, termly, rows, url
                 <ModuleHeader
                     crumbs={["Finance", "Fee breakdown"]}
                     title="Fee breakdown"
-                    description="What was billed, received and spent each term, and every fee item by student and parent."
                     aside={<PeriodFilter selection={selection} url={urls.self} params={{ item }} />}
                 />
 

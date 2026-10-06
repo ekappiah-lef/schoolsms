@@ -70,11 +70,11 @@ export default function PaymentForm({ mode, session, classes, categories, paymen
         <>
             <Head title={editing ? 'Edit fee' : 'New fee'} />
             <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
-                <ModuleHeader crumbs={['Finance', 'Fee setup']} title="Fees" description="Set up the fees charged to students for the session." session={session} />
+                <ModuleHeader crumbs={['Finance', 'Fee setup']} title="Fees" description="Set up the fees charged to students for the year." session={session} />
                 <ModuleTabs value="create" onChange={(t) => t === 'list' && router.visit(urls.index)} createLabel="Fee" listLabel="Show Fees" editing={editing} />
                 <SetupCard
                     title={editing ? 'Edit Fee' : 'New Fee Setup'}
-                    description={editing ? `Reference ${payment.ref_no}. The class is fixed after creation.` : `The fee is created for the ${session} session.`}
+                    description={editing ? `Reference ${payment.ref_no}. The class is fixed after creation.` : `The fee is created for the ${session} year.`}
                     icon={Banknote}
                     onSubmit={submit}
                     onReset={() => setData(initial)}
@@ -82,7 +82,7 @@ export default function PaymentForm({ mode, session, classes, categories, paymen
                     submitLabel={editing ? 'Save Fee' : 'Create Fee'}
                     processing={processing}
                 >
-                    <Field label="Fee Title" required aside="Clear & descriptive" error={errors.title} span={2}>
+                    <Field label="Fee Title" required  error={errors.title} span={2}>
                         <input className={fieldInput} value={data.title} onChange={(e) => set('title', e.target.value)} placeholder="e.g., School fees" aria-invalid={!!errors.title || undefined} autoFocus />
                     </Field>
                     <Field label="Applies To" hint={editing ? 'Fixed after creation.' : 'Leave as “All classes” to charge every class.'} error={errors.my_class_id}>
@@ -194,11 +194,7 @@ export default function PaymentForm({ mode, session, classes, categories, paymen
                         <input className={fieldInput} value={data.description ?? ''} onChange={(e) => set('description', e.target.value)} placeholder="Optional note shown on the fee list" />
                     </Field>
                 </SetupCard>
-                <InfoCallout>
-                    {editing
-                        ? 'Changing the breakdown changes the amount owed by every student already billed this fee.'
-                        : 'Newly admitted students are billed automatically. For students already enrolled, open their class under Student payments to bill this fee.'}
-                </InfoCallout>
+               
             </div>
         </>
     );

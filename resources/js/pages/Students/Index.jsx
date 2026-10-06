@@ -143,11 +143,7 @@ export default function StudentsIndex({ variant, students, summary, filters, cla
             <PageHeader
                 breadcrumbs={[{ label: 'Academics' }, { label: 'Students', href: urls.active }, ...(graduated ? [{ label: 'Graduated' }] : [])]}
                 title={title}
-                description={
-                    graduated
-                        ? 'Students who have completed their final class. Restore a record if it was graduated by mistake.'
-                        : 'View and manage currently enrolled students. Search by name, admission number, contact details, or parent/guardian.'
-                }
+             
                 actions={
                     <>
                         {urls.promotion && !graduated && (

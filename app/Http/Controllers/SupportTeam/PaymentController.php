@@ -467,12 +467,21 @@ class PaymentController extends Controller
         return Qs::deleteOk('payments.index');
     }
 
-    public function reset_record($id)
+    /**
+     * Reverse every payment on a bill (administrators only, with a reason). The receipts are kept in
+     * the finance audit trail with who reversed them and why; the bill returns to unpaid.
+     */
+    public function reset_record(Request $req, $id)
     {
-        $pr['amt_paid'] = $pr['paid'] = $pr['balance'] = 0;
-        $this->pay->updateRecord($id, $pr);
-        $this->pay->deleteReceipts(['pr_id' => $id]);
+        if (!Qs::userIsTeamAdmin()) {
+            return Qs::json('Only an administrator can reverse payments.', false);
+        }
+        $reason = trim((string) $req->input('reason'));
+        if (mb_strlen($reason) < 5) {
+            return Qs::json('Give a reason for reversing these payments (at least 5 characters).', false);
+        }
+        $total = \App\Support\FinanceLog::voidSchoolBill(\App\Models\PaymentRecord::findOrFail($id), $reason);
 
-        return back()->with('flash_success', __('msg.update_ok'));
+        return Qs::json(number_format($total).' reversed. The receipts are kept in the audit trail.');
     }
 }

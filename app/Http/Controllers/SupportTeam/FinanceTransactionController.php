@@ -56,7 +56,14 @@ class FinanceTransactionController extends Controller
 
     public function update(Request $req, $id)
     {
-        FinanceTransaction::findOrFail($id)->update($this->validated($req));
+        $t = FinanceTransaction::findOrFail($id);
+        $fields = ['type', 'category', 'amount', 'date', 'method', 'reference', 'description'];
+        $before = self::snapshot($t, $fields);
+        $t->update($this->validated($req));
+        $after = self::snapshot($t->fresh(), $fields);
+        if ($before != $after) {
+            FinanceLog::add('update_entry', 'finance_transaction', $t->id, ['amount' => (int) $t->amount, 'before' => $before, 'after' => $after]);
+        }
 
         return Qs::jsonUpdateOk();
     }
@@ -67,7 +74,10 @@ class FinanceTransactionController extends Controller
         if (!Qs::userIsTeamAdmin()) {
             return back()->with('flash_danger', 'Only an administrator can delete income or expense entries.');
         }
-        FinanceTransaction::findOrFail($id)->delete();
+        $t = FinanceTransaction::findOrFail($id);
+        FinanceLog::add('delete_entry', 'finance_transaction', $t->id, ['amount' => (int) $t->amount,
+            'before' => self::snapshot($t, ['type', 'category', 'amount', 'date', 'method', 'reference', 'description', 'recorded_by'])]);
+        $t->delete();
 
         return back()->with('flash_success', __('msg.del_ok'));
     }
@@ -83,6 +93,14 @@ class FinanceTransactionController extends Controller
             'reference' => 'nullable|string|max:100',
             'description' => 'nullable|string|max:255',
         ]);
+    }
+
+    protected static function snapshot(FinanceTransaction $t, array $fields): array
+    {
+        return collect($fields)->mapWithKeys(function ($f) use ($t) {
+            $v = $t->{$f};
+            return [$f => $v instanceof \DateTimeInterface ? $v->format('Y-m-d') : ($f === 'amount' ? (int) $v : $v)];
+        })->all();
     }
 
     protected function pageProps($editing = null, ?TermSelection $sel = null): array

@@ -29,7 +29,7 @@ export default function SectionsIndex({ session, canDelete, classes, teachers, s
         <>
             <Head title="Sections" />
             <div className={cn('mx-auto flex w-full flex-col gap-6', tab === 'create' ? 'max-w-4xl' : 'max-w-7xl')}>
-                <ModuleHeader crumbs={['Administration', 'Sections']} title="Sections" description="Divide classes into sections (arms) and assign a class teacher to each." session={session} />
+                <ModuleHeader crumbs={['Administration', 'Sections']} title="Sections"  session={session} />
                 <ModuleTabs value={tab} onChange={(t) => (editing && t === 'list' ? router.visit(urls.index) : setTab(t))} createLabel="Section" listLabel="Show Sections" count={sections.length} editing={!!editing} />
 
                 {tab === 'create' ? (

@@ -7,10 +7,7 @@ import { HorizontalBars } from '@/components/app/charts';
 import { usePaged } from '@/components/app/data-table';
 import { Button } from '@/components/ui/button';
 
-/**
- * Examination overview: results by class (with tabulation and report sheets),
- * subject averages and the top students. Marks are entered under Marks entry.
- */
+
 export default function ExamShow({ exam, classes, subjects, top, urls }) {
     const { shown, pager } = usePaged(classes, 10, 'classes');
     const tiles = [

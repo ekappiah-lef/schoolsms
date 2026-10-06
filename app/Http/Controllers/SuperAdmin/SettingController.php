@@ -35,10 +35,6 @@ class SettingController extends Controller
             return [
                 'settings' => collect(['system_name', 'system_title', 'current_session', 'phone', 'system_email', 'address', 'term_ends', 'term_begins', 'lock_exam'])
                     ->mapWithKeys(function ($k) use ($s) { return [$k => (string) ($s[$k] ?? '')]; }),
-                'fees' => $d['class_types']->map(function ($ct) use ($s) {
-                    $k = 'next_term_fees_'.strtolower($ct->code);
-                    return ['key' => $k, 'name' => $ct->name, 'value' => (string) ($s[$k] ?? '')];
-                })->values(),
                 'logo' => $s['logo'] ?? null,
                 'years' => $years,
                 'urls' => ['update' => route('settings.update')],

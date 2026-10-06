@@ -28,7 +28,7 @@ export default function ClassesIndex({ session, canDelete, types, classes, editi
         <>
             <Head title="Classes" />
             <div className={cn('mx-auto flex w-full flex-col gap-6', tab === 'create' ? 'max-w-4xl' : 'max-w-7xl')}>
-                <ModuleHeader crumbs={['Administration', 'Classes']} title="Classes" description="Set up the classes offered by the school. Each new class gets a default section A." session={session} />
+                <ModuleHeader crumbs={['Administration', 'Classes']} title="Classes" session={session} />
                 <ModuleTabs value={tab} onChange={(t) => (editing && t === 'list' ? router.visit(urls.index) : setTab(t))} createLabel="Class" listLabel="Show Classes" count={classes.length} editing={!!editing} />
 
                 {tab === 'create' ? (
