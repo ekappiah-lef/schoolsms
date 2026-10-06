@@ -127,16 +127,16 @@ export default function UsersIndex({ userTypes, users, options, editing, urls })
                                 <input className={fieldInput} value={form.data.address} onChange={(e) => form.set('address', e.target.value)} placeholder="House number, street and town" />
                             </Field>
                             <Field label="Nationality" required error={form.errors.nal_id}>
-                                <Combobox value={form.data.nal_id} onChange={(v) => form.set('nal_id', v)} options={opts(options.nationals)} placeholder="Choose nationality" invalid={!!form.errors.nal_id} />
+                                <Combobox value={form.data.nal_id} onChange={(v) => form.set('nal_id', v)} options={opts(options.nationals)} placeholder="Choose nationality" creatable invalid={!!form.errors.nal_id} />
                             </Field>
                             <Field label="Blood group" error={form.errors.bg_id}>
                                 <Combobox value={form.data.bg_id} onChange={(v) => form.set('bg_id', v)} options={opts(options.blood_groups)} placeholder="Choose blood group" />
                             </Field>
                             <Field label="State" required error={form.errors.state_id}>
-                                <Combobox value={form.data.state_id} onChange={(v) => set('state_id', v)} options={opts(options.states)} placeholder="Choose state" invalid={!!form.errors.state_id} />
+                                <Combobox value={form.data.state_id} onChange={(v) => set('state_id', v)} options={opts(options.states)} placeholder="Choose state" creatable invalid={!!form.errors.state_id} />
                             </Field>
                             <Field label="LGA" required error={form.errors.lga_id} hint={!form.data.state_id ? 'Choose a state first.' : undefined}>
-                                <Combobox value={form.data.lga_id} onChange={(v) => form.set('lga_id', v)} options={opts(lgas.list)} loading={lgas.loading} disabled={!form.data.state_id} placeholder="Choose LGA" invalid={!!form.errors.lga_id} />
+                                <Combobox value={form.data.lga_id} onChange={(v) => form.set('lga_id', v)} options={opts(lgas.list)} loading={lgas.loading} disabled={!form.data.state_id} placeholder="Choose LGA" creatable invalid={!!form.errors.lga_id} />
                             </Field>
                             <Field label="Passport photo" error={photoError || form.errors.photo} span={2}>
                                 <PhotoUploader value={form.data.photo} onChange={(f) => form.set('photo', f)} currentUrl={editing?.photo} name={form.data.name} onError={setPhotoError} />
@@ -232,7 +232,7 @@ function useLgas(url, stateId, initial) {
             return undefined;
         }
         first.current = false;
-        if (!stateId) {
+        if (!stateId || String(stateId).startsWith('new:')) {
             setList([]);
             return undefined;
         }

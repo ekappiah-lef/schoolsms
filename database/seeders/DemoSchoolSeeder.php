@@ -83,6 +83,8 @@ class DemoSchoolSeeder extends Seeder
         $this->pins();
         $this->promotions();
         $this->cashflow();
+        // Added last so the rest of the demo data stays the same as before.
+        $this->staff('Akosua Owusu', 'Female', 'academic_admin', 'academic', '2023-09-01', 'cj');
 
         $this->command->info('Demo school seeded: '.StudentRecord::where('grad', 0)->count().' students, '
             .User::where('user_type', 'parent')->count().' parents, '.User::where('user_type', 'teacher')->count().' teachers.');
@@ -220,7 +222,7 @@ class DemoSchoolSeeder extends Seeder
 
     protected function financeConfig()
     {
-        foreach ([['feeding', 'Breakfast', 2000], ['feeding', 'Lunch', 3500], ['feeding', 'Fruits', 500],
+        foreach ([['feeding', 'Breakfast', 2000], ['feeding', 'Lunch & Fruits', 4000],
                   ['extracurricular', 'Dance', 600], ['extracurricular', 'Music', 800], ['extracurricular', 'Ballet', 1200]] as $n => [$g, $name, $amt]) {
             $this->options[$name] = FeeOption::create(['group' => $g, 'name' => $name, 'amount' => $amt, 'active' => true, 'sort' => $n])->id;
         }
@@ -466,7 +468,7 @@ class DemoSchoolSeeder extends Seeder
             'pct' => $discount ? (int) FeeDiscount::find($discount)->percent : 0,
             'payer' => $this->pick(array_merge(array_fill(0, 15, 'good'), array_fill(0, 4, 'slow'), ['late'])),
             'boarder' => $boarder,
-            'feeding' => mt_rand(1, 100) <= ($young ? 75 : 55) ? $this->pick([['Breakfast'], ['Lunch'], ['Lunch'], ['Breakfast', 'Lunch'], ['Breakfast', 'Lunch'], ['Breakfast', 'Lunch', 'Fruits'], ['Lunch', 'Fruits'], ['Fruits']]) : [],
+            'feeding' => mt_rand(1, 100) <= ($young ? 75 : 55) ? $this->pick([['Breakfast'], ['Lunch & Fruits'], ['Lunch & Fruits'], ['Breakfast', 'Lunch & Fruits'], ['Breakfast', 'Lunch & Fruits'], ['Breakfast', 'Lunch & Fruits'], ['Lunch & Fruits'], ['Breakfast']]) : [],
             'bus' => !$boarder && mt_rand(1, 100) <= 42 ? [$this->pick(array_keys($this->routes)), $this->pick(['both', 'both', 'both', 'in', 'out'])] : null,
             'acts' => mt_rand(1, 100) <= 33 ? ($s['gender'] === 'Male' ? $this->pick([['Music'], ['Dance'], ['Music', 'Dance']]) : $this->pick([['Dance'], ['Music'], ['Ballet'], ['Music', 'Dance'], ['Ballet', 'Music']])) : [],
             'books' => mt_rand(1, 100) <= 55,

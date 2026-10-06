@@ -65,7 +65,23 @@ class Qs
 
     public static function getTeamSA()
     {
+        return ['admin', 'super_admin', 'academic_admin'];
+    }
+
+    /** Admins only (user management, finance deletions); excludes the academic admin. */
+    public static function getTeamAdmin()
+    {
         return ['admin', 'super_admin'];
+    }
+
+    public static function userIsTeamAdmin()
+    {
+        return in_array(Auth::user()->user_type, self::getTeamAdmin());
+    }
+
+    public static function userIsAcademicAdmin()
+    {
+        return Auth::user()->user_type === 'academic_admin';
     }
 
     public static function getTeamAccount()
@@ -75,12 +91,12 @@ class Qs
 
     public static function getTeamSAT()
     {
-        return ['admin', 'super_admin', 'teacher'];
+        return ['admin', 'super_admin', 'academic_admin', 'teacher'];
     }
 
     public static function getTeamAcademic()
     {
-        return ['admin', 'super_admin', 'teacher', 'student'];
+        return ['admin', 'super_admin', 'academic_admin', 'teacher', 'student'];
     }
 
     public static function getTeamAdministrative()
@@ -187,13 +203,13 @@ class Qs
 
     public static function getStaff($remove=[])
     {
-        $data =  ['super_admin', 'admin', 'teacher', 'accountant', 'librarian'];
+        $data =  ['super_admin', 'admin', 'academic_admin', 'teacher', 'accountant', 'librarian'];
         return $remove ? array_values(array_diff($data, $remove)) : $data;
     }
 
     public static function getAllUserTypes($remove=[])
     {
-        $data =  ['super_admin', 'admin', 'teacher', 'accountant', 'librarian', 'student', 'parent'];
+        $data =  ['super_admin', 'admin', 'academic_admin', 'teacher', 'accountant', 'librarian', 'student', 'parent'];
         return $remove ? array_values(array_diff($data, $remove)) : $data;
     }
 
@@ -221,7 +237,7 @@ class Qs
 
     public static function getPTA()
     {
-        return ['super_admin', 'admin', 'teacher', 'parent'];
+        return ['super_admin', 'admin', 'academic_admin', 'teacher', 'parent'];
     }
 
     /*public static function filesToUpload($programme)

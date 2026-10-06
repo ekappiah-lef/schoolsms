@@ -215,20 +215,22 @@ export default function FinanceTransactions({ session, categories, usedCategorie
                                     cell: (r) => (
                                         <div className="flex justify-end gap-0.5">
                                             <RowIconButton icon={Pencil} title="Edit" onClick={() => router.visit(r.urls.edit)} />
-                                            <RowIconButton
-                                                icon={Trash2}
-                                                title="Delete"
-                                                tone="danger"
-                                                onClick={() =>
-                                                    confirm({
-                                                        title: `Delete this ${r.type}?`,
-                                                        description: `${r.category} · ${formatMoney(r.amount)} on ${formatDate(r.date, 'dd/MM/yyyy')}. The cash position will be recalculated.`,
-                                                        confirmLabel: 'Delete entry',
-                                                        method: 'delete',
-                                                        url: r.urls.destroy,
-                                                    })
-                                                }
-                                            />
+                                            {r.urls.destroy && (
+                                                <RowIconButton
+                                                    icon={Trash2}
+                                                    title="Delete"
+                                                    tone="danger"
+                                                    onClick={() =>
+                                                        confirm({
+                                                            title: `Delete this ${r.type}?`,
+                                                            description: `${r.category} · ${formatMoney(r.amount)} on ${formatDate(r.date, 'dd/MM/yyyy')}. The cash position will be recalculated.`,
+                                                            confirmLabel: 'Delete entry',
+                                                            method: 'delete',
+                                                            url: r.urls.destroy,
+                                                        })
+                                                    }
+                                                />
+                                            )}
                                         </div>
                                     ),
                                 },

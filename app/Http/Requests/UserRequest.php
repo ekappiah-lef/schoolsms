@@ -78,4 +78,10 @@ class UserRequest extends FormRequest
         return parent::getValidatorInstance();
 
     }
+
+    /** A nationality, state or LGA typed in (not in the list) is added before saving. */
+    protected function passedValidation()
+    {
+        \App\Support\Locations::resolve($this);
+    }
 }

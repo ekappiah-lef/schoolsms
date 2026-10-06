@@ -418,3 +418,67 @@ export function PayInline({ title, balance, url, onPaid }) {
         </form>
     );
 }
+
+/** The current term's invoice: this term's fees, any balance brought forward, and the total due now. */
+export function TermInvoice({ invoice, sendUrl }) {
+    const [sending, setSending] = useState(false);
+    if (!invoice) return null;
+    const { current, forward } = invoice;
+    const send = async () => {
+        setSending(true);
+        const r = await submitForm(sendUrl, {});
+        setSending(false);
+        r.ok ? toast.success(r.message) : toast.error(r.message);
+    };
+    const row = 'flex items-baseline justify-between gap-4 px-4 py-2 text-sm';
+
+    return (
+        <Panel
+            title={`Invoice · ${invoice.label.replace('-', ' – ')}`}
+            description={forward.total > 0 ? 'This term’s fees plus the balance brought forward from earlier terms.' : 'This term’s fees.'}
+            flush
+            actions={
+                sendUrl ? (
+                    <Button size="sm" onClick={send} disabled={sending}>
+                        <Send />
+                        {sending ? 'Sending…' : 'Send to parent'}
+                    </Button>
+                ) : null
+            }
+        >
+            <div className="tabular divide-y divide-border">
+                {current.lines.map((l, i) => (
+                    <div key={`c${i}`} className={row}>
+                        <span className="min-w-0 truncate">{l.label}</span>
+                        <span>{formatMoney(l.amount)}</span>
+                    </div>
+                ))}
+                {current.paid > 0 && (
+                    <div className={cn(row, 'text-success-fg')}>
+                        <span>Already paid this term</span>
+                        <span>−{formatMoney(current.paid)}</span>
+                    </div>
+                )}
+                <div className={cn(row, 'font-semibold')}>
+                    <span>This term’s balance</span>
+                    <span>{formatMoney(current.balance)}</span>
+                </div>
+                {forward.total > 0 && (
+                    <>
+                        <div className="bg-danger-soft/40 px-4 pb-1 pt-2.5 text-2xs font-semibold uppercase tracking-wider text-danger-fg">Balance brought forward</div>
+                        {forward.lines.map((l, i) => (
+                            <div key={`f${i}`} className={cn(row, 'bg-danger-soft/20 text-danger-fg')}>
+                                <span className="min-w-0 truncate">{l.label}</span>
+                                <span>{formatMoney(l.balance)}</span>
+                            </div>
+                        ))}
+                    </>
+                )}
+                <div className="flex items-baseline justify-between gap-4 bg-canvas px-4 py-3">
+                    <span className="font-semibold">Total due</span>
+                    <span className={cn('text-xl font-semibold', invoice.total > 0 ? 'text-danger-fg' : 'text-success-fg')}>{formatMoney(invoice.total)}</span>
+                </div>
+            </div>
+        </Panel>
+    );
+}

@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { Printer } from 'lucide-react';
 import { cn, formatDate, formatNumber } from '@/lib/utils';
+import { TermInvoice } from '@/components/fees/fee-statement';
 
 const cedi = (n) => `GH₵ ${formatNumber(n ?? 0)}`;
 
@@ -9,7 +10,7 @@ const cedi = (n) => `GH₵ ${formatNumber(n ?? 0)}`;
  * Shows the two invoices (school fees with breakdown, optional services),
  * what has been paid and how to pay. Read-only; no login required.
  */
-export default function FeeStatement({ school, student, session, current, overall, instructions, generated }) {
+export default function FeeStatement({ school, student, session, current, overall, invoice, instructions, generated }) {
     const schoolRecords = current.school.records;
     const optional = current.optional.charges;
     const arrears = Math.max(overall.balance - current.totals.balance, 0);
@@ -57,6 +58,12 @@ export default function FeeStatement({ school, student, session, current, overal
                         <Total label="Optional fees due" value={current.optional.totals.balance} />
                         <Total label="Total due this year" value={current.totals.balance} strong />
                     </section>
+
+                    {invoice && (
+                        <section className="border-b border-border p-6">
+                            <TermInvoice invoice={invoice} />
+                        </section>
+                    )}
 
                     <section className="p-6">
                         <h2 className="text-base font-semibold">Invoice 1 · School fees</h2>

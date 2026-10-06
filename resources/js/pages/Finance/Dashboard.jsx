@@ -23,7 +23,7 @@ const SCOPES = [
  * Finance dashboard: fees billed / paid / due this year (by class type),
  * income and expenses for a period, cash position and trends.
  */
-export default function FinanceDashboard({ session, period, periods, fees, cashflow, balance, monthly, recent, urls }) {
+export default function FinanceDashboard({ session, period, periods, fees, cashflow, invoiced, balance, monthly, recent, urls }) {
     const [scope, setScope] = useState('total');
     const [breakdown, setBreakdown] = useState(false);
     const f = fees[scope];
@@ -63,9 +63,9 @@ export default function FinanceDashboard({ session, period, periods, fees, cashf
                                 See every entry in the ledger
                             </Link>
                         </div>
-                        <PeriodPicker period={period} groups={periods} url={urls.self} only={['period', 'cashflow', 'fees', 'session']} />
+                        <PeriodPicker period={period} groups={periods} url={urls.self} only={['period', 'cashflow', 'fees', 'session', 'invoiced']} />
                     </div>
-                    <BalanceCards period={period} opening={cashflow.opening} received={cashflow.income} expenses={cashflow.expenses} closing={cashflow.closing} />
+                    <BalanceCards period={period} opening={cashflow.opening} invoiced={invoiced} received={cashflow.income} expenses={cashflow.expenses} closing={cashflow.closing} />
                 </section>
 
                 {/* Fees this year and optional services */}

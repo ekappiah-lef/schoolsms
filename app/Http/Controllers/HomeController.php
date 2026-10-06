@@ -92,8 +92,8 @@ class HomeController extends Controller
                 'graduated' => StudentRecord::where('grad', 1)->count(),
                 'teachers' => (int) ($counts['teacher'] ?? 0),
                 'parents' => (int) ($counts['parent'] ?? 0),
-                'staff' => (int) (($counts['admin'] ?? 0) + ($counts['super_admin'] ?? 0) + ($counts['accountant'] ?? 0) + ($counts['librarian'] ?? 0)),
-                'admins' => (int) (($counts['admin'] ?? 0) + ($counts['super_admin'] ?? 0)),
+                'staff' => (int) (($counts['admin'] ?? 0) + ($counts['super_admin'] ?? 0) + ($counts['academic_admin'] ?? 0) + ($counts['accountant'] ?? 0) + ($counts['librarian'] ?? 0)),
+                'admins' => (int) (($counts['admin'] ?? 0) + ($counts['super_admin'] ?? 0) + ($counts['academic_admin'] ?? 0)),
                 'accountants' => (int) ($counts['accountant'] ?? 0),
                 'linkedParents' => StudentRecord::where('grad', 0)->whereNotNull('my_parent_id')->distinct()->count('my_parent_id'),
                 'classes' => MyClass::count(),
@@ -102,7 +102,7 @@ class HomeController extends Controller
             $d['links'] = [
                 'students' => route('students.index'),
                 'admit' => route('students.create'),
-                'users' => route('users.index'),
+                'users' => Qs::userIsTeamAdmin() ? route('users.index') : null,
                 'classes' => route('classes.index'),
             ];
         }
@@ -111,6 +111,11 @@ class HomeController extends Controller
             $d['enrolment'] = $this->enrolmentByClass();
             $d['performance'] = $this->latestExamPerformance($session);
             $d['classMonitor'] = $this->classMonitor($d['enrolment']);
+            // Teachers: only the class(es) they are class teacher of.
+            if (\App\Support\TeacherScope::applies()) {
+                $own = \App\Models\Section::whereIn('id', \App\Support\TeacherScope::ownSectionIds())->pluck('my_class_id')->map(function ($v) { return (int) $v; })->all();
+                $d['classMonitor'] = array_values(array_filter($d['classMonitor'], function ($c) use ($own) { return in_array((int) $c['id'], $own, true); }));
+            }
             $d['exams'] = $this->sessionExams($session);
         }
 

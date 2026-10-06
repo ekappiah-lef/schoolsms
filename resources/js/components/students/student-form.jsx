@@ -189,7 +189,8 @@ function useDependentOptions(url, parentId, initial) {
             return;
         }
         first.current = false;
-        if (!parentId) {
+        // No list to load for an empty or newly typed parent (e.g. a new state): LGAs are typed in.
+        if (!parentId || String(parentId).startsWith('new:')) {
             setOptions([]);
             return;
         }
@@ -289,7 +290,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
     const classSections = options.sections.filter((s) => String(s.class_id) === String(data.my_class_id));
     const lgaOpts = lgas.map((o) => ({ value: o.id, label: o.name }));
 
-    const label = (list, value) => list.find((o) => String(o.value) === String(value))?.label;
+    const label = (list, value) => (String(value ?? '').startsWith('new:') ? String(value).slice(4) : list.find((o) => String(o.value) === String(value))?.label);
     const className = label(opt.classes, data.my_class_id);
     const section = options.sections.find((s) => String(s.id) === String(data.section_id));
     const placement = [className, section?.name].filter(Boolean).join(' ');
@@ -446,13 +447,13 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                     {text('address', { placeholder: 'House number, street, town' })}
                 </FormField>
                 <FormField label="Nationality" required error={err('nal_id')}>
-                    <Combobox id="field-nal_id" value={data.nal_id} onChange={(v) => set('nal_id', v)} options={opt.nationals} placeholder="Choose nationality" searchPlaceholder="Search countries…" />
+                    <Combobox id="field-nal_id" value={data.nal_id} onChange={(v) => set('nal_id', v)} options={opt.nationals} placeholder="Choose nationality" creatable searchPlaceholder="Search countries…" />
                 </FormField>
                 <FormField label="State" required error={err('state_id')}>
-                    <Combobox id="field-state_id" value={data.state_id} onChange={(v) => set('state_id', v)} options={opt.states} placeholder="Choose state" />
+                    <Combobox id="field-state_id" value={data.state_id} onChange={(v) => set('state_id', v)} options={opt.states} placeholder="Choose or type a state" creatable />
                 </FormField>
                 <FormField label="LGA" required error={err('lga_id')} hint={!data.state_id ? 'Choose a state first' : undefined}>
-                    <Combobox id="field-lga_id" value={data.lga_id} onChange={(v) => set('lga_id', v)} options={lgaOpts} loading={lgasLoading} disabled={!data.state_id} placeholder="Choose LGA" />
+                    <Combobox id="field-lga_id" value={data.lga_id} onChange={(v) => set('lga_id', v)} options={lgaOpts} loading={lgasLoading} disabled={!data.state_id} placeholder="Choose or type an LGA" creatable />
                 </FormField>
             </FormSection>
 

@@ -289,6 +289,9 @@ class StudentRecordController extends Controller
         if(Auth::user()->id != $data['sr']->user_id && !Qs::userIsTeamSAT() && !Qs::userIsMyChild($data['sr']->user_id, Auth::user()->id)){
             return redirect(route('dashboard'))->with('pop_error', __('msg.denied'));
         }
+        if (!\App\Support\TeacherScope::canSeeStudent($sr)) {
+            return redirect(route('students.index'))->with('pop_error', 'You can only view students in your own class.');
+        }
 
         return Ui::render('Students/Show', function () use ($sr, $req) {
             return $this->profileProps($sr, $req->query('tab'));
@@ -435,6 +438,10 @@ class StudentRecordController extends Controller
             ->leftJoin('sections as s', 's.id', '=', 'sr.section_id')
             ->leftJoin('users as p', 'p.id', '=', 'sr.my_parent_id')
             ->where('sr.grad', $grad)
+            // Teachers only see the students of the section(s) they are class teacher of.
+            ->when(\App\Support\TeacherScope::applies(), function ($q) {
+                $q->whereIn('sr.section_id', \App\Support\TeacherScope::ownSectionIds());
+            })
             ->select(
                 'sr.id', 'sr.user_id', 'sr.adm_no', 'sr.my_class_id', 'sr.section_id', 'sr.year_admitted', 'sr.grad_date',
                 'u.name', 'u.email', 'u.phone', 'u.gender', 'u.photo',
@@ -557,6 +564,8 @@ class StudentRecordController extends Controller
         $parent = $sr->my_parent;
 
         $canFees = Qs::userIsTeamAccount();
+        // The academic admin sees what a student owes (read-only) but cannot open finance pages.
+        $seesFees = $canFees || Qs::userIsAcademicAdmin();
         $resultsLocked = Mk::examIsLocked() && !Qs::userIsTeamSA();
 
         $props = [
@@ -620,18 +629,20 @@ class StudentRecordController extends Controller
                 'edit' => Qs::userIsTeamSA() ? route('students.edit', $srHash) : null,
                 'reset_pass' => Qs::userIsTeamSA() ? route('st.reset_pass', $userHash) : null,
                 'invoice' => $canFees ? route('payments.invoice', $userHash) : null,
+                'send_invoice' => $canFees ? route('payments.send_invoice', $userHash) : null,
                 'notify' => Qs::userIsTeamSA() ? route('students.notify', $srHash) : null,
                 'destroy' => Qs::userIsSuperAdmin() ? route('students.destroy', $userHash) : null,
             ]),
             'tabs' => [
-                'fees' => $canFees,
+                'fees' => $seesFees,
                 'results' => true,
             ],
             'resultsLocked' => $resultsLocked,
         ];
 
-        if ($canFees) {
-            $props['fees'] = Fees::statement($u->id, null, true);
+        if ($seesFees) {
+            $props['fees'] = Fees::statement($u->id, null, $canFees);
+            $props['invoice'] = Fees::termInvoice($u->id);
         }
 
         if (Qs::userIsTeamSA()) {

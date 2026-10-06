@@ -100,6 +100,8 @@ Route::group(['middleware' => 'auth'], function () {
             Route::post('select_class', 'PaymentController@select_class')->name('payments.select_class');
             Route::delete('reset_record/{id}', 'PaymentController@reset_record')->name('payments.reset_record');
             Route::post('pay_now/{id}', 'PaymentController@pay_now')->name('payments.pay_now');
+            Route::post('invoice/{id}/send', 'PaymentController@sendInvoice')->name('payments.send_invoice');
+            Route::post('manage/{class_id}/send-invoices', 'PaymentController@sendClassInvoices')->name('payments.send_class_invoices');
         });
 
         /*************** Single payment receipts (view / PDF / send to parent) *****************/
@@ -185,6 +187,14 @@ Route::group(['middleware' => 'auth'], function () {
             Route::get('print/{id}/{exam_id}/{year}', 'MarkController@print_view')->name('marks.print');
 
         });
+
+        /*************** Attendance & messages *****************/
+        Route::get('attendance', 'AttendanceController@index')->name('attendance.index');
+        Route::post('attendance', 'AttendanceController@store')->name('attendance.store');
+        Route::post('attendance/alert', 'AttendanceController@alert')->name('attendance.alert');
+        Route::get('messages', 'MessageController@index')->name('messages.index');
+        Route::get('messages/count', 'MessageController@count')->name('messages.count');
+        Route::post('messages', 'MessageController@store')->name('messages.store');
 
         Route::resource('students', 'StudentRecordController');
         Route::resource('users', 'UserController');

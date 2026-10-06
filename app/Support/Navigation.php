@@ -52,6 +52,10 @@ class Navigation
             $academics[] = self::group('Examinations', 'notebook-pen', $exams);
         }
 
+        if (Qs::userIsTeamSAT()) {
+            $academics[] = self::item('Attendance', 'clipboard-check', 'attendance.index');
+        }
+
         if (Qs::userIsAcademic()) {
             $academics[] = self::item('Timetables', 'calendar-clock', 'tt.index', ['tt.index', 'ttr.edit', 'ttr.show', 'ttr.manage']);
         }
@@ -66,6 +70,11 @@ class Navigation
 
         if ($academics) {
             $sections[] = self::section('Academics', $academics);
+        }
+
+        /* Messages: parents, staff, a class */
+        if (Qs::userIsTeamSA()) {
+            $sections[] = self::section('Communication', [self::item('Messages', 'megaphone', 'messages.index')]);
         }
 
         /* Finance */
@@ -95,13 +104,13 @@ class Navigation
 
         /* Administration */
         if (Qs::userIsTeamSA()) {
-            $admin = [
-                self::item('Users', 'user-cog', 'users.index', ['users.index', 'users.show', 'users.edit']),
+            $admin = array_filter([
+                Qs::userIsTeamAdmin() ? self::item('Users', 'user-cog', 'users.index', ['users.index', 'users.show', 'users.edit']) : null,
                 self::item('Classes', 'school', 'classes.index', ['classes.index', 'classes.edit']),
                 self::item('Sections', 'layers', 'sections.index', ['sections.index', 'sections.edit']),
                 self::item('Subjects', 'book-open', 'subjects.index', ['subjects.index', 'subjects.edit']),
                 self::item('Dormitories', 'bed-double', 'dorms.index', ['dorms.index', 'dorms.edit']),
-            ];
+            ]);
 
             if (Qs::userIsSuperAdmin()) {
                 $admin[] = self::group('Result pins', 'key-round', [
@@ -111,7 +120,7 @@ class Navigation
                 $admin[] = self::item('Settings', 'settings', 'settings');
             }
 
-            $sections[] = self::section('Administration', $admin);
+            $sections[] = self::section('Administration', array_values($admin));
         }
 
         return array_values(array_filter($sections, function ($s) {

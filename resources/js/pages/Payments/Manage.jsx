@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import { Head, Link, router } from "@inertiajs/react";
-import { ArrowRight, Download, Search, Wallet } from "lucide-react";
+import { ArrowRight, Download, Search, Send, Wallet } from "lucide-react";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/dialog";
+import { submitForm } from "@/lib/http";
 import { usePaged } from "@/components/app/data-table";
 import { withAppLayout } from "@/layouts/AppLayout";
 import { EmptyState, PageHeader, Panel } from "@/components/app/page";
@@ -97,6 +100,7 @@ export default function PaymentsManage({
                         Loading class…
                     </span>
                 )}
+                {classId && urls.sendInvoices && <SendClassInvoices url={urls.sendInvoices} className={className} count={students.length} />}
             </div>
 
             {!classId ? (
@@ -383,5 +387,36 @@ function Figure({ label, value, note, tone }) {
                 {value}
             </div>
         </div>
+    );
+}
+
+/** Email + SMS this term's invoice (with any balance brought forward) to every parent in the class. */
+function SendClassInvoices({ url, className, count }) {
+    const [open, setOpen] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const send = async () => {
+        setBusy(true);
+        const r = await submitForm(url, {});
+        setBusy(false);
+        setOpen(false);
+        r.ok ? toast.success(r.message) : toast.error(r.message);
+    };
+    return (
+        <>
+            <Button className="ml-auto" onClick={() => setOpen(true)}>
+                <Send />
+                Send invoices to class
+            </Button>
+            <ConfirmDialog
+                open={open}
+                onOpenChange={(o) => !busy && setOpen(o)}
+                title={`Send invoices to ${className} parents?`}
+                description={`Each of the ${count} students' parents gets this term's invoice by email and SMS, including any balance brought forward from earlier terms.`}
+                confirmLabel="Send invoices"
+                tone="primary"
+                loading={busy}
+                onConfirm={send}
+            />
+        </>
     );
 }

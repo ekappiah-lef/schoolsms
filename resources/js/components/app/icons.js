@@ -17,6 +17,8 @@ import {
     ReceiptText,
     Utensils,
     ShoppingBag,
+    ClipboardCheck,
+    Megaphone,
     UserCog,
     Users,
     Wallet,
@@ -46,6 +48,8 @@ const icons = {
     receipt: ReceiptText,
     utensils: Utensils,
     'shopping-bag': ShoppingBag,
+    'clipboard-check': ClipboardCheck,
+    megaphone: Megaphone,
 };
 
 export function navIcon(name) {

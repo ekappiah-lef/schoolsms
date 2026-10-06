@@ -2,7 +2,7 @@ import { forwardRef, useMemo, useState } from 'react';
 import * as SelectPrimitive from '@radix-ui/react-select';
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { Command } from 'cmdk';
-import { Check, ChevronDown, Search, X } from 'lucide-react';
+import { Check, ChevronDown, Plus, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { inputClass } from './input';
 
@@ -93,9 +93,17 @@ export function Combobox({
     invalid,
     id,
     className,
+    creatable = false, // typing a name that is not listed offers "Add …"; the value becomes "new:Name"
 }) {
     const [open, setOpen] = useState(false);
-    const selected = useMemo(() => options.find((o) => String(o.value) === String(value ?? '')), [options, value]);
+    const [search, setSearch] = useState('');
+    const selected = useMemo(() => {
+        const v = String(value ?? '');
+        if (creatable && v.startsWith('new:')) return { value: v, label: v.slice(4) };
+        return options.find((o) => String(o.value) === v);
+    }, [options, value, creatable]);
+    const typed = search.trim();
+    const canCreate = creatable && typed.length > 1 && !options.some((o) => o.label.toLowerCase() === typed.toLowerCase());
 
     return (
         <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
@@ -140,12 +148,29 @@ export function Combobox({
                         <div className="flex items-center gap-2 border-b border-border px-3">
                             <Search className="size-4 shrink-0 text-fg-subtle" />
                             <Command.Input
-                                placeholder={searchPlaceholder}
+                                value={search}
+                                onValueChange={setSearch}
+                                placeholder={creatable ? 'Search or type a new name…' : searchPlaceholder}
                                 className="h-9 w-full bg-transparent text-sm outline-none placeholder:text-fg-subtle"
                             />
                         </div>
                         <Command.List className="scrollbar-thin max-h-64 overflow-y-auto p-1">
-                            <Command.Empty className="px-2 py-6 text-center text-sm text-fg-muted">{emptyText}</Command.Empty>
+                            {!canCreate && <Command.Empty className="px-2 py-6 text-center text-sm text-fg-muted">{emptyText}</Command.Empty>}
+                            {canCreate && (
+                                <Command.Item
+                                    value={`__create ${typed}`}
+                                    forceMount
+                                    onSelect={() => {
+                                        onChange?.(`new:${typed}`);
+                                        setSearch('');
+                                        setOpen(false);
+                                    }}
+                                    className="flex h-8 cursor-default select-none items-center gap-2 rounded-md px-2 text-sm font-medium text-primary outline-none data-[selected=true]:bg-subtle"
+                                >
+                                    <Plus className="size-4 shrink-0" />
+                                    <span className="truncate">Add “{typed}”</span>
+                                </Command.Item>
+                            )}
                             {options.map((o) => (
                                 <Command.Item
                                     key={o.value}

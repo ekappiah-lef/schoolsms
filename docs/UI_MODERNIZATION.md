@@ -142,6 +142,22 @@ Tables: every list shows 10 rows per page (`usePaged` in `components/app/data-ta
 
 School year for finance = 1 August – 31 July (Term 1 Aug–Dec, Term 2 Jan–Apr, Term 3 May–Jul), so fees paid in late August count in the new year. Term bills: school fees by `payments.term`, optional services a third per term, shop sales by date sold. Fee breakdown term table splits **Bills** (invoiced = paid + still owed) from **Cash** (fees received, other income, expenses, term balance, cash at end).
 
+### Roles, attendance, messages, invoices (2026-10-06) — migrations `2026_10_06_*`
+
+| Feature | Where |
+| --- | --- |
+| Academic Admin role (`academic_admin`) | In `Qs::getTeamSA/SAT/Academic/Staff`; kept out of finance (teamAccount), Users (`teamAdmin` middleware) and Settings. Sees students' fees read-only. Demo login `academic` / `cj` |
+| Only admins delete income/expenses | `FinanceTransactionController@destroy` + hidden button for accountants |
+| Feeding options | Breakfast; Lunch & Fruits (merged by migration, money totals unchanged) |
+| Typed nationality / state / LGA | Combobox `creatable` sends `new:Name`; `App\Support\Locations::resolve` adds it (FormRequest `passedValidation`) |
+| Camera capture | `PhotoUploader` "Take photo": live camera on https/localhost, phone camera app (`capture`) elsewhere |
+| Teacher limits | `App\Support\TeacherScope`: class teacher = own section (students, all subjects); subject teacher = own subjects in classes where they are not class teacher |
+| Term invoice + arrears | `Fees::termInvoice` (this term + balance brought forward = total due), shown on payments/profile/public statement; send per student or per class (`Notices::sendInvoice`, `TermInvoice` mail) |
+| Attendance | `/attendance` daily register per section; absence alert SMS+email (`Notices::sendAbsence`), once per child per day |
+| Messages | `/messages` (admins, academic admin): all parents, a class's parents, all/teaching/non-teaching staff; SMS + email; history in `messages` |
+| Fee breakdown term table | Year filter + Columns menu (saved per browser) |
+| Finance dashboard | Opens on the current school year; Total invoiced + Year balance for school years |
+
 ## 7. Demo data
 
 `php artisan db:seed --class=DemoSchoolSeeder` replaces all school data with a realistic demo school (re-run any time to reset; output is identical each run). It keeps the super admin accounts, settings and reference tables (regions, districts, nationalities, blood groups, skills).

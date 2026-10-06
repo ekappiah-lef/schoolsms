@@ -16,7 +16,7 @@ export default function UserShow({ user, subjects, urls }) {
                 <Breadcrumbs items={[{ label: 'People' }, urls.back ? { label: 'Users', href: urls.back } : { label: 'Users' }, { label: 'Profile' }]} />
                 <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div className="flex min-w-0 items-center gap-4">
-                        <Avatar src={user.photo} name={user.name} size="xl" />
+                        <Avatar src={user.photo} name={user.name} size="3xl" />
                         <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                                 <h1 className="truncate text-2xl font-semibold">{user.name}</h1>

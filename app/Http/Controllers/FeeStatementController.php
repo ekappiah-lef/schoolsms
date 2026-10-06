@@ -39,6 +39,7 @@ class FeeStatementController extends Controller
             'session' => $year,
             'current' => Fees::statement($sr->user_id, $year),
             'overall' => Fees::statement($sr->user_id)['totals'],
+            'invoice' => Fees::termInvoice($sr->user_id),
             'instructions' => Qs::getSetting('payment_instructions'),
             'generated' => now()->toIso8601String(),
         ]);

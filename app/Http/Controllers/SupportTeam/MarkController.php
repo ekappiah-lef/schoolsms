@@ -6,6 +6,7 @@ use App\Helpers\Qs;
 use App\Helpers\Mk;
 use App\Helpers\Ui;
 use App\Support\ClassOrder;
+use App\Support\TeacherScope;
 use App\Http\Requests\Mark\MarkSelector;
 use App\Models\Setting;
 use App\Repositories\ExamRepo;
@@ -54,7 +55,9 @@ class MarkController extends Controller
             'exams' => $exams->map(function ($e) {
                 return ['id' => $e->id, 'name' => $e->name, 'term' => $e->term];
             })->values(),
-            'classes' => ClassOrder::sort($this->my_class->all())->map(function ($c) {
+            'classes' => ClassOrder::sort($this->my_class->all())->filter(function ($c) {
+                return !TeacherScope::applies() || in_array((int) $c->id, TeacherScope::markClassIds(), true);
+            })->map(function ($c) {
                 return ['id' => $c->id, 'name' => $c->name];
             })->values(),
             'urls' => [
@@ -89,6 +92,10 @@ class MarkController extends Controller
 
     public function show($student_id, $year)
     {
+        $own = \App\Models\StudentRecord::where('user_id', $student_id)->first();
+        if ($own && !TeacherScope::canSeeStudent($own)) {
+            return redirect(route('dashboard'))->with('pop_error', 'You can only view results for students in your own class.');
+        }
         /* Prevent Other Students/Parents from viewing Result of others */
         if(Auth::user()->id != $student_id && !Qs::userIsTeamSAT() && !Qs::userIsMyChild($student_id, Auth::user()->id)){
             return redirect(route('dashboard'))->with('pop_error', __('msg.denied'));
@@ -225,6 +232,9 @@ class MarkController extends Controller
 
     public function selector(MarkSelector $req)
     {
+        if (!TeacherScope::canMark((int) $req->my_class_id, (int) $req->section_id, (int) $req->subject_id)) {
+            return back()->with('pop_error', 'You can only enter marks for your own class, or for the subjects you teach.');
+        }
         $data = $req->only(['exam_id', 'my_class_id', 'section_id', 'subject_id']);
         $d2 = $req->only(['exam_id', 'my_class_id', 'section_id']);
         $d = $req->only(['my_class_id', 'section_id']);
@@ -246,6 +256,9 @@ class MarkController extends Controller
 
     public function manage($exam_id, $class_id, $section_id, $subject_id)
     {
+        if (!TeacherScope::canMark((int) $class_id, (int) $section_id, (int) $subject_id)) {
+            return redirect()->route('marks.index')->with('flash_danger', 'You can only enter marks for your own class, or for the subjects you teach.');
+        }
         $d = ['exam_id' => $exam_id, 'my_class_id' => $class_id, 'section_id' => $section_id, 'subject_id' => $subject_id, 'year' => $this->year];
 
         $d['marks'] = $this->exam->getMark($d);
@@ -311,6 +324,9 @@ class MarkController extends Controller
 
     public function update(Request $req, $exam_id, $class_id, $section_id, $subject_id)
     {
+        if (!TeacherScope::canMark((int) $class_id, (int) $section_id, (int) $subject_id)) {
+            return Qs::json('You can only enter marks for your own class, or for the subjects you teach.', false);
+        }
         $p = ['exam_id' => $exam_id, 'my_class_id' => $class_id, 'section_id' => $section_id, 'subject_id' => $subject_id, 'year' => $this->year];
 
         $d = $d3 = $all_st_ids = [];
@@ -449,6 +465,9 @@ class MarkController extends Controller
 
     public function comment_update(Request $req, $exr_id)
     {
+        if (!$this->mayEditRecord($exr_id)) {
+            return Qs::json('Only the class teacher can comment on these results.', false);
+        }
         $d = Qs::userIsTeamSA() ? $req->only(['t_comment', 'p_comment']) : $req->only(['t_comment']);
 
         $this->exam->updateRecord(['id' => $exr_id], $d);
@@ -457,6 +476,9 @@ class MarkController extends Controller
 
     public function skills_update(Request $req, $skill, $exr_id)
     {
+        if (!$this->mayEditRecord($exr_id)) {
+            return Qs::json('Only the class teacher can rate these skills.', false);
+        }
         $d = [];
         if($skill == 'AF' || $skill == 'PS'){
             $sk = strtolower($skill);
@@ -469,6 +491,9 @@ class MarkController extends Controller
 
     public function bulk($class_id = NULL, $section_id = NULL)
     {
+        if ($section_id && TeacherScope::applies() && !in_array((int) $section_id, TeacherScope::ownSectionIds(), true)) {
+            return redirect()->route('marks.bulk')->with('flash_danger', 'You can only open results for your own class.');
+        }
         $d['my_classes'] = $this->my_class->all();
         $d['selected'] = false;
 
@@ -500,8 +525,12 @@ class MarkController extends Controller
             'tool' => $tool,
             'year' => $this->year,
             'exams' => $this->exam->getExam(['year' => $this->year])->map(function ($e) { return ['id' => $e->id, 'name' => $e->name, 'term' => (int) $e->term]; })->values(),
-            'classes' => ClassOrder::sort($this->my_class->all())->map(function ($c) { return ['id' => $c->id, 'name' => $c->name]; })->values(),
-            'sections' => $this->my_class->getAllSections()->map(function ($x) { return ['id' => $x->id, 'name' => $x->name, 'class_id' => $x->my_class_id]; })->values(),
+            'classes' => ClassOrder::sort($this->my_class->all())->filter(function ($c) {
+                return !TeacherScope::applies() || \App\Models\Section::where('my_class_id', $c->id)->whereIn('id', TeacherScope::ownSectionIds())->exists();
+            })->map(function ($c) { return ['id' => $c->id, 'name' => $c->name]; })->values(),
+            'sections' => $this->my_class->getAllSections()->filter(function ($x) {
+                return !TeacherScope::applies() || in_array((int) $x->id, TeacherScope::ownSectionIds(), true);
+            })->map(function ($x) { return ['id' => $x->id, 'name' => $x->name, 'class_id' => $x->my_class_id]; })->values(),
             'selected' => null,
             'urls' => [
                 'tabulation' => route('marks.tabulation'),
@@ -511,6 +540,17 @@ class MarkController extends Controller
                 'entry' => route('marks.index'),
             ],
         ];
+    }
+
+    /** Teachers may only comment on / rate students of the section they are class teacher of. */
+    protected function mayEditRecord($exr_id): bool
+    {
+        if (!TeacherScope::applies()) {
+            return true;
+        }
+        $section = \App\Models\ExamRecord::where('id', $exr_id)->value('section_id');
+
+        return $section && in_array((int) $section, TeacherScope::ownSectionIds(), true);
     }
 
     public function bulk_select(Request $req)

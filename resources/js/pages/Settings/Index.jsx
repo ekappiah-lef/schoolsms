@@ -115,7 +115,7 @@ export default function Settings({ settings, fees, logo, years, urls }) {
                         </Panel>
                         <Panel title="Logo">
                             <Field label="School logo" error={logoError || errors.logo}>
-                                <PhotoUploader value={logoFile} onChange={setLogoFile} currentUrl={logo} name={data.system_name} onError={setLogoError} />
+                                <PhotoUploader value={logoFile} onChange={setLogoFile} currentUrl={logo} name={data.system_name} onError={setLogoError} camera={false} />
                             </Field>
                         </Panel>
                     </div>

@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
 import { Head, Link, router } from "@inertiajs/react";
-import { ChevronRight, Download, Layers } from "lucide-react";
+import { Columns3, Download, Layers } from "lucide-react";
 import { withAppLayout } from "@/layouts/AppLayout";
 import { ModuleHeader } from "@/components/app/module";
 import { EmptyState } from "@/components/app/page";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Segmented } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { downloadCsv } from "@/lib/use-visit-state";
 import { cn, formatMoney } from "@/lib/utils";
 
@@ -176,7 +177,20 @@ export default function FeeBreakdown({
 
 FeeBreakdown.layout = withAppLayout;
 
-/** Every term grouped by school year, newest first; a year row carries the year's totals. */
+const TERM_COLUMNS = [
+    { key: 'invoiced', label: 'Invoiced', help: 'Bills sent for the term' },
+    { key: 'paid', label: 'Paid', help: 'Paid against those bills', tone: 'success' },
+    { key: 'outstanding', label: 'Still owed', help: 'Not yet paid', tone: 'owed' },
+    { key: 'fees', label: 'Fees received', help: 'Fee payments made during the term (incl. arrears)', tone: 'success' },
+    { key: 'other', label: 'Other income', help: 'Capital, grants, donations', tone: 'success' },
+    { key: 'expenses', label: 'Expenses', help: 'Spent during the term', tone: 'danger' },
+    { key: 'net', label: 'Term balance', help: 'Money received less expenses', signed: true, strong: true },
+    { key: 'closing', label: 'Cash at end', help: 'School cash at the end of the term', muted: true },
+];
+const DEFAULT_COLUMNS = ['invoiced', 'paid', 'outstanding', 'net'];
+const COLUMNS_KEY = 'fee-breakdown.term-columns';
+
+/** Every term grouped by school year; choose the year and which figures to show. */
 function TermTable({ rows, session, term, ledgerUrl, onPick }) {
     const groups = useMemo(() => {
         const g = [];
@@ -187,208 +201,133 @@ function TermTable({ rows, session, term, ledgerUrl, onPick }) {
         });
         return g.map((y) => ({
             ...y,
-            ...Object.fromEntries(
-                [
-                    "invoiced",
-                    "paid",
-                    "outstanding",
-                    "fees",
-                    "other",
-                    "expenses",
-                    "net",
-                ].map((k) => [k, y.terms.reduce((t, r) => t + r[k], 0)]),
-            ),
+            ...Object.fromEntries(['invoiced', 'paid', 'outstanding', 'fees', 'other', 'expenses', 'net'].map((k) => [k, y.terms.reduce((t, r) => t + r[k], 0)])),
             closing: y.terms[0].closing,
         }));
     }, [rows]);
-    // The current year and the year being looked at start open.
-    const [open, setOpen] = useState(
-        () => new Set([groups[0]?.session, session]),
-    );
-    const toggle = (s) =>
-        setOpen((o) => {
-            const n = new Set(o);
-            n.has(s) ? n.delete(s) : n.add(s);
-            return n;
-        });
 
-    const num = "tabular px-3 py-2.5 text-right";
+    const [year, setYear] = useState(() => (groups.some((g) => g.session === session) ? session : groups[0]?.session ?? ''));
+    const [cols, setCols] = useState(() => {
+        try {
+            const saved = JSON.parse(window.localStorage.getItem(COLUMNS_KEY));
+            if (Array.isArray(saved) && saved.length) return saved;
+        } catch {
+            /* ignore */
+        }
+        return DEFAULT_COLUMNS;
+    });
+    const toggleCol = (k) =>
+        setCols((c) => {
+            const next = c.includes(k) ? c.filter((x) => x !== k) : TERM_COLUMNS.map((x) => x.key).filter((x) => x === k || c.includes(x));
+            const final = next.length ? next : c;
+            try {
+                window.localStorage.setItem(COLUMNS_KEY, JSON.stringify(final));
+            } catch {
+                /* ignore */
+            }
+            return final;
+        });
+    const shownCols = TERM_COLUMNS.filter((c) => cols.includes(c.key));
+    const visible = year ? groups.filter((g) => g.session === year) : groups;
+
+    const cell = (c, r, strongRow) => {
+        const v = r[c.key];
+        const tone =
+            c.tone === 'success' ? 'text-success-fg' : c.tone === 'danger' ? 'text-danger-fg' : c.tone === 'owed' ? (v > 0 ? 'text-danger-fg' : 'text-fg-subtle') : c.muted ? 'text-fg-muted' : c.signed && v < 0 ? 'text-danger-fg' : '';
+        return (
+            <td key={c.key} className={cn('tabular px-4 py-2.5 text-right', tone, (c.strong || strongRow) && 'font-semibold')}>
+                {c.signed ? signed(v) : formatMoney(v)}
+            </td>
+        );
+    };
+
     return (
         <section className="overflow-hidden rounded-lg bg-surface shadow-card">
-            <div className="flex flex-wrap items-end justify-between gap-3 px-6 pb-4 pt-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-6 pb-4 pt-5">
                 <div>
                     <h2 className="text-lg font-semibold">Term by term</h2>
-                    <p className="max-w-3xl text-sm text-fg-muted">
-                        Bills: invoiced = paid + still owed. Cash: everything
-                        that came in and went out during the term, including
-                        arrears from earlier terms and capital, so it can be
-                        more than the term’s bills. Click a term to see its fee
-                        items.
-                    </p>
+                    <p className="text-sm text-fg-muted">Click a term to see its fee items.</p>
                 </div>
-                <Link
-                    href={ledgerUrl}
-                    className="text-sm font-medium text-primary hover:underline"
-                >
-                    Open the ledger
-                </Link>
+                <div className="flex flex-wrap items-center gap-2">
+                    <Select
+                        size="sm"
+                        className="w-40"
+                        value={year}
+                        onChange={setYear}
+                        options={groups.map((g) => ({ value: g.session, label: g.session.replace('-', ' – ') }))}
+                        clearable
+                        clearLabel="All years"
+                        placeholder="All years"
+                    />
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button size="sm">
+                                <Columns3 />
+                                Columns ({shownCols.length})
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-72">
+                            <DropdownMenuLabel>Show these figures</DropdownMenuLabel>
+                            {TERM_COLUMNS.map((c) => (
+                                <DropdownMenuCheckboxItem key={c.key} checked={cols.includes(c.key)} onCheckedChange={() => toggleCol(c.key)} onSelect={(e) => e.preventDefault()}>
+                                    <div className="flex flex-col">
+                                        <span>{c.label}</span>
+                                        <span className="text-xs text-fg-muted">{c.help}</span>
+                                    </div>
+                                </DropdownMenuCheckboxItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Link href={ledgerUrl} className="px-1 text-sm font-medium text-primary hover:underline">
+                        Ledger
+                    </Link>
+                </div>
             </div>
             <div className="scrollbar-thin overflow-x-auto">
-                <table className="w-full min-w-[1000px] text-sm">
+                <table className="w-full text-sm">
                     <thead>
-                        <tr className="border-t border-border bg-canvas text-2xs font-semibold uppercase text-fg-muted">
-                            <th className="h-8 px-6" />
-                            <th
-                                colSpan={3}
-                                className="h-8 border-x border-border px-3 text-center"
-                            >
-                                Bills for the term
-                            </th>
-                            <th colSpan={5} className="h-8 px-3 text-center">
-                                Cash during the term
-                            </th>
-                        </tr>
                         <tr className="border-y border-border bg-canvas text-left text-2xs font-semibold uppercase text-fg-muted">
                             <th className="h-10 px-6">Term</th>
-                            <th className="h-10 border-l border-border px-3 text-right">
-                                Invoiced
-                            </th>
-                            <th className="h-10 px-3 text-right">Paid</th>
-                            <th className="h-10 border-r border-border px-3 text-right">
-                                Still owed
-                            </th>
-                            <th className="h-10 px-3 text-right">
-                                Fees received
-                            </th>
-                            <th className="h-10 px-3 text-right">
-                                Other income
-                            </th>
-                            <th className="h-10 px-3 text-right">Expenses</th>
-                            <th className="h-10 px-3 text-right">
-                                Term balance
-                            </th>
-                            <th className="h-10 px-6 text-right">
-                                Cash at end
-                            </th>
+                            {shownCols.map((c) => (
+                                <th key={c.key} className="h-10 px-4 text-right" title={c.help}>
+                                    {c.label}
+                                </th>
+                            ))}
                         </tr>
                     </thead>
                     <tbody>
-                        {groups.map((y) => {
-                            const isOpen = open.has(y.session);
-                            return (
-                                <Fragment key={y.session}>
-                                    <tr
-                                        className="cursor-pointer border-b border-border bg-muted/40 font-semibold hover:bg-muted/70"
-                                        onClick={() => toggle(y.session)}
-                                    >
-                                        <td className="px-6 py-2.5">
-                                            <span className="flex items-center gap-1.5">
-                                                <ChevronRight
-                                                    className={cn(
-                                                        "size-4 text-fg-subtle transition-transform",
-                                                        isOpen && "rotate-90",
-                                                    )}
-                                                />
-                                                {y.session.replace("-", " – ")}
-                                            </span>
-                                        </td>
-                                        <Cells r={y} num={num} />
-                                        <td
-                                            className={cn(
-                                                num,
-                                                y.net < 0 && "text-danger-fg",
-                                            )}
-                                        >
-                                            {signed(y.net)}
-                                        </td>
-                                        <td className="tabular px-6 py-2.5 text-right">
-                                            {formatMoney(y.closing)}
-                                        </td>
+                        {visible.map((y) => (
+                            <Fragment key={y.session}>
+                                {visible.length > 1 && (
+                                    <tr className="border-b border-border bg-muted/40">
+                                        <td className="px-6 py-2.5 font-semibold">{y.session.replace('-', ' – ')}</td>
+                                        {shownCols.map((c) => cell(c, y, true))}
                                     </tr>
-                                    {isOpen &&
-                                        y.terms.map((r) => {
-                                            const selected =
-                                                r.session === session &&
-                                                r.term === term;
-                                            return (
-                                                <tr
-                                                    key={r.key}
-                                                    onClick={() => onPick(r)}
-                                                    className={cn(
-                                                        "cursor-pointer border-b border-border last:border-0 hover:bg-muted/50",
-                                                        selected &&
-                                                            "bg-primary-soft/40",
-                                                    )}
-                                                >
-                                                    <td className="py-2.5 pl-12 pr-6">
-                                                        Term {r.term}
-                                                        {r.current && (
-                                                            <Badge className="ml-2">
-                                                                Now
-                                                            </Badge>
-                                                        )}
-                                                    </td>
-                                                    <Cells r={r} num={num} />
-                                                    <td
-                                                        className={cn(
-                                                            num,
-                                                            "font-semibold",
-                                                            r.net < 0 &&
-                                                                "text-danger-fg",
-                                                        )}
-                                                    >
-                                                        {signed(r.net)}
-                                                    </td>
-                                                    <td className="tabular px-6 py-2.5 text-right text-fg-muted">
-                                                        {formatMoney(r.closing)}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                </Fragment>
-                            );
-                        })}
+                                )}
+                                {y.terms.map((r) => {
+                                    const selected = r.session === session && r.term === term;
+                                    return (
+                                        <tr key={r.key} onClick={() => onPick(r)} className={cn('cursor-pointer border-b border-border last:border-0 hover:bg-muted/50', selected && 'bg-primary-soft/40')}>
+                                            <td className={cn('py-2.5 pr-6', visible.length > 1 ? 'pl-10' : 'pl-6')}>
+                                                Term {r.term}
+                                                {r.current && <Badge className="ml-2">Now</Badge>}
+                                            </td>
+                                            {shownCols.map((c) => cell(c, r))}
+                                        </tr>
+                                    );
+                                })}
+                                {visible.length === 1 && y.terms.length > 1 && (
+                                    <tr className="border-t border-border bg-canvas font-semibold">
+                                        <td className="px-6 py-2.5">Year total</td>
+                                        {shownCols.map((c) => cell(c, y, true))}
+                                    </tr>
+                                )}
+                            </Fragment>
+                        ))}
                     </tbody>
                 </table>
             </div>
         </section>
-    );
-}
-
-/** Bills (invoiced = paid + still owed) then cash in and out. */
-function Cells({ r, num }) {
-    return (
-        <>
-            <td className={cn(num, "border-l border-border")}>
-                {formatMoney(r.invoiced)}
-            </td>
-            <td className={cn(num, "text-success-fg")}>
-                {formatMoney(r.paid)}
-            </td>
-            <td
-                className={cn(
-                    num,
-                    "border-r border-border",
-                    r.outstanding > 0 ? "text-danger-fg" : "text-fg-subtle",
-                )}
-            >
-                {formatMoney(r.outstanding)}
-            </td>
-            <td className={cn(num, "text-success-fg")}>
-                {formatMoney(r.fees)}
-            </td>
-            <td
-                className={cn(
-                    num,
-                    r.other ? "text-success-fg" : "text-fg-subtle",
-                )}
-            >
-                {formatMoney(r.other)}
-            </td>
-            <td className={cn(num, "text-danger-fg")}>
-                {formatMoney(r.expenses)}
-            </td>
-        </>
     );
 }
 

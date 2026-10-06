@@ -18,13 +18,13 @@ export function MarkSelector({ exams, classes, current, urls, compact = false })
         section_id: current?.section_id ?? '',
         subject_id: current?.subject_id ?? '',
     });
-    const [lists, setLists] = useState({ sections: [], subjects: [] });
+    const [lists, setLists] = useState({ sections: [], subjects: [], bySection: null });
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         if (!values.my_class_id) {
-            setLists({ sections: [], subjects: [] });
+            setLists({ sections: [], subjects: [], bySection: null });
             return;
         }
         let cancelled = false;
@@ -32,12 +32,13 @@ export function MarkSelector({ exams, classes, current, urls, compact = false })
         http.get(urls.classSubjects.replace(':id', values.my_class_id))
             .then(({ data }) => {
                 if (cancelled) return;
-                setLists({ sections: data.sections ?? [], subjects: data.subjects ?? [] });
+                setLists({ sections: data.sections ?? [], subjects: data.subjects ?? [], bySection: data.bySection ?? null });
                 // Keep the current section/subject if still valid, otherwise preselect the only option.
                 setValues((v) => ({
                     ...v,
                     section_id: data.sections?.some((s) => String(s.id) === String(v.section_id)) ? v.section_id : data.sections?.length === 1 ? data.sections[0].id : '',
                     subject_id: data.subjects?.some((s) => String(s.id) === String(v.subject_id)) ? v.subject_id : '',
+                    // (subjects are narrowed per section below for teachers)
                 }));
             })
             .catch(() => !cancelled && toast.error('Could not load sections and subjects.'))
@@ -46,6 +47,14 @@ export function MarkSelector({ exams, classes, current, urls, compact = false })
             cancelled = true;
         };
     }, [values.my_class_id, urls.classSubjects]);
+
+    // Teachers: the subjects allowed depend on the section (all subjects in their own class,
+    // otherwise only the subjects they teach).
+    const subjects = lists.bySection && values.section_id ? lists.subjects.filter((s) => (lists.bySection[values.section_id] ?? []).includes(Number(s.id))) : lists.subjects;
+    useEffect(() => {
+        if (values.subject_id && !subjects.some((s) => String(s.id) === String(values.subject_id))) setValues((v) => ({ ...v, subject_id: '' }));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [values.section_id, lists]);
 
     const ready = values.exam_id && values.my_class_id && values.section_id && values.subject_id;
     const unchanged =
@@ -92,9 +101,9 @@ export function MarkSelector({ exams, classes, current, urls, compact = false })
                 <Combobox
                     value={values.subject_id}
                     onChange={(v) => set('subject_id', v)}
-                    options={lists.subjects.map((s) => ({ value: s.id, label: s.name }))}
-                    placeholder={loading ? 'Loading…' : values.my_class_id ? (lists.subjects.length ? 'Choose subject' : 'No subjects for you in this class') : 'Class first'}
-                    disabled={!values.my_class_id || loading || !lists.subjects.length}
+                    options={subjects.map((s) => ({ value: s.id, label: s.name }))}
+                    placeholder={loading ? 'Loading…' : values.my_class_id ? (subjects.length ? 'Choose subject' : 'No subjects for you in this class') : 'Class first'}
+                    disabled={!values.my_class_id || loading || !subjects.length}
                     clearable={false}
                     className={compact ? 'h-8 text-sm' : undefined}
                 />

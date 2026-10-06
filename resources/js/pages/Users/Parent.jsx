@@ -20,7 +20,7 @@ export default function ParentShow({ parent, children, totals, urls }) {
                 <Breadcrumbs items={[{ label: 'People' }, urls.back ? { label: 'Users', href: urls.back } : { label: 'Users' }, { label: 'Parent' }]} />
                 <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div className="flex min-w-0 items-center gap-4">
-                        <Avatar src={parent.photo} name={parent.name} size="xl" />
+                        <Avatar src={parent.photo} name={parent.name} size="3xl" />
                         <div className="min-w-0">
                             <h1 className="truncate text-2xl font-semibold">{parent.name}</h1>
                             <div className="mt-1 text-base text-fg-muted">

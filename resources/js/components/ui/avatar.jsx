@@ -8,6 +8,7 @@ const sizes = {
     lg: 'size-10 text-sm',
     xl: 'size-16 text-lg',
     '2xl': 'size-20 text-xl',
+    '3xl': 'size-28 text-3xl',
 };
 
 // Deterministic, muted tints so initials are distinguishable without being loud.

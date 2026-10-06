@@ -24,7 +24,7 @@ class UserController extends Controller
 
     public function __construct(UserRepo $user, LocationRepo $loc, MyClassRepo $my_class)
     {
-        $this->middleware('teamSA', ['only' => ['index', 'store', 'edit', 'update'] ]);
+        $this->middleware('teamAdmin', ['only' => ['index', 'store', 'edit', 'update'] ]);
         $this->middleware('super_admin', ['only' => ['reset_pass','destroy'] ]);
 
         $this->user = $user;
@@ -243,8 +243,8 @@ class UserController extends Controller
                 return ['name' => $s->name, 'class' => optional($s->my_class)->name];
             })->values() : [],
             'urls' => array_filter([
-                'back' => Qs::userIsTeamSA() ? route('users.index') : null,
-                'edit' => Qs::userIsTeamSA() ? route('users.edit', $h) : null,
+                'back' => Qs::userIsTeamAdmin() ? route('users.index') : null,
+                'edit' => Qs::userIsTeamAdmin() ? route('users.edit', $h) : null,
             ]),
         ];
     }
@@ -277,7 +277,7 @@ class UserController extends Controller
                 return ['amount' => $a['amount'] + $t['amount'], 'paid' => $a['paid'] + $t['paid'], 'balance' => $a['balance'] + $t['balance']];
             }, ['amount' => 0, 'paid' => 0, 'balance' => 0]),
             'urls' => array_filter([
-                'edit' => Qs::userIsTeamSA() ? route('users.edit', Qs::hash($p->id)) : null,
+                'edit' => Qs::userIsTeamAdmin() ? route('users.edit', Qs::hash($p->id)) : null,
                 'back' => Qs::userIsTeamSAT() ? route('users.index') : null,
             ]),
         ];

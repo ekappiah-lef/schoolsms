@@ -6,5 +6,7 @@ use Eloquent;
 
 class Nationality extends Eloquent
 {
+    protected $fillable = ['name'];
+
     //
 }

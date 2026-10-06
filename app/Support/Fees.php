@@ -374,4 +374,56 @@ class Fees
             ],
         ];
     }
+
+    /**
+     * The invoice for the current term: this term's school fees and this year's optional
+     * services, plus a "balance brought forward" of everything still unpaid from earlier
+     * terms and years, and the total now due.
+     */
+    public static function termInvoice(int $studentId): array
+    {
+        $session = Qs::getCurrentSession();
+        $records = PaymentRecord::where('student_id', $studentId)->with('payment')->get()->filter(function ($pr) { return $pr->payment; });
+        $thisYear = $records->where('year', $session);
+        // The current term is the latest term billed this year (fees without a term count as current).
+        $term = $thisYear->map(function ($pr) { return (int) $pr->payment->term; })->filter()->max();
+        $isCurrent = function ($pr) use ($session, $term) {
+            return $pr->year === $session && (!$term || !$pr->payment->term || (int) $pr->payment->term === $term);
+        };
+        $line = function ($label, $amount, $paid) {
+            $amount = max((int) $amount, 0);
+            return ['label' => $label, 'amount' => $amount, 'paid' => (int) $paid, 'balance' => max($amount - (int) $paid, 0)];
+        };
+        $termName = function ($pr) { return ($pr->payment->term ? 'Term '.$pr->payment->term.' · ' : '').$pr->year; };
+
+        $current = $records->filter($isCurrent)->map(function ($pr) use ($line) {
+            return $line($pr->payment->title, (int) $pr->payment->amount - (int) $pr->discount, $pr->amt_paid);
+        })->values();
+        $charges = OptionalFeeCharge::where('student_id', $studentId)->get();
+        foreach ($charges->where('year', $session) as $c) {
+            $current->push($line($c->label, $c->amount, $c->amt_paid));
+        }
+
+        $forward = $records->reject($isCurrent)
+            ->sortBy(function ($pr) { return $pr->year.'-'.(int) $pr->payment->term; })
+            ->map(function ($pr) use ($line, $termName) { return $line($pr->payment->title.' ('.$termName($pr).')', (int) $pr->payment->amount - (int) $pr->discount, $pr->amt_paid); })
+            ->filter(function ($l) { return $l['balance'] > 0; })->values();
+        foreach ($charges->where('year', '!=', $session)->sortBy('year') as $c) {
+            $l = $line($c->label.' ('.$c->year.')', $c->amount, $c->amt_paid);
+            if ($l['balance'] > 0) $forward->push($l);
+        }
+
+        $sum = function ($rows, $k) { return (int) collect($rows)->sum($k); };
+        $currentDue = $sum($current, 'balance');
+        $forwardDue = $sum($forward, 'balance');
+
+        return [
+            'label' => ($term ? 'Term '.$term.' · ' : '').$session,
+            'session' => $session,
+            'term' => $term,
+            'current' => ['lines' => $current, 'amount' => $sum($current, 'amount'), 'paid' => $sum($current, 'paid'), 'balance' => $currentDue],
+            'forward' => ['lines' => $forward, 'total' => $forwardDue],
+            'total' => $currentDue + $forwardDue,
+        ];
+    }
 }

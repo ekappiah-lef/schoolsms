@@ -8,10 +8,10 @@ import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Segmented } from '@/components/ui/tabs';
-import { FeeTotals, OptionalFeesInvoice, PaymentHistory, SchoolFeesInvoice } from '@/components/fees/fee-statement';
+import { FeeTotals, OptionalFeesInvoice, PaymentHistory, SchoolFeesInvoice, TermInvoice } from '@/components/fees/fee-statement';
 
 /** A student's two invoices (school fees with breakdown, optional services) and payments. */
-export default function PaymentsInvoice({ student, year, years, statement, urls }) {
+export default function PaymentsInvoice({ student, year, years, statement, invoice, urls }) {
     const [confirm, confirmDialog] = useConfirmAction();
     const reload = () => router.reload({ only: ['statement'], preserveScroll: true });
     const scope = year || 'all';
@@ -67,6 +67,7 @@ export default function PaymentsInvoice({ student, year, years, statement, urls 
             )}
 
             <div className="space-y-6">
+                <TermInvoice invoice={invoice} sendUrl={urls.sendInvoice} />
                 <FeeTotals
                     school={statement.school.totals}
                     optional={statement.optional.totals}

@@ -28,11 +28,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn, formatDate, formatMoney, ordinal, parseDate } from '@/lib/utils';
 import { submitForm } from '@/lib/http';
 import { toast } from 'sonner';
-import { FeeTotals, OptionalFeesInvoice, PaymentHistory, SchoolFeesInvoice, sumRows } from '@/components/fees/fee-statement';
+import { FeeTotals, OptionalFeesInvoice, PaymentHistory, SchoolFeesInvoice, TermInvoice, sumRows } from '@/components/fees/fee-statement';
 import { NoticeList } from '@/components/students/notice-list';
 import { differenceInYears } from 'date-fns';
 
-export default function StudentShow({ student, guardian, siblings = [], urls, tabs, fees, notices, results, latestResult, resultsLocked }) {
+export default function StudentShow({ student, guardian, siblings = [], urls, tabs, fees, invoice, notices, results, latestResult, resultsLocked }) {
     const initialTab = new URLSearchParams(window.location.search).get('tab') || 'overview';
     const [tab, setTab] = useState(initialTab);
     const [confirm, confirmDialog] = useConfirmAction();
@@ -69,7 +69,7 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                 />
                 <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div className="flex min-w-0 items-center gap-4">
-                        <Avatar src={student.photo} name={student.name} size="xl" />
+                        <Avatar src={student.photo} name={student.name} size="3xl" />
                         <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                                 <h1 className="truncate text-2xl font-semibold">{student.name}</h1>
@@ -251,7 +251,7 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
 
                 {tabs.fees && (
                     <TabsContent value="fees">
-                        <FeesTab fees={fees} invoiceUrl={urls.invoice} />
+                        <FeesTab fees={fees} invoice={invoice} invoiceUrl={urls.invoice} sendUrl={urls.send_invoice} />
                     </TabsContent>
                 )}
 
@@ -400,7 +400,7 @@ function FeeSummary({ fees, onOpen }) {
     );
 }
 
-function FeesTab({ fees, invoiceUrl }) {
+function FeesTab({ fees, invoice, invoiceUrl, sendUrl }) {
     const [confirm, confirmDialog] = useConfirmAction();
     const all = [...fees.school.records, ...fees.optional.charges];
     const years = [...new Set(all.map((r) => r.year))];
@@ -445,6 +445,7 @@ function FeesTab({ fees, invoiceUrl }) {
                     <span className={cn('font-semibold', fees.totals.balance > 0 ? 'text-danger-fg' : 'text-success-fg')}>{formatMoney(fees.totals.balance)}</span>
                 </span>
             </div>
+            <TermInvoice invoice={invoice} sendUrl={sendUrl} />
             <FeeTotals
                 school={st}
                 optional={ot}

@@ -123,7 +123,9 @@ class PaymentController extends Controller
                 'year' => $year,
                 'years' => Pay::getYears($st_id)->merge(OptionalFeeCharge::where('student_id', $st_id)->pluck('year'))->filter()->unique()->sort()->reverse()->values(),
                 'statement' => Fees::statement((int) $st_id, $year, true),
+                'invoice' => Fees::termInvoice((int) $st_id),
                 'urls' => [
+                    'sendInvoice' => route('payments.send_invoice', Qs::hash($st_id)),
                     'all' => route('payments.invoice', Qs::hash($st_id)),
                     'year' => route('payments.invoice', [Qs::hash($st_id), ':year']),
                     'manage' => route('payments.manage', $sr->my_class_id),
@@ -131,6 +133,33 @@ class PaymentController extends Controller
                 ],
             ];
         }, 'pages.support_team.payments.invoice', $d);
+    }
+
+    /** Email + SMS the current term's invoice (with balance brought forward) to one student's parent. */
+    public function sendInvoice($st_id)
+    {
+        $sr = $this->student->findByUserId($st_id)->first();
+        if (!$sr) {
+            return Qs::json(__('msg.srnf'), false);
+        }
+        $results = collect(Notices::sendInvoice($sr));
+        $sent = $results->where('status', 'sent')->count();
+
+        return Qs::json($sent ? "Invoice sent ({$sent} message".($sent === 1 ? '' : 's').').' : 'Invoice not sent: '.($results->pluck('error')->filter()->first() ?: 'no parent contact on record.'), (bool) $sent);
+    }
+
+    /** Send the current term's invoice to every parent in a class. */
+    public function sendClassInvoices($class_id)
+    {
+        $students = $this->student->getRecord(['my_class_id' => $class_id])->get();
+        $sent = 0;
+        $held = 0;
+        foreach ($students as $sr) {
+            $r = collect(Notices::sendInvoice($sr));
+            $r->where('status', 'sent')->count() ? $sent++ : $held++;
+        }
+
+        return Qs::json("Invoices sent for {$sent} of {$students->count()} students".($held ? " ({$held} not sent: demo mode or no contact)" : '').'.', true);
     }
 
     public function receipts($pr_id)
@@ -270,7 +299,7 @@ class PaymentController extends Controller
                     return ['id' => $c->id, 'name' => $c->name];
                 })->values(),
                 'students' => $students,
-                'urls' => ['select' => route('payments.select_class')],
+                'urls' => ['select' => route('payments.select_class'), 'sendInvoices' => $class_id ? route('payments.send_class_invoices', $class_id) : null],
             ];
         }, 'pages.support_team.payments.manage', $d);
     }

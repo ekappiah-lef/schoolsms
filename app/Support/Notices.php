@@ -142,6 +142,134 @@ class Notices
         return $results;
     }
 
+    /** Email and SMS the current term's invoice (with any balance brought forward) to the parent. */
+    public static function sendInvoice(StudentRecord $sr): array
+    {
+        $sr->loadMissing(['user', 'my_parent']);
+        $to = self::recipients($sr);
+        $invoice = Fees::termInvoice($sr->user_id);
+        $url = self::statementUrl($sr->user_id);
+        $school = Qs::getSystemName();
+        $student = $sr->user->name;
+        $parentName = optional($sr->my_parent)->name;
+
+        $results = [];
+        $log = function ($channel, $recipient, $error = null) use (&$results, $sr) {
+            $status = $error ? 'failed' : 'sent';
+            NotificationLog::create([
+                'student_id' => $sr->user_id, 'channel' => $channel, 'kind' => 'invoice',
+                'recipient' => $recipient, 'status' => $status, 'error' => $error ? mb_substr($error, 0, 1000) : null,
+            ]);
+            $results[] = ['channel' => $channel, 'kind' => 'invoice', 'recipient' => $recipient, 'status' => $status, 'error' => $error];
+        };
+
+        foreach ($to['emails'] as $email) {
+            if ($why = self::blocked($email)) {
+                $log('email', $email, $why);
+                continue;
+            }
+            if (!self::mailConfigured()) {
+                $log('email', $email, 'Email is not configured (set MAIL_HOST, MAIL_USERNAME and MAIL_PASSWORD in .env).');
+                continue;
+            }
+            try {
+                Mail::to($email)->send(new \App\Mail\TermInvoice($school, $parentName, $student, $url, $invoice));
+                $log('email', $email);
+            } catch (Throwable $e) {
+                $log('email', $email, $e->getMessage());
+            }
+        }
+
+        $money = function ($n) { return 'GHS '.number_format((int) $n); };
+        $sms = "{$school}: {$student}, {$invoice['label']} fees {$money($invoice['current']['balance'])}"
+            .($invoice['forward']['total'] > 0 ? " + balance brought forward {$money($invoice['forward']['total'])}" : '')
+            .". Total due: {$money($invoice['total'])}. Details: {$url}";
+        foreach ($to['phones'] as $phone) {
+            $log('sms', $phone, self::sms($phone, $sms));
+        }
+
+        if (!$to['emails'] && !$to['phones']) {
+            $log('email', '(none)', 'No parent email or phone number on record.');
+        }
+
+        return $results;
+    }
+
+    /** Kind words to the parents of a child marked absent: asks after them and hopes to see them soon. */
+    public static function sendAbsence(StudentRecord $sr, string $date): array
+    {
+        $sr->loadMissing(['user', 'my_parent']);
+        $to = self::recipients($sr);
+        $school = Qs::getSystemName();
+        $child = $sr->user->name;
+        $first = strtok($child, ' ');
+        $parent = optional($sr->my_parent)->name ? strtok($sr->my_parent->name, ' ') : 'Parent';
+        $they = ['Male' => 'him', 'Female' => 'her'][$sr->user->gender] ?? 'them';
+        $day = \Carbon\Carbon::parse($date)->isToday() ? 'today' : 'on '.\Carbon\Carbon::parse($date)->format('l j F');
+        $body = "Dear {$parent}, we noticed {$first} was not in school {$day}. We hope you and {$first} are doing well, and we look forward to seeing {$they} soon. — {$school}";
+
+        $results = [];
+        $log = function ($channel, $recipient, $error = null) use (&$results, $sr) {
+            $status = $error ? 'failed' : 'sent';
+            NotificationLog::create(['student_id' => $sr->user_id, 'channel' => $channel, 'kind' => 'absence', 'recipient' => $recipient, 'status' => $status, 'error' => $error ? mb_substr($error, 0, 1000) : null]);
+            $results[] = compact('channel', 'recipient', 'status', 'error');
+        };
+        foreach ($to['phones'] as $phone) {
+            $log('sms', $phone, self::sms($phone, $body));
+        }
+        foreach ($to['emails'] as $email) {
+            $log('email', $email, self::email($email, "{$first} was not in school {$day}", $body));
+        }
+        if (!$to['emails'] && !$to['phones']) {
+            $log('sms', '(none)', 'No parent email or phone number on record.');
+        }
+
+        return $results;
+    }
+
+    /**
+     * Send one message to many people (Messages page). Returns counts of sent, held back
+     * (demo allowlist) and failed messages.
+     */
+    public static function broadcast(array $emails, array $phones, ?string $subject, string $body, bool $sms, bool $email): array
+    {
+        $count = ['sent' => 0, 'held' => 0, 'failed' => 0];
+        $tally = function (?string $error) use (&$count) {
+            if ($error === null) $count['sent']++;
+            elseif (strpos($error, 'Demo mode') === 0) $count['held']++;
+            else $count['failed']++;
+        };
+        if ($sms) {
+            foreach (array_unique($phones) as $phone) {
+                $tally(self::sms($phone, $body));
+            }
+        }
+        if ($email) {
+            foreach (array_unique($emails) as $address) {
+                $tally(self::email($address, $subject ?: 'Message from '.Qs::getSystemName(), $body));
+            }
+        }
+
+        return $count;
+    }
+
+    /** Send a plain message by email; returns null when sent, otherwise the reason. */
+    public static function email(string $address, string $subject, string $body): ?string
+    {
+        if ($why = self::blocked($address)) {
+            return $why;
+        }
+        if (!self::mailConfigured()) {
+            return 'Email is not configured (set MAIL_HOST, MAIL_USERNAME and MAIL_PASSWORD in .env).';
+        }
+        try {
+            Mail::to($address)->send(new \App\Mail\Announcement(Qs::getSystemName(), $subject, $body));
+            return null;
+        } catch (Throwable $e) {
+            return $e->getMessage();
+        }
+    }
+
     /** Email (PDF attached) and SMS a payment receipt to the parent. $r comes from ReceiptController::data(). */
     public static function sendReceipt(array $r): array
     {

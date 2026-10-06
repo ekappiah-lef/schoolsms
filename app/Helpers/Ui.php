@@ -21,7 +21,7 @@ class Ui
         'tt.index', 'ttr.edit',
         'classes.index', 'classes.edit', 'sections.index', 'sections.edit', 'subjects.index', 'subjects.edit',
         'dorms.index', 'dorms.edit', 'exams.index', 'exams.edit', 'grades.index', 'grades.edit', 'exams.show',
-        'users.index', 'users.show', 'users.edit', 'settings', 'my_account', 'pins.index', 'pins.create', 'pins.enter', 'students.promotion', 'students.promotion_manage', 'my_children', 'marks.show', 'marks.year_selector', 'marks.tabulation', 'marks.bulk', 'marks.batch_fix', 'ttr.manage', 'ttr.show', 'ts.edit',
+        'users.index', 'users.show', 'users.edit', 'attendance.index', 'messages.index', 'settings', 'my_account', 'pins.index', 'pins.create', 'pins.enter', 'students.promotion', 'students.promotion_manage', 'my_children', 'marks.show', 'marks.year_selector', 'marks.tabulation', 'marks.bulk', 'marks.batch_fix', 'ttr.manage', 'ttr.show', 'ts.edit',
         'finance.config', 'finance.dashboard', 'finance.ledger', 'finance.fee_breakdown', 'finance.sales', 'finance.transactions', 'finance.transactions.edit', 'finance.services',
     ];
 
