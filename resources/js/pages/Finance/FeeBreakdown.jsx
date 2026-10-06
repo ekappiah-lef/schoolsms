@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Segmented } from "@/components/ui/tabs";
+import { PeriodTree } from "@/components/fees/period-tree";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { downloadCsv } from "@/lib/use-visit-state";
 import { cn, formatMoney } from "@/lib/utils";
@@ -206,7 +207,11 @@ function TermTable({ rows, session, term, ledgerUrl, onPick }) {
         }));
     }, [rows]);
 
-    const [year, setYear] = useState(() => (groups.some((g) => g.session === session) ? session : groups[0]?.session ?? ''));
+    // Picked terms ("YYYY-YYYY:N"); starts with every term of the year being looked at.
+    const [picked, setPicked] = useState(() => {
+        const g = groups.find((x) => x.session === session) ?? groups[0];
+        return g ? g.terms.map((t) => `${t.session}:${t.term}`) : [];
+    });
     const [cols, setCols] = useState(() => {
         try {
             const saved = JSON.parse(window.localStorage.getItem(COLUMNS_KEY));
@@ -228,7 +233,15 @@ function TermTable({ rows, session, term, ledgerUrl, onPick }) {
             return final;
         });
     const shownCols = TERM_COLUMNS.filter((c) => cols.includes(c.key));
-    const visible = year ? groups.filter((g) => g.session === year) : groups;
+    const SUM = ['invoiced', 'paid', 'outstanding', 'fees', 'other', 'expenses', 'net'];
+    const visible = groups
+        .map((g) => {
+            const terms = g.terms.filter((t) => picked.includes(`${t.session}:${t.term}`));
+            return { ...g, terms, ...Object.fromEntries(SUM.map((k) => [k, terms.reduce((a, r) => a + r[k], 0)])), closing: terms[0]?.closing ?? 0 };
+        })
+        .filter((g) => g.terms.length);
+    const grand = visible.length > 1 ? { ...Object.fromEntries(SUM.map((k) => [k, visible.reduce((a, g) => a + g[k], 0)])), closing: visible[0].closing } : null;
+    const tree = groups.map((g) => ({ session: g.session, terms: [...g.terms].map((t) => t.term).sort() }));
 
     const cell = (c, r, strongRow) => {
         const v = r[c.key];
@@ -249,16 +262,7 @@ function TermTable({ rows, session, term, ledgerUrl, onPick }) {
                     <p className="text-sm text-fg-muted">Click a term to see its fee items.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Select
-                        size="sm"
-                        className="w-40"
-                        value={year}
-                        onChange={setYear}
-                        options={groups.map((g) => ({ value: g.session, label: g.session.replace('-', ' – ') }))}
-                        clearable
-                        clearLabel="All years"
-                        placeholder="All years"
-                    />
+                    <PeriodTree years={tree} value={picked} onChange={setPicked} label={null} className="w-72" />
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button size="sm">
@@ -318,12 +322,25 @@ function TermTable({ rows, session, term, ledgerUrl, onPick }) {
                                 })}
                                 {visible.length === 1 && y.terms.length > 1 && (
                                     <tr className="border-t border-border bg-canvas font-semibold">
-                                        <td className="px-6 py-2.5">Year total</td>
+                                        <td className="px-6 py-2.5">Total</td>
                                         {shownCols.map((c) => cell(c, y, true))}
                                     </tr>
                                 )}
                             </Fragment>
                         ))}
+                        {grand && (
+                            <tr className="border-t-2 border-border bg-canvas font-semibold">
+                                <td className="px-6 py-2.5">Total for the selection</td>
+                                {shownCols.map((c) => cell(c, grand, true))}
+                            </tr>
+                        )}
+                        {!visible.length && (
+                            <tr>
+                                <td colSpan={shownCols.length + 1} className="px-6 py-8 text-center text-sm text-fg-muted">
+                                    Choose one or more years or terms in the Academic Period.
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>

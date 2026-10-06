@@ -74,7 +74,8 @@ class Navigation
 
         /* Messages: parents, staff, a class */
         if (Qs::userIsTeamSA()) {
-            $sections[] = self::section('Communication', [self::item('Messages', 'megaphone', 'messages.index')]);
+            $waiting = Qs::userIsTeamAdmin() ? \App\Models\Message::where('status', 'pending')->count() : 0;
+            $sections[] = self::section('Communication', [self::item($waiting ? "Messages ({$waiting} to approve)" : 'Messages', 'megaphone', 'messages.index')]);
         }
 
         /* Finance */

@@ -160,6 +160,7 @@ class MarkController extends Controller
                     'af' => $ratings($exr->af, $af->count()), 'ps' => $ratings($exr->ps, $ps->count()),
                     'urls' => [
                         'print' => route('marks.print', [$hash, $ex->id, $year]),
+                        'email' => Qs::userIsTeamSAT() ? route('marks.email_report', [$hash, $ex->id, $year]) : null,
                         'comment' => route('marks.comment_update', $exr->id),
                         'af' => route('marks.skills_update', ['AF', $exr->id]),
                         'ps' => route('marks.skills_update', ['PS', $exr->id]),
@@ -204,6 +205,12 @@ class MarkController extends Controller
             return $this->noStudentRecord();
         }
 
+        return view('pages.support_team.marks.print.index', $this->reportData($student_id, $exam_id, $year));
+    }
+
+    /** Everything the report sheet (print view / emailed PDF) needs for one student and exam. */
+    protected function reportData($student_id, $exam_id, $year): array
+    {
         $wh = ['student_id' => $student_id, 'exam_id' => $exam_id, 'year' => $year ];
         $d['marks'] = $mks = $this->exam->getMark($wh);
         $d['exr'] = $exr = $this->exam->getRecord($wh)->first();
@@ -227,7 +234,49 @@ class MarkController extends Controller
 
         //$d['mark_type'] = Qs::getMarkType($ct);
 
-        return view('pages.support_team.marks.print.index', $d);
+        return $d;
+    }
+
+    /** Email a student's report sheet (PDF) for one exam to the parents, with an SMS heads-up. */
+    public function email_report($student_id, $exam_id, $year)
+    {
+        $sr = $this->student->getRecord(['user_id' => $student_id])->first();
+        if (!$sr || !TeacherScope::canSeeStudent($sr)) {
+            return Qs::json('You can only send reports for students in your own class.', false);
+        }
+        if (!$this->exam->getRecord(['student_id' => $student_id, 'exam_id' => $exam_id, 'year' => $year])->first()) {
+            return Qs::json('There is no result for this exam yet.', false);
+        }
+        $r = collect($this->sendReport($sr, $exam_id, $year));
+        $sent = $r->where('status', 'sent')->count();
+
+        return Qs::json($sent ? 'Report sent to the parent ('.$sent.' message'.($sent === 1 ? '' : 's').').' : 'Report not sent: '.($r->pluck('error')->filter()->first() ?: 'no parent contact on record.'), (bool) $sent);
+    }
+
+    /** Email every report sheet of a class section for one exam. */
+    public function email_class_reports($exam_id, $class_id, $section_id)
+    {
+        if (TeacherScope::applies() && !in_array((int) $section_id, TeacherScope::ownSectionIds(), true)) {
+            return Qs::json('You can only send reports for your own class.', false);
+        }
+        $records = $this->exam->getRecord(['exam_id' => $exam_id, 'my_class_id' => $class_id, 'section_id' => $section_id, 'year' => $this->year]);
+        $sent = 0;
+        $held = 0;
+        foreach ($records as $exr) {
+            $sr = $this->student->getRecord(['user_id' => $exr->student_id])->first();
+            if (!$sr) continue;
+            collect($this->sendReport($sr, $exam_id, $this->year))->where('status', 'sent')->count() ? $sent++ : $held++;
+        }
+
+        return Qs::json("Reports sent for {$sent} of ".count($records).' students'.($held ? " ({$held} not sent: demo mode or no contact)" : '').'.', true);
+    }
+
+    protected function sendReport($sr, $exam_id, $year): array
+    {
+        $d = $this->reportData($sr->user_id, $exam_id, $year);
+        $pdf = \App\Support\Pdf::loadView('pages.support_team.marks.print.index', $d + ['pdf' => true])->output();
+
+        return \App\Support\Notices::sendReport($sr, $d['ex']->name.' '.$year, $pdf);
     }
 
     public function selector(MarkSelector $req)
@@ -614,6 +663,7 @@ class MarkController extends Controller
                         ];
                     }),
                     'print' => route('marks.print_tabulation', [$d['exam_id'], $d['my_class_id'], $d['section_id']]),
+                    'email' => route('marks.email_class_reports', [$d['exam_id'], $d['my_class_id'], $d['section_id']]),
                 ],
             ]);
         }, 'pages.support_team.marks.tabulation.index', $d);

@@ -1,0 +1,9 @@
+# HTTPS in front of the app on a stand-alone server (compose profile "https").
+# DOMAIN is e.g. 98-81-86-52.sslip.io (resolves to the server IP; no DNS record needed).
+# Caddy gets and renews a free Let's Encrypt certificate automatically (ports 80 and 443 must be open).
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy app:80 {
+		header_up X-Forwarded-Proto https
+	}
+}

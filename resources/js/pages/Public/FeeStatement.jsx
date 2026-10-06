@@ -1,7 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { Printer } from 'lucide-react';
 import { cn, formatDate, formatNumber } from '@/lib/utils';
-import { TermInvoice } from '@/components/fees/fee-statement';
+import { MomoPay, TermInvoice } from '@/components/fees/fee-statement';
 
 const cedi = (n) => `GH₵ ${formatNumber(n ?? 0)}`;
 
@@ -10,7 +10,7 @@ const cedi = (n) => `GH₵ ${formatNumber(n ?? 0)}`;
  * Shows the two invoices (school fees with breakdown, optional services),
  * what has been paid and how to pay. Read-only; no login required.
  */
-export default function FeeStatement({ school, student, session, current, overall, invoice, instructions, generated }) {
+export default function FeeStatement({ school, student, session, current, overall, invoice, momo, instructions, generated }) {
     const schoolRecords = current.school.records;
     const optional = current.optional.charges;
     const arrears = Math.max(overall.balance - current.totals.balance, 0);
@@ -62,6 +62,11 @@ export default function FeeStatement({ school, student, session, current, overal
                     {invoice && (
                         <section className="border-b border-border p-6">
                             <TermInvoice invoice={invoice} />
+                            {momo && (
+                                <div className="mt-4">
+                                    <MomoPay url={momo.url} maxAmount={invoice.total} test={momo.test} onPaid={() => setTimeout(() => window.location.reload(), 2500)} />
+                                </div>
+                            )}
                         </section>
                     )}
 

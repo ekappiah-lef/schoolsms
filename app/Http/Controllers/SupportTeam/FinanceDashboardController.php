@@ -33,6 +33,7 @@ class FinanceDashboardController extends Controller
             'periods' => FinancePeriod::options(false),
             'fees' => FinanceSummary::fees($feesYear),
             'cashflow' => FinanceSummary::cashflow($p->from, $p->to),
+            'byMethod' => FinanceSummary::byMethod($p->from, $p->to),
             // For a school year the first card is the bills sent for it instead of the opening balance.
             'invoiced' => $p->session ? FinanceSummary::invoiced($p->session) : null,
             'balance' => FinanceSummary::cashBalance(),

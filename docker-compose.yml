@@ -28,7 +28,27 @@ services:
     volumes:
       - dbdata:/var/lib/mysql
 
+  # HTTPS for a stand-alone server (needed for the webcam "Take photo" and MoMo callbacks).
+  # Enable with COMPOSE_PROFILES=https and DOMAIN=98-81-86-52.sslip.io in the compose .env file.
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
 volumes:
+  caddy_data:
+  caddy_config:
   dbdata:
   uploads:
   logs:

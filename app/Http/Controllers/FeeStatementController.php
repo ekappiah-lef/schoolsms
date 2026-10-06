@@ -40,6 +40,11 @@ class FeeStatementController extends Controller
             'current' => Fees::statement($sr->user_id, $year),
             'overall' => Fees::statement($sr->user_id)['totals'],
             'invoice' => Fees::termInvoice($sr->user_id),
+            // Pay online with MTN MoMo (signed link, valid for a day).
+            'momo' => \App\Support\MoMo::configured() ? [
+                'url' => \Illuminate\Support\Facades\URL::temporarySignedRoute('momo.pay', now()->addDay(), ['student' => $sr->user_id]),
+                'test' => config('momo.driver') === 'fake',
+            ] : null,
             'instructions' => Qs::getSetting('payment_instructions'),
             'generated' => now()->toIso8601String(),
         ]);

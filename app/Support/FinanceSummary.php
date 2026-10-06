@@ -418,4 +418,15 @@ class FinanceSummary
         $list = collect($list);
         return ['expected' => (int) $list->sum('expected'), 'paid' => (int) $list->sum('paid'), 'due' => (int) $list->sum('due')];
     }
+
+    /** Fee payments received in a period, by how they were paid (cash, MTN MoMo, bank…). */
+    public static function byMethod(Carbon $from, Carbon $to): array
+    {
+        $rows = DB::table('receipts')->whereBetween('created_at', [$from, $to])->select('method', DB::raw('sum(amt_paid) as total'), DB::raw('count(*) as n'))->groupBy('method')->get()
+            ->concat(DB::table('optional_fee_receipts')->whereBetween('created_at', [$from, $to])->select('method', DB::raw('sum(amt_paid) as total'), DB::raw('count(*) as n'))->groupBy('method')->get());
+
+        return $rows->groupBy(function ($r) { return $r->method ?: 'Cash'; })->map(function ($g, $m) {
+            return ['method' => $m, 'total' => (int) $g->sum('total'), 'count' => (int) $g->sum('n')];
+        })->sortByDesc('total')->values()->all();
+    }
 }

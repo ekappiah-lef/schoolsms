@@ -19,7 +19,11 @@ class OptionalFeeController extends Controller
     public function pay(Request $req, $id)
     {
         $c = OptionalFeeCharge::findOrFail($id);
-        $req->validate(['amt_paid' => 'required|integer|min:1|max:'.max($c->balance, 1)], [], ['amt_paid' => 'Amount paid']);
+        $req->validate([
+            'amt_paid' => 'required|integer|min:1|max:'.max($c->balance, 1),
+            'method' => 'nullable|in:'.implode(',', \App\Support\Fees::METHODS),
+            'reference' => 'nullable|string|max:100',
+        ], [], ['amt_paid' => 'Amount paid']);
 
         $c->amt_paid = (int) $c->amt_paid + (int) $req->amt_paid;
         $c->save();
@@ -29,6 +33,8 @@ class OptionalFeeController extends Controller
             'amt_paid' => (int) $req->amt_paid,
             'balance' => $c->balance,
             'year' => $c->year,
+            'method' => $req->input('method') ?: 'Cash',
+            'reference' => $req->input('reference') ?: null,
         ]);
 
         return response()->json(['ok' => true, 'msg' => __('msg.update_ok'), 'receipt' => ReceiptController::urls('optional', $receipt->id)]);

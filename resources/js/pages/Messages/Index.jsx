@@ -14,15 +14,18 @@ import http, { submitForm } from '@/lib/http';
 import { cn, formatDate } from '@/lib/utils';
 
 /** Send a message by SMS and/or email to parents (all or one class) or staff (all, teaching, non-teaching). */
-export default function Messages({ audiences, counts, classes, history, demo, urls }) {
-    const [d, setD] = useState({ audience: 'parents', class_id: '', section_id: '', subject: '', body: '', sms: true, email: true });
+export default function Messages({ audiences, counts, classes, history, canApprove, needsApproval, whatsapp, demo, urls }) {
+    const [d, setD] = useState({ audience: 'parents', class_id: '', section_id: '', subject: '', body: '', sms: true, email: true, whatsapp: false });
+    const [view, setView] = useState(history.some((m) => m.status === 'pending') && canApprove ? 'pending' : 'all');
+    const pending = history.filter((m) => m.status === 'pending');
+    const listed = view === 'pending' ? pending : history;
     const [reach, setReach] = useState(null);
     const [confirm, setConfirm] = useState(false);
     const [busy, setBusy] = useState(false);
     const [errors, setErrors] = useState({});
     const set = (k, v) => setD((x) => ({ ...x, [k]: v, ...(k === 'class_id' ? { section_id: '' } : {}) }));
     const cls = classes.find((c) => String(c.id) === String(d.class_id));
-    const { shown, pager } = usePaged(history, 10, 'messages');
+    const { shown, pager } = usePaged(listed, 10, 'messages');
 
     useEffect(() => {
         if (d.audience === 'class' && !d.class_id) return setReach(null);
@@ -37,11 +40,11 @@ export default function Messages({ audiences, counts, classes, history, demo, ur
 
     const sms = d.body.length;
     const parts = Math.max(1, Math.ceil(sms / 160));
-    const ready = d.body.trim().length >= 5 && (d.sms || d.email) && (d.audience !== 'class' || d.class_id) && reach?.people > 0;
+    const ready = d.body.trim().length >= 5 && (d.sms || d.email || d.whatsapp) && (d.audience !== 'class' || d.class_id) && reach?.people > 0;
 
     const send = async () => {
         setBusy(true);
-        const r = await submitForm(urls.send, { ...d, sms: d.sms ? 1 : 0, email: d.email ? 1 : 0 });
+        const r = await submitForm(urls.send, { ...d, sms: d.sms ? 1 : 0, email: d.email ? 1 : 0, whatsapp: d.whatsapp ? 1 : 0 });
         setBusy(false);
         setConfirm(false);
         if (r.ok) {
@@ -72,7 +75,7 @@ export default function Messages({ audiences, counts, classes, history, demo, ur
                                 </span>
                                 <Button variant="primary" onClick={() => setConfirm(true)} disabled={!ready || busy}>
                                     <Send />
-                                    Send message
+                                    {needsApproval ? 'Submit for approval' : 'Send message'}
                                 </Button>
                             </div>
                         }
@@ -122,6 +125,10 @@ export default function Messages({ audiences, counts, classes, history, demo, ur
                                         <Checkbox checked={d.email} onCheckedChange={(v) => set('email', v === true)} />
                                         Email
                                     </label>
+                                    <label className={cn('flex items-center gap-2', !whatsapp && 'opacity-50')} title={whatsapp ? undefined : 'Connect the school WhatsApp Business number first (WHATSAPP_* settings).'}>
+                                        <Checkbox checked={d.whatsapp} disabled={!whatsapp} onCheckedChange={(v) => set('whatsapp', v === true)} />
+                                        WhatsApp
+                                    </label>
                                 </div>
                             </Field>
                             {d.email && (
@@ -136,13 +143,29 @@ export default function Messages({ audiences, counts, classes, history, demo, ur
                     </Panel>
 
                     <div className="flex flex-col gap-4 lg:col-span-2">
+                        {needsApproval && <InfoCallout>Your messages are sent once an administrator approves them. Absence alerts from the register go out straight away.</InfoCallout>}
+                        {!whatsapp && <InfoCallout>WhatsApp is not connected yet. Once the school’s WhatsApp Business number is set up, messages can also go out on WhatsApp under the school’s name.</InfoCallout>}
                         {demo && <InfoCallout>Demo mode is on: only the contacts in NOTICE_ALLOWLIST actually receive messages; everyone else is counted as held back.</InfoCallout>}
                         <InfoCallout>Parents are reached on every phone and email recorded for the family (parent account, father, mother and guardian), once per family.</InfoCallout>
                     </div>
                 </div>
 
-                <Panel title="Sent messages" flush>
-                    {history.length ? (
+                <Panel
+                    title="Messages"
+                    flush
+                    actions={
+                        <Segmented
+                            size="sm"
+                            value={view}
+                            onChange={setView}
+                            options={[
+                                { value: 'pending', label: `Waiting for approval (${pending.length})` },
+                                { value: 'all', label: 'All messages' },
+                            ]}
+                        />
+                    }
+                >
+                    {listed.length ? (
                         <>
                             <ul className="divide-y divide-border">
                                 {shown.map((m) => (
@@ -157,8 +180,13 @@ export default function Messages({ audiences, counts, classes, history, demo, ur
                                         </div>
                                         {m.subject && <div className="font-medium">{m.subject}</div>}
                                         <p className="line-clamp-2 text-fg-muted">{m.body}</p>
-                                        <div className="tabular text-xs text-fg-muted">
-                                            {m.recipients} recipients · {m.sent} delivered{m.failed ? ` · ${m.failed} failed` : ''}
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <StatusTag status={m.status} />
+                                            <span className="tabular text-xs text-fg-muted">
+                                                {m.recipients} recipients{m.status === 'sent' ? ` · ${m.sent} delivered${m.failed ? ` · ${m.failed} failed` : ''}` : ''}
+                                                {m.note ? ` · ${m.note}` : ''}
+                                            </span>
+                                            {m.urls && <Review m={m} />}
                                         </div>
                                     </li>
                                 ))}
@@ -166,16 +194,16 @@ export default function Messages({ audiences, counts, classes, history, demo, ur
                             {pager}
                         </>
                     ) : (
-                        <EmptyState compact title="No messages sent yet" />
+                        <EmptyState compact title={view === 'pending' ? 'Nothing waiting for approval' : 'No messages sent yet'} />
                     )}
                 </Panel>
             </div>
             <ConfirmDialog
                 open={confirm}
                 onOpenChange={(o) => !busy && setConfirm(o)}
-                title={`Send to ${reach?.label ?? ''}?`}
-                description={`${reach?.people ?? 0} recipients by ${[d.sms && 'SMS', d.email && 'email'].filter(Boolean).join(' and ')}. This cannot be undone.`}
-                confirmLabel="Send message"
+                title={`${needsApproval ? 'Submit' : 'Send'} to ${reach?.label ?? ''}?`}
+                description={`${reach?.people ?? 0} recipients by ${[d.sms && 'SMS', d.email && 'email', d.whatsapp && 'WhatsApp'].filter(Boolean).join(', ')}. ${needsApproval ? 'An administrator must approve it before it is sent.' : 'This cannot be undone.'}`}
+                confirmLabel={needsApproval ? 'Submit for approval' : 'Send message'}
                 tone="primary"
                 loading={busy}
                 onConfirm={send}
@@ -185,3 +213,36 @@ export default function Messages({ audiences, counts, classes, history, demo, ur
 }
 
 Messages.layout = withAppLayout;
+
+function StatusTag({ status }) {
+    const map = { pending: ['Waiting for approval', 'bg-warning-soft text-warning-fg'], sent: ['Sent', 'bg-success-soft text-success-fg'], rejected: ['Rejected', 'bg-danger-soft text-danger-fg'], sending: ['Sending', 'bg-subtle text-fg-muted'] };
+    const [label, cls] = map[status] ?? [status, 'bg-subtle'];
+    return <span className={cn('rounded px-1.5 py-0.5 text-2xs font-semibold uppercase', cls)}>{label}</span>;
+}
+
+/** Approve (sends straight away) or reject a message written by the academic admin. */
+function Review({ m }) {
+    const [busy, setBusy] = useState(null);
+    const act = async (kind) => {
+        let note = '';
+        if (kind === 'reject') {
+            note = window.prompt('Reason for rejecting (optional):') ?? null;
+            if (note === null) return;
+        }
+        setBusy(kind);
+        const r = await submitForm(m.urls[kind], { note });
+        setBusy(null);
+        r.ok ? toast.success(r.message) : toast.error(r.message);
+        router.reload({ only: ['history', 'nav'] });
+    };
+    return (
+        <div className="ml-auto flex gap-2">
+            <Button size="xs" variant="ghost" onClick={() => act('reject')} disabled={!!busy}>
+                {busy === 'reject' ? 'Rejecting…' : 'Reject'}
+            </Button>
+            <Button size="xs" variant="primary" onClick={() => act('approve')} disabled={!!busy}>
+                {busy === 'approve' ? 'Sending…' : 'Approve & send'}
+            </Button>
+        </div>
+    );
+}

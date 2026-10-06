@@ -23,7 +23,7 @@ const SCOPES = [
  * Finance dashboard: fees billed / paid / due this year (by class type),
  * income and expenses for a period, cash position and trends.
  */
-export default function FinanceDashboard({ session, period, periods, fees, cashflow, invoiced, balance, monthly, recent, urls }) {
+export default function FinanceDashboard({ session, period, periods, fees, cashflow, invoiced, byMethod = [], balance, monthly, recent, urls }) {
     const [scope, setScope] = useState('total');
     const [breakdown, setBreakdown] = useState(false);
     const f = fees[scope];
@@ -63,7 +63,7 @@ export default function FinanceDashboard({ session, period, periods, fees, cashf
                                 See every entry in the ledger
                             </Link>
                         </div>
-                        <PeriodPicker period={period} groups={periods} url={urls.self} only={['period', 'cashflow', 'fees', 'session', 'invoiced']} />
+                        <PeriodPicker period={period} groups={periods} url={urls.self} only={['period', 'cashflow', 'fees', 'session', 'invoiced', 'byMethod']} />
                     </div>
                     <BalanceCards period={period} opening={cashflow.opening} invoiced={invoiced} received={cashflow.income} expenses={cashflow.expenses} closing={cashflow.closing} />
                 </section>
@@ -105,6 +105,10 @@ export default function FinanceDashboard({ session, period, periods, fees, cashf
                         )}
                     </Card>
                 </section>
+
+                <Card title="How fees were paid" eyebrow={periodLabel}>
+                    <PaymentMethods rows={byMethod} />
+                </Card>
 
                 <section className="grid grid-cols-1 gap-6 xl:grid-cols-5">
                     <Card className="xl:col-span-2" title="Income by source" eyebrow={periodLabel}>
@@ -442,5 +446,32 @@ function IncomeSources({ cashflow }) {
         <HorizontalBars data={rows} labelKey="category" valueKey="total" name="Received" domain={[0, 'auto']} format={formatMoney} labelWidth={130} />
     ) : (
         <EmptyState compact title="No income in this period" />
+    );
+}
+
+const METHOD_COLORS = { 'MTN MoMo': '#f5b800', Cash: '#4f46e5', 'Bank transfer': '#0284c7', 'Telecel Cash': '#e11d48', 'AirtelTigo Money': '#7c3aed', Cheque: '#64748b' };
+
+/** Fee payments in the period by method: cash, MTN MoMo, bank transfer… */
+function PaymentMethods({ rows }) {
+    const total = rows.reduce((a, r) => a + r.total, 0);
+    if (!total) return <EmptyState compact title="No fee payments in this period" />;
+    return (
+        <div className="flex flex-col gap-4">
+            <div className="flex h-3 w-full overflow-hidden rounded-full bg-subtle">
+                {rows.map((r) => (
+                    <div key={r.method} title={`${r.method}: ${formatMoney(r.total)}`} style={{ width: `${(r.total / total) * 100}%`, background: METHOD_COLORS[r.method] ?? '#94a3b8' }} />
+                ))}
+            </div>
+            <div className="grid gap-x-8 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+                {rows.map((r) => (
+                    <div key={r.method} className="flex items-center gap-2 text-sm">
+                        <span className="size-2.5 shrink-0 rounded-full" style={{ background: METHOD_COLORS[r.method] ?? '#94a3b8' }} />
+                        <span className="flex-1 truncate">{r.method}</span>
+                        <span className="tabular text-xs text-fg-muted">{r.count} payments</span>
+                        <span className="tabular w-28 text-right font-semibold">{formatMoney(r.total)}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 }

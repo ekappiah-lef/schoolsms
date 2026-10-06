@@ -8,12 +8,12 @@ import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Segmented } from '@/components/ui/tabs';
-import { FeeTotals, OptionalFeesInvoice, PaymentHistory, SchoolFeesInvoice, TermInvoice } from '@/components/fees/fee-statement';
+import { FeeTotals, MomoPay, OptionalFeesInvoice, PaymentHistory, SchoolFeesInvoice, TermInvoice } from '@/components/fees/fee-statement';
 
 /** A student's two invoices (school fees with breakdown, optional services) and payments. */
-export default function PaymentsInvoice({ student, year, years, statement, invoice, urls }) {
+export default function PaymentsInvoice({ student, year, years, statement, invoice, parentPhone, momoTest, urls }) {
     const [confirm, confirmDialog] = useConfirmAction();
-    const reload = () => router.reload({ only: ['statement'], preserveScroll: true });
+    const reload = () => router.reload({ only: ['statement', 'invoice'], preserveScroll: true });
     const scope = year || 'all';
 
     const copyLink = async () => {
@@ -68,6 +68,7 @@ export default function PaymentsInvoice({ student, year, years, statement, invoi
 
             <div className="space-y-6">
                 <TermInvoice invoice={invoice} sendUrl={urls.sendInvoice} />
+                <MomoPay url={urls.momo} maxAmount={invoice?.total ?? 0} defaultPhone={parentPhone} test={momoTest} staff onPaid={reload} />
                 <FeeTotals
                     school={statement.school.totals}
                     optional={statement.optional.totals}

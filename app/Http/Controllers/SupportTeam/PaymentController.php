@@ -124,8 +124,11 @@ class PaymentController extends Controller
                 'years' => Pay::getYears($st_id)->merge(OptionalFeeCharge::where('student_id', $st_id)->pluck('year'))->filter()->unique()->sort()->reverse()->values(),
                 'statement' => Fees::statement((int) $st_id, $year, true),
                 'invoice' => Fees::termInvoice((int) $st_id),
+                'parentPhone' => optional($sr->my_parent)->phone,
+                'momoTest' => config('momo.driver') === 'fake',
                 'urls' => [
                     'sendInvoice' => route('payments.send_invoice', Qs::hash($st_id)),
+                    'momo' => \App\Support\MoMo::configured() ? route('payments.momo', Qs::hash($st_id)) : null,
                     'all' => route('payments.invoice', Qs::hash($st_id)),
                     'year' => route('payments.invoice', [Qs::hash($st_id), ':year']),
                     'manage' => route('payments.manage', $sr->my_class_id),
@@ -215,7 +218,9 @@ class PaymentController extends Controller
     public function pay_now(Request $req, $pr_id)
     {
         $this->validate($req, [
-            'amt_paid' => 'required|numeric'
+            'amt_paid' => 'required|numeric',
+            'method' => 'nullable|in:'.implode(',', Fees::METHODS),
+            'reference' => 'nullable|string|max:100',
         ], [], ['amt_paid' => 'Amount Paid']);
 
         $pr = $this->pay->findRecord($pr_id);
@@ -231,6 +236,8 @@ class PaymentController extends Controller
         $d2['balance'] = $bal;
         $d2['pr_id'] = $pr_id;
         $d2['year'] = $this->year;
+        $d2['method'] = $req->input('method') ?: 'Cash';
+        $d2['reference'] = $req->input('reference') ?: null;
 
         $receipt = $this->pay->createReceipt($d2);
         return response()->json(['ok' => true, 'msg' => __('msg.update_ok'), 'receipt' => ReceiptController::urls('school', $receipt->id)]);

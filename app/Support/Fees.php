@@ -23,6 +23,9 @@ use Illuminate\Support\Collection;
  */
 class Fees
 {
+    /** How a payment was made (shown on receipts and the finance dashboard). */
+    const METHODS = ['Cash', 'MTN MoMo', 'Telecel Cash', 'AirtelTigo Money', 'Bank transfer', 'Cheque'];
+
     /** "new" when the student joined in the given session, otherwise "old". */
     public static function categoryFor(StudentRecord $sr, string $year): string
     {
@@ -425,5 +428,50 @@ class Fees
             'forward' => ['lines' => $forward, 'total' => $forwardDue],
             'total' => $currentDue + $forwardDue,
         ];
+    }
+
+    /**
+     * Apply one payment to everything the student owes, oldest first: earlier years and terms,
+     * then this term's school fees, then optional services. Creates a receipt for each bill paid
+     * and returns [['kind' => 'school'|'optional', 'id' => receipt id, 'label', 'amount']].
+     */
+    public static function applyPayment(int $studentId, int $amount, string $method, ?string $reference = null): array
+    {
+        $left = $amount;
+        $applied = [];
+
+        $records = PaymentRecord::where('student_id', $studentId)->with('payment')->get()
+            ->filter(function ($pr) { return $pr->payment; })
+            ->sortBy(function ($pr) { return $pr->year.'-'.(int) $pr->payment->term.'-'.str_pad($pr->id, 8, '0', STR_PAD_LEFT); });
+        $charges = OptionalFeeCharge::where('student_id', $studentId)->orderBy('year')->orderBy('id')->get();
+
+        $queue = [];
+        foreach ($records as $pr) $queue[] = ['school', $pr->year, (int) $pr->payment->term, $pr];
+        foreach ($charges as $c) $queue[] = ['optional', $c->year, 9, $c];
+        usort($queue, function ($a, $b) { return [$a[1], $a[2]] <=> [$b[1], $b[2]]; });
+
+        foreach ($queue as [$kind, , , $bill]) {
+            if ($left <= 0) break;
+            if ($kind === 'school') {
+                $owed = max((int) $bill->payment->amount - (int) $bill->discount - (int) $bill->amt_paid, 0);
+                if (!$owed) continue;
+                $pay = min($owed, $left);
+                $paid = (int) $bill->amt_paid + $pay;
+                $balance = (int) $bill->payment->amount - (int) $bill->discount - $paid;
+                $bill->update(['amt_paid' => $paid, 'balance' => max($balance, 0), 'paid' => $balance < 1 ? 1 : 0]);
+                $r = \App\Models\Receipt::create(['pr_id' => $bill->id, 'amt_paid' => $pay, 'balance' => max($balance, 0), 'year' => $bill->year, 'method' => $method, 'reference' => $reference]);
+                $applied[] = ['kind' => 'school', 'id' => $r->id, 'label' => $bill->payment->title.' ('.$bill->year.')', 'amount' => $pay];
+            } else {
+                $owed = max((int) $bill->amount - (int) $bill->amt_paid, 0);
+                if (!$owed) continue;
+                $pay = min($owed, $left);
+                $bill->update(['amt_paid' => (int) $bill->amt_paid + $pay]);
+                $r = \App\Models\OptionalFeeReceipt::create(['charge_id' => $bill->id, 'amt_paid' => $pay, 'balance' => $bill->fresh()->balance, 'year' => $bill->year, 'method' => $method, 'reference' => $reference]);
+                $applied[] = ['kind' => 'optional', 'id' => $r->id, 'label' => $bill->label.' ('.$bill->year.')', 'amount' => $pay];
+            }
+            $left -= $pay;
+        }
+
+        return $applied;
     }
 }

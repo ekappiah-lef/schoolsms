@@ -9,6 +9,11 @@ Route::get('/terms-of-use', 'HomeController@terms_of_use')->name('terms_of_use')
 /* Fees statement linked from admission email/SMS: no login, signed + expiring URL */
 Route::get('fees/statement/{student}', 'FeeStatementController@show')->name('fees.statement')->middleware('signed');
 
+/* MTN MoMo: parent pays from the statement (signed), status polling (by unguessable reference), MTN callback */
+Route::post('pay/momo/{student}', 'MomoController@start')->name('momo.pay')->middleware(['signed', 'throttle:10,1']);
+Route::get('pay/momo/status/{reference}', 'MomoController@status')->name('momo.status')->middleware('throttle:60,1');
+Route::match(['post', 'put'], 'momo/callback', 'MomoController@callback')->name('momo.callback');
+
 
 Route::group(['middleware' => 'auth'], function () {
 
@@ -101,6 +106,7 @@ Route::group(['middleware' => 'auth'], function () {
             Route::delete('reset_record/{id}', 'PaymentController@reset_record')->name('payments.reset_record');
             Route::post('pay_now/{id}', 'PaymentController@pay_now')->name('payments.pay_now');
             Route::post('invoice/{id}/send', 'PaymentController@sendInvoice')->name('payments.send_invoice');
+            Route::post('invoice/{id}/momo', '\App\Http\Controllers\MomoController@staffStart')->name('payments.momo');
             Route::post('manage/{class_id}/send-invoices', 'PaymentController@sendClassInvoices')->name('payments.send_class_invoices');
         });
 
@@ -185,6 +191,8 @@ Route::group(['middleware' => 'auth'], function () {
             Route::post('select_year/{id}', 'MarkController@year_selected')->name('marks.year_select');
             Route::get('show/{id}/{year}', 'MarkController@show')->name('marks.show');
             Route::get('print/{id}/{exam_id}/{year}', 'MarkController@print_view')->name('marks.print');
+            Route::post('email/{id}/{exam_id}/{year}', 'MarkController@email_report')->name('marks.email_report')->middleware('teamSAT');
+            Route::post('email-class/{exam}/{class}/{sec_id}', 'MarkController@email_class_reports')->name('marks.email_class_reports')->middleware('teamSAT');
 
         });
 
@@ -195,6 +203,8 @@ Route::group(['middleware' => 'auth'], function () {
         Route::get('messages', 'MessageController@index')->name('messages.index');
         Route::get('messages/count', 'MessageController@count')->name('messages.count');
         Route::post('messages', 'MessageController@store')->name('messages.store');
+        Route::post('messages/{message}/approve', 'MessageController@approve')->name('messages.approve');
+        Route::post('messages/{message}/reject', 'MessageController@reject')->name('messages.reject');
 
         Route::resource('students', 'StudentRecordController');
         Route::resource('users', 'UserController');

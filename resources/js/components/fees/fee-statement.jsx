@@ -357,8 +357,11 @@ function ReceiptMenu({ urls, number }) {
 }
 
 /** Amount field + Pay button. The balance after payment is shown as you type. */
+export const PAY_METHODS = ['Cash', 'MTN MoMo', 'Telecel Cash', 'AirtelTigo Money', 'Bank transfer', 'Cheque'];
+
 export function PayInline({ title, balance, url, onPaid }) {
     const [value, setValue] = useState('');
+    const [method, setMethod] = useState('Cash');
     const [processing, setProcessing] = useState(false);
     const amount = Number(value);
     const invalid = value !== '' && (!Number.isFinite(amount) || amount < 1 || amount > balance);
@@ -368,11 +371,11 @@ export function PayInline({ title, balance, url, onPaid }) {
         e.preventDefault();
         if (!value || invalid) return;
         setProcessing(true);
-        const result = await submitForm(url, { amt_paid: amount });
+        const result = await submitForm(url, { amt_paid: amount, method });
         setProcessing(false);
         if (result.ok) {
             const receipt = result.data?.receipt;
-            toast.success(`${formatMoney(amount)} recorded for ${title}`, {
+            toast.success(`${formatMoney(amount)} (${method}) recorded for ${title}`, {
                 duration: 10000,
                 action: receipt ? { label: 'Send receipt', onClick: () => sendReceipt(receipt.send) } : undefined,
                 cancel: receipt ? { label: 'View', onClick: () => window.open(receipt.view, '_blank') } : undefined,
@@ -385,7 +388,19 @@ export function PayInline({ title, balance, url, onPaid }) {
     };
 
     return (
-        <form onSubmit={pay} className="flex min-w-[240px] items-start gap-2">
+        <form onSubmit={pay} className="flex min-w-[340px] items-start gap-2">
+            <select
+                value={method}
+                onChange={(e) => setMethod(e.target.value)}
+                aria-label="Payment method"
+                className="h-8 w-[118px] shrink-0 rounded-md border-0 bg-surface px-2 text-xs shadow-field focus:shadow-[0_0_0_2px_rgb(var(--primary)/0.35)] focus:outline-none"
+            >
+                {PAY_METHODS.map((m) => (
+                    <option key={m} value={m}>
+                        {m}
+                    </option>
+                ))}
+            </select>
             <div className="flex-1">
                 <div className="relative">
                     <input
@@ -480,5 +495,97 @@ export function TermInvoice({ invoice, sendUrl }) {
                 </div>
             </div>
         </Panel>
+    );
+}
+
+/**
+ * Pay (or request payment) with MTN MoMo: the payer gets a prompt on their phone and approves it
+ * with their PIN; this waits for MTN's answer, then the payment is applied to the fees.
+ */
+export function MomoPay({ url, maxAmount, defaultPhone = '', test, onPaid, staff = false }) {
+    const [phone, setPhone] = useState(defaultPhone ?? '');
+    const [amount, setAmount] = useState(maxAmount > 0 ? String(maxAmount) : '');
+    const [state, setState] = useState({ step: 'form' }); // form | waiting | done | failed
+    const [busy, setBusy] = useState(false);
+    if (!url || maxAmount <= 0) return null;
+
+    const poll = async (statusUrl, started) => {
+        try {
+            const r = await fetch(statusUrl, { headers: { Accept: 'application/json' } });
+            const j = await r.json();
+            if (j.status === 'successful') {
+                setState({ step: 'done', amount: j.amount, transaction: j.transaction });
+                toast.success(`${formatMoney(j.amount)} received by MTN MoMo.`);
+                onPaid?.();
+                return;
+            }
+            if (j.status === 'failed') {
+                setState({ step: 'failed', reason: j.reason });
+                return;
+            }
+        } catch {
+            /* keep waiting */
+        }
+        if (Date.now() - started > 3 * 60 * 1000) {
+            setState({ step: 'failed', reason: 'No answer yet. If money was deducted it will show here shortly; otherwise try again.' });
+            return;
+        }
+        setTimeout(() => poll(statusUrl, started), 3000);
+    };
+
+    const start = async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        const r = await submitForm(url, { phone, amount: Number(amount) });
+        setBusy(false);
+        if (!r.ok) {
+            toast.error(r.errors ? Object.values(r.errors)[0] : r.message);
+            return;
+        }
+        setState({ step: 'waiting' });
+        poll(r.data.status_url, Date.now());
+    };
+
+    return (
+        <div className="rounded-lg border border-[#ffcc00] bg-[#fffbea] p-4">
+            <div className="mb-3 flex items-center gap-2">
+                <span className="rounded bg-[#ffcc00] px-1.5 py-0.5 text-2xs font-bold text-black">MTN MoMo</span>
+                <span className="text-sm font-semibold">{staff ? 'Request payment by MoMo' : 'Pay with MTN Mobile Money'}</span>
+                {test && <span className="ml-auto text-2xs font-semibold uppercase text-warning-fg">Test mode</span>}
+            </div>
+            {state.step === 'form' && (
+                <form onSubmit={start} className="flex flex-wrap items-end gap-2">
+                    <label className="flex flex-col gap-1 text-xs text-fg-muted">
+                        MoMo number
+                        <input className="h-9 w-44 rounded-md border border-border bg-surface px-2.5 text-sm text-fg" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="024 123 4567" required />
+                    </label>
+                    <label className="flex flex-col gap-1 text-xs text-fg-muted">
+                        Amount (GHS)
+                        <input className="tabular h-9 w-32 rounded-md border border-border bg-surface px-2.5 text-sm text-fg" type="number" min={1} max={maxAmount} value={amount} onChange={(e) => setAmount(e.target.value)} required />
+                    </label>
+                    <Button type="submit" variant="primary" disabled={busy}>
+                        {busy ? 'Sending…' : staff ? 'Send prompt to phone' : 'Pay now'}
+                    </Button>
+                    <p className="w-full text-xs text-fg-muted">
+                        {staff ? 'The parent approves the payment on their phone with their MoMo PIN.' : 'You will get a prompt on your phone. Approve it with your MoMo PIN.'}
+                        {test && ' Test mode: no real money moves; numbers ending in 0 are declined.'}
+                    </p>
+                </form>
+            )}
+            {state.step === 'waiting' && <p className="text-sm">Waiting for approval on {phone}… Check the phone and enter the MoMo PIN.</p>}
+            {state.step === 'done' && (
+                <p className="text-sm text-success-fg">
+                    Payment of {formatMoney(state.amount)} received{state.transaction ? ` (MTN ref ${state.transaction})` : ''}. It has been applied to the fees, oldest balance first.
+                </p>
+            )}
+            {state.step === 'failed' && (
+                <div className="flex flex-wrap items-center gap-3 text-sm text-danger-fg">
+                    {state.reason}
+                    <Button size="xs" onClick={() => setState({ step: 'form' })}>
+                        Try again
+                    </Button>
+                </div>
+            )}
+        </div>
     );
 }

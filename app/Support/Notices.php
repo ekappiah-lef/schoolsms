@@ -186,10 +186,52 @@ class Notices
             .". Total due: {$money($invoice['total'])}. Details: {$url}";
         foreach ($to['phones'] as $phone) {
             $log('sms', $phone, self::sms($phone, $sms));
+            if (self::whatsappEnabled()) $log('whatsapp', $phone, self::whatsapp($phone, $sms));
         }
 
         if (!$to['emails'] && !$to['phones']) {
             $log('email', '(none)', 'No parent email or phone number on record.');
+        }
+
+        return $results;
+    }
+
+    /** Email a report sheet (PDF attached) to the parents, with an SMS saying it has been sent. */
+    public static function sendReport(StudentRecord $sr, string $examLabel, string $pdf): array
+    {
+        $sr->loadMissing(['user', 'my_parent']);
+        $to = self::recipients($sr);
+        $school = Qs::getSystemName();
+        $child = $sr->user->name;
+        $parent = optional($sr->my_parent)->name;
+        $file = 'Report-'.preg_replace('/[^A-Za-z0-9]+/', '-', $child.' '.$examLabel).'.pdf';
+
+        $results = [];
+        $log = function ($channel, $recipient, $error = null) use (&$results, $sr) {
+            $status = $error ? 'failed' : 'sent';
+            NotificationLog::create(['student_id' => $sr->user_id, 'channel' => $channel, 'kind' => 'report', 'recipient' => $recipient, 'status' => $status, 'error' => $error ? mb_substr($error, 0, 1000) : null]);
+            $results[] = compact('channel', 'recipient', 'status', 'error');
+        };
+
+        $emailed = 0;
+        foreach ($to['emails'] as $email) {
+            if ($why = self::blocked($email)) { $log('email', $email, $why); continue; }
+            if (!self::mailConfigured()) { $log('email', $email, 'Email is not configured (set MAIL_HOST, MAIL_USERNAME and MAIL_PASSWORD in .env).'); continue; }
+            try {
+                Mail::to($email)->send(new \App\Mail\ReportCard($school, $parent, $child, $examLabel, $pdf, $file));
+                $log('email', $email);
+                $emailed++;
+            } catch (Throwable $e) {
+                $log('email', $email, $e->getMessage());
+            }
+        }
+        if ($emailed) {
+            foreach ($to['phones'] as $phone) {
+                $log('sms', $phone, self::sms($phone, "{$school}: {$child}'s {$examLabel} report sheet has been sent to your email."));
+            }
+        }
+        if (!$to['emails']) {
+            $log('email', '(none)', 'No parent email address on record.');
         }
 
         return $results;
@@ -216,6 +258,7 @@ class Notices
         };
         foreach ($to['phones'] as $phone) {
             $log('sms', $phone, self::sms($phone, $body));
+            if (self::whatsappEnabled()) $log('whatsapp', $phone, self::whatsapp($phone, $body));
         }
         foreach ($to['emails'] as $email) {
             $log('email', $email, self::email($email, "{$first} was not in school {$day}", $body));
@@ -231,7 +274,7 @@ class Notices
      * Send one message to many people (Messages page). Returns counts of sent, held back
      * (demo allowlist) and failed messages.
      */
-    public static function broadcast(array $emails, array $phones, ?string $subject, string $body, bool $sms, bool $email): array
+    public static function broadcast(array $emails, array $phones, ?string $subject, string $body, bool $sms, bool $email, bool $whatsapp = false): array
     {
         $count = ['sent' => 0, 'held' => 0, 'failed' => 0];
         $tally = function (?string $error) use (&$count) {
@@ -242,6 +285,11 @@ class Notices
         if ($sms) {
             foreach (array_unique($phones) as $phone) {
                 $tally(self::sms($phone, $body));
+            }
+        }
+        if ($whatsapp) {
+            foreach (array_unique($phones) as $phone) {
+                $tally(self::whatsapp($phone, $body));
             }
         }
         if ($email) {
@@ -394,5 +442,48 @@ class Notices
         }
 
         return strlen($d) >= 9 ? $d : null;
+    }
+
+    /** True when the school's WhatsApp Business number is connected (config/whatsapp.php). */
+    public static function whatsappEnabled(): bool
+    {
+        return config('whatsapp.enabled') && config('whatsapp.token') && config('whatsapp.phone_number_id');
+    }
+
+    /**
+     * Send a WhatsApp message with the approved template (its {{1}} is filled with $text).
+     * Returns null when sent, otherwise the reason.
+     */
+    public static function whatsapp(string $phone, string $text): ?string
+    {
+        if ($why = self::blocked($phone)) {
+            return $why;
+        }
+        if (!self::whatsappEnabled()) {
+            return 'WhatsApp is not connected (WHATSAPP_* settings).';
+        }
+        $to = self::normalisePhone($phone);
+        if (!$to) {
+            return 'Invalid phone number.';
+        }
+        // Template parameters cannot contain new lines, tabs or more than 4 spaces in a row.
+        $param = trim(preg_replace('/\s+/', ' ', $text));
+        try {
+            $res = Http::withToken(config('whatsapp.token'))->timeout(20)
+                ->post('https://graph.facebook.com/'.config('whatsapp.version').'/'.config('whatsapp.phone_number_id').'/messages', [
+                    'messaging_product' => 'whatsapp',
+                    'to' => $to,
+                    'type' => 'template',
+                    'template' => [
+                        'name' => config('whatsapp.template'),
+                        'language' => ['code' => config('whatsapp.template_lang')],
+                        'components' => [['type' => 'body', 'parameters' => [['type' => 'text', 'text' => mb_substr($param, 0, 1000)]]]],
+                    ],
+                ]);
+        } catch (Throwable $e) {
+            return $e->getMessage();
+        }
+
+        return $res->successful() ? null : 'WhatsApp error '.$res->status().': '.mb_substr((string) $res->json('error.message', $res->body()), 0, 300);
     }
 }

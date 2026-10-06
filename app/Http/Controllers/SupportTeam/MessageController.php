@@ -37,13 +37,18 @@ class MessageController extends Controller
             'classes' => ClassOrder::sort(MyClass::all())->map(function ($c) {
                 return ['id' => $c->id, 'name' => $c->name, 'sections' => Section::where('my_class_id', $c->id)->orderBy('name')->get(['id', 'name'])];
             })->values(),
-            'history' => Message::with('sender')->latest()->limit(100)->get()->map(function ($m) {
+            'history' => Message::with('sender')->latest()->limit(200)->get()->map(function ($m) {
                 return [
                     'id' => $m->id, 'date' => $m->created_at->toIso8601String(), 'audience' => $m->audience_label, 'subject' => $m->subject,
-                    'body' => $m->body, 'channels' => array_values(array_filter([$m->sms ? 'SMS' : null, $m->email ? 'Email' : null])),
+                    'body' => $m->body, 'channels' => array_values(array_filter([$m->sms ? 'SMS' : null, $m->email ? 'Email' : null, $m->whatsapp ? 'WhatsApp' : null])),
                     'recipients' => $m->recipients, 'sent' => $m->sent, 'failed' => $m->failed, 'by' => optional($m->sender)->name,
+                    'status' => $m->status, 'note' => $m->review_note,
+                    'urls' => $m->status === 'pending' && Qs::userIsTeamAdmin() ? ['approve' => route('messages.approve', $m->id), 'reject' => route('messages.reject', $m->id)] : null,
                 ];
             })->values(),
+            'canApprove' => Qs::userIsTeamAdmin(),
+            'needsApproval' => !Qs::userIsTeamAdmin(),
+            'whatsapp' => Notices::whatsappEnabled(),
             'demo' => (bool) config('sms.allowlist'),
             'urls' => ['send' => route('messages.store'), 'count' => route('messages.count')],
         ]);
@@ -67,29 +72,69 @@ class MessageController extends Controller
             'body' => 'required|string|min:5|max:1000',
             'sms' => 'nullable|boolean',
             'email' => 'nullable|boolean',
+            'whatsapp' => 'nullable|boolean',
         ], [], ['body' => 'Message', 'class_id' => 'Class']);
         $sms = $req->boolean('sms');
         $email = $req->boolean('email');
-        if (!$sms && !$email) {
-            return response()->json(['message' => 'Invalid', 'errors' => ['sms' => ['Choose SMS, email or both.']]], 422);
+        $wa = $req->boolean('whatsapp');
+        if (!$sms && !$email && !$wa) {
+            return response()->json(['message' => 'Invalid', 'errors' => ['sms' => ['Choose at least one: SMS, email or WhatsApp.']]], 422);
         }
 
         $r = $this->people($d['audience'], $d['class_id'] ?? null, $d['section_id'] ?? null);
         if (!$r['people']) {
             return Qs::json('Nobody to send to for this choice.', false);
         }
-        $count = Notices::broadcast($r['emails'], $r['phones'], $d['subject'] ?? null, $d['body'], $sms, $email);
 
-        Message::create([
-            'audience' => $d['audience'], 'audience_label' => $r['label'], 'subject' => $d['subject'] ?? null, 'body' => $d['body'],
-            'sms' => $sms, 'email' => $email, 'recipients' => $r['people'], 'sent' => $count['sent'], 'failed' => $count['failed'], 'sent_by' => Auth::id(),
+        $m = Message::create([
+            'audience' => $d['audience'], 'audience_label' => $r['label'], 'class_id' => $d['class_id'] ?? null, 'section_id' => $d['section_id'] ?? null,
+            'subject' => $d['subject'] ?? null, 'body' => $d['body'], 'sms' => $sms, 'email' => $email, 'whatsapp' => $wa,
+            'recipients' => $r['people'], 'sent_by' => Auth::id(),
+            // The academic admin's messages wait for an administrator to approve them.
+            'status' => Qs::userIsTeamAdmin() ? 'sending' : 'pending',
         ]);
+        if ($m->status === 'pending') {
+            return Qs::json('Message submitted for approval. An administrator must approve it before it is sent.', true);
+        }
+
+        return Qs::json($this->deliver($m), true);
+    }
+
+    /** An administrator approves a pending message; it is sent straight away. */
+    public function approve($id)
+    {
+        if (!Qs::userIsTeamAdmin()) {
+            return Qs::json(__('msg.denied'), false);
+        }
+        $m = Message::where('status', 'pending')->findOrFail($id);
+        $m->update(['approved_by' => Auth::id(), 'approved_at' => now()]);
+
+        return Qs::json('Approved. '.$this->deliver($m), true);
+    }
+
+    public function reject(Request $req, $id)
+    {
+        if (!Qs::userIsTeamAdmin()) {
+            return Qs::json(__('msg.denied'), false);
+        }
+        $m = Message::where('status', 'pending')->findOrFail($id);
+        $m->update(['status' => 'rejected', 'approved_by' => Auth::id(), 'approved_at' => now(), 'review_note' => mb_substr((string) $req->input('note'), 0, 255) ?: null]);
+
+        return Qs::json('Message rejected; it was not sent.', true);
+    }
+
+    /** Send the message to its audience (worked out again at sending time) and record the counts. */
+    protected function deliver(Message $m): string
+    {
+        $r = $this->people($m->audience, $m->class_id, $m->section_id);
+        $count = Notices::broadcast($r['emails'], $r['phones'], $m->subject, $m->body, $m->sms, $m->email, (bool) $m->whatsapp);
+        $m->update(['status' => 'sent', 'recipients' => $r['people'], 'sent' => $count['sent'], 'failed' => $count['failed']]);
 
         $msg = "Message sent: {$count['sent']} delivered";
         if ($count['held']) $msg .= ", {$count['held']} held back (demo mode)";
         if ($count['failed']) $msg .= ", {$count['failed']} failed";
 
-        return Qs::json($msg.'.', true);
+        return $msg.'.';
     }
 
     /** People in an audience with their phone numbers and email addresses. */

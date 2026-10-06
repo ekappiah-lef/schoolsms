@@ -85,6 +85,7 @@ class DemoSchoolSeeder extends Seeder
         $this->cashflow();
         // Added last so the rest of the demo data stays the same as before.
         $this->staff('Akosua Owusu', 'Female', 'academic_admin', 'academic', '2023-09-01', 'cj');
+        $this->command->call('demo:payment-methods', ['--force' => true]);
 
         $this->command->info('Demo school seeded: '.StudentRecord::where('grad', 0)->count().' students, '
             .User::where('user_type', 'parent')->count().' parents, '.User::where('user_type', 'teacher')->count().' teachers.');

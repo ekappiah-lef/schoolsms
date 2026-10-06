@@ -6,7 +6,7 @@ use Eloquent;
 
 class OptionalFeeReceipt extends Eloquent
 {
-    protected $fillable = ['charge_id', 'amt_paid', 'balance', 'year'];
+    protected $fillable = ['charge_id', 'amt_paid', 'balance', 'year', 'method', 'reference'];
 
     public function charge()
     {

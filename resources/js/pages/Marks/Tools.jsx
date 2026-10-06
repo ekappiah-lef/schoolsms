@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { toast } from 'sonner';
-import { Printer, Search, Wrench } from 'lucide-react';
+import { Mail, Printer, Search, Wrench } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/dialog';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { Field, InfoCallout, ModuleHeader, NativeSelect } from '@/components/app/module';
 import { EmptyState, Panel } from '@/components/app/page';
@@ -121,12 +122,15 @@ function Tabulation({ sheet }) {
             title={sheet.title}
             flush
             actions={
-                <Button size="sm" asChild>
-                    <a href={sheet.print} target="_blank" rel="noreferrer">
-                        <Printer />
-                        Print
-                    </a>
-                </Button>
+                <div className="flex gap-2">
+                    <EmailClass url={sheet.email} count={sheet.rows.length} />
+                    <Button size="sm" asChild>
+                        <a href={sheet.print} target="_blank" rel="noreferrer">
+                            <Printer />
+                            Print
+                        </a>
+                    </Button>
+                </div>
             }
         >
             <div className="scrollbar-thin overflow-x-auto">
@@ -196,5 +200,36 @@ function Students({ students }) {
             )}
             {pager}
         </Panel>
+    );
+}
+
+/** Email every student's report sheet in this class to their parents. */
+function EmailClass({ url, count }) {
+    const [open, setOpen] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const send = async () => {
+        setBusy(true);
+        const r = await submitForm(url, {});
+        setBusy(false);
+        setOpen(false);
+        r.ok ? toast.success(r.message) : toast.error(r.message);
+    };
+    return (
+        <>
+            <Button size="sm" onClick={() => setOpen(true)}>
+                <Mail />
+                Email reports to class
+            </Button>
+            <ConfirmDialog
+                open={open}
+                onOpenChange={(o) => !busy && setOpen(o)}
+                title={`Email ${count} report sheets?`}
+                description="Each student's report sheet is emailed to their parents as a PDF, with an SMS to say it has been sent."
+                confirmLabel="Send reports"
+                tone="primary"
+                loading={busy}
+                onConfirm={send}
+            />
+        </>
     );
 }

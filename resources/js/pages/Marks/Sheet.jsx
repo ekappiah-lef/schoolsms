@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { toast } from 'sonner';
-import { ChevronDown, Printer, Save } from 'lucide-react';
+import { ChevronDown, Mail, Printer, Save } from 'lucide-react';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { Field, ModuleHeader, NativeSelect, fieldInput } from '@/components/app/module';
 import { EmptyState, Panel } from '@/components/app/page';
@@ -71,12 +71,15 @@ function ExamCard({ ex, skills, canComment, canHeadComment }) {
             description={`Total ${dash(ex.total)} · Average ${dash(ex.ave)} · Class average ${dash(ex.class_ave)}${ex.pos ? ` · Position ${ordinal(ex.pos)}` : ''}`}
             flush
             actions={
-                <Button size="sm" asChild>
-                    <a href={ex.urls.print} target="_blank" rel="noreferrer">
-                        <Printer />
-                        Print report
-                    </a>
-                </Button>
+                <div className="flex gap-2">
+                    {ex.urls.email && <EmailReport url={ex.urls.email} />}
+                    <Button size="sm" asChild>
+                        <a href={ex.urls.print} target="_blank" rel="noreferrer">
+                            <Printer />
+                            Print report
+                        </a>
+                    </Button>
+                </div>
             }
         >
             <div className="scrollbar-thin overflow-x-auto">
@@ -213,5 +216,22 @@ function SkillGroup({ title, names, initial, url, field }) {
                 ))}
             </div>
         </div>
+    );
+}
+
+/** Email this report sheet (PDF) to the parents. */
+function EmailReport({ url }) {
+    const [busy, setBusy] = useState(false);
+    const send = async () => {
+        setBusy(true);
+        const r = await submitForm(url, {});
+        setBusy(false);
+        r.ok ? toast.success(r.message) : toast.error(r.message);
+    };
+    return (
+        <Button size="sm" onClick={send} disabled={busy}>
+            <Mail />
+            {busy ? 'Sending…' : 'Email to parent'}
+        </Button>
     );
 }

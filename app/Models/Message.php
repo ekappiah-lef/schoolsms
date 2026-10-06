@@ -14,9 +14,9 @@ class Message extends Model
         'non_teaching' => 'Non-teaching staff',
     ];
 
-    protected $fillable = ['audience', 'audience_label', 'subject', 'body', 'sms', 'email', 'recipients', 'sent', 'failed', 'sent_by'];
+    protected $fillable = ['audience', 'audience_label', 'status', 'class_id', 'section_id', 'subject', 'body', 'sms', 'email', 'whatsapp', 'recipients', 'sent', 'failed', 'sent_by', 'approved_by', 'approved_at', 'review_note'];
 
-    protected $casts = ['sms' => 'boolean', 'email' => 'boolean'];
+    protected $casts = ['sms' => 'boolean', 'email' => 'boolean', 'whatsapp' => 'boolean', 'approved_at' => 'datetime'];
 
     public function sender()
     {
