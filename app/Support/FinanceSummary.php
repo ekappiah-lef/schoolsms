@@ -172,70 +172,169 @@ class FinanceSummary
     }
 
     /**
-     * Bills sent to parents for a school year (and optionally one term):
-     * school fees after discounts, plus optional services (a third per term) and shop sales (by date sold).
-     * Also what has been paid against those bills and what is still owed.
+     * Bills sent to parents for a school year (and optionally one term): school fees after discounts,
+     * optional services and shop sales. Also what has been paid against those bills and what is still owed.
+     *
+     * Services (feeding, bus, clubs) are billed for the whole year: a third belongs to each term (the
+     * remainder to term 1) and payments on them settle the terms oldest first. Shop sales belong to the
+     * term they were sold in. The same rules are used everywhere (term table, fee items, allocations),
+     * so the terms of a year always add up to the year.
      */
     public static function invoiced(string $session, ?int $term = null): array
     {
         $school = DB::table('payment_records as pr')->join('payments as p', 'p.id', '=', 'pr.payment_id')
             ->where('pr.year', $session)
             ->when($term, function ($q) use ($term) { $q->where('p.term', $term); })
-            ->selectRaw('coalesce(sum(p.amount - pr.discount),0) as billed, coalesce(sum(pr.amt_paid),0) as paid, count(distinct pr.student_id) as students')->first();
+            ->selectRaw('coalesce(sum(p.amount),0) as gross, coalesce(sum(pr.discount),0) as discount, coalesce(sum(pr.amt_paid),0) as paid, count(distinct pr.student_id) as students')->first();
 
-        // Optional services (feeding, bus, clubs) are billed for the year and paid through it:
-        // a third belongs to each term. Shop sales belong to the term they were sold in.
-        $services = DB::table('optional_fee_charges')->where('year', $session)->where('group', '!=', 'sales')
-            ->selectRaw('coalesce(sum(amount),0) as billed, coalesce(sum(amt_paid),0) as paid')->first();
-        $share = function ($v) use ($term) { $v = (int) $v; return $term ? intdiv($v, 3) + ($term === 1 ? $v % 3 : 0) : $v; };
-        $sales = DB::table('optional_fee_charges')->where('year', $session)->where('group', 'sales')->get(['amount', 'amt_paid', 'created_at'])
-            ->filter(function ($c) use ($term, $session) {
-                if (!$term) return true;
-                [$y, $t] = FinancePeriod::termOf(\Carbon\Carbon::parse($c->created_at));
-                $start = (int) substr($session, 0, 4);
-                $t = $y < $start ? 1 : ($y > $start ? 3 : $t); // sold before / after the year: first / last term
-                return $t === $term;
-            });
-        $optional = (object) [
-            'billed' => $share($services->billed) + (int) $sales->sum('amount'),
-            'paid' => $share($services->paid) + (int) $sales->sum('amt_paid'),
-        ];
+        $services = ['billed' => 0, 'paid' => 0];
+        $sales = ['billed' => 0, 'paid' => 0];
+        foreach (DB::table('optional_fee_charges')->where('year', $session)->get(['group', 'amount', 'amt_paid', 'created_at']) as $c) {
+            if ($c->group === 'sales') {
+                if ($term && self::saleTerm($c->created_at, $session) !== $term) continue;
+                $sales['billed'] += (int) $c->amount;
+                $sales['paid'] += (int) $c->amt_paid;
+            } else {
+                $services['billed'] += $term ? self::termShares((int) $c->amount)[$term] : (int) $c->amount;
+                $services['paid'] += $term ? self::paidByTerm((int) $c->amount, (int) $c->amt_paid)[$term] : (int) $c->amt_paid;
+            }
+        }
 
-        $billed = (int) $school->billed + (int) $optional->billed;
-        $paid = (int) $school->paid + (int) $optional->paid;
+        $schoolBilled = (int) $school->gross - (int) $school->discount;
+        $billed = $schoolBilled + $services['billed'] + $sales['billed'];
+        $paid = (int) $school->paid + $services['paid'] + $sales['paid'];
 
         return [
             'session' => $session, 'term' => $term, 'students' => (int) $school->students,
-            'school' => (int) $school->billed, 'optional' => (int) $optional->billed,
-            'billed' => $billed, 'paid' => $paid, 'outstanding' => max($billed - $paid, 0),
+            'gross' => (int) $school->gross, 'discount' => (int) $school->discount,
+            'school' => $schoolBilled, 'services' => $services['billed'], 'sales' => $sales['billed'],
+            'optional' => $services['billed'] + $sales['billed'],
+            'billed' => $billed, 'paid' => $paid, 'outstanding' => $billed - $paid,
         ];
     }
 
-    /** Every term so far: bills sent, money received, expenses and the balance at the end of the term. */
+    /** Part of a year-long service charge that belongs to each term: a third each, the remainder in term 1. */
+    public static function termShares(int $amount): array
+    {
+        $third = intdiv($amount, 3);
+
+        return [1 => $third + $amount % 3, 2 => $third, 3 => $third];
+    }
+
+    /** Money paid on a year-long service charge, applied to its terms oldest first. */
+    public static function paidByTerm(int $amount, int $paid): array
+    {
+        $out = [];
+        $lo = 0;
+        foreach (self::termShares($amount) as $t => $share) {
+            $hi = $t === 3 ? PHP_INT_MAX : $lo + $share;
+            $out[$t] = max(0, min($paid, $hi) - $lo);
+            $lo += $share;
+        }
+
+        return $out;
+    }
+
+    /** Term of the school year a shop sale belongs to (sold before / after the year: first / last term). */
+    public static function saleTerm($soldAt, string $session): int
+    {
+        [$y, $t] = FinancePeriod::termOf(Carbon::parse($soldAt));
+        $start = (int) substr($session, 0, 4);
+
+        return $y < $start ? 1 : ($y > $start ? 3 : $t);
+    }
+
+    protected static $allocations;
+
+    /**
+     * Every fee payment ever received, matched to the bill it paid:
+     *   [received at "Y-m-d H:i:s", amount, bill "YYYY-YYYY:T", kind school|services|sales].
+     * School-fee receipts belong to their bill's term, sales to the term sold in, and payments for
+     * year-long services fill that charge's terms oldest first (as paidByTerm).
+     */
+    public static function allocations(): array
+    {
+        if (self::$allocations !== null) return self::$allocations;
+
+        $out = [];
+        $school = DB::table('receipts as r')->join('payment_records as pr', 'pr.id', '=', 'r.pr_id')->join('payments as p', 'p.id', '=', 'pr.payment_id')
+            ->select('r.created_at', 'r.amt_paid', 'p.year', 'p.term')->get();
+        foreach ($school as $r) {
+            $out[] = [(string) $r->created_at, (int) $r->amt_paid, $r->year.':'.$r->term, 'school'];
+        }
+
+        $optional = DB::table('optional_fee_receipts as r')->join('optional_fee_charges as c', 'c.id', '=', 'r.charge_id')
+            ->orderBy('r.charge_id')->orderBy('r.created_at')->orderBy('r.id')
+            ->select('r.charge_id', 'r.created_at', 'r.amt_paid', 'c.year', 'c.group', 'c.amount', 'c.created_at as sold_at')->get();
+        $before = [];
+        foreach ($optional as $r) {
+            $at = (string) $r->created_at;
+            if ($r->group === 'sales') {
+                $out[] = [$at, (int) $r->amt_paid, $r->year.':'.self::saleTerm($r->sold_at, $r->year), 'sales'];
+                continue;
+            }
+            $b = $before[$r->charge_id] ?? 0;
+            $a = $b + (int) $r->amt_paid;
+            $upto = self::paidByTerm((int) $r->amount, $a);
+            $was = self::paidByTerm((int) $r->amount, $b);
+            foreach ([1, 2, 3] as $t) {
+                if ($upto[$t] - $was[$t] > 0) $out[] = [$at, $upto[$t] - $was[$t], $r->year.':'.$t, 'services'];
+            }
+            $before[$r->charge_id] = $a;
+        }
+
+        return self::$allocations = $out;
+    }
+
+    /**
+     * Every term from the first record to the end of this school year (later terms of this year are
+     * "upcoming": services are already billed for them, no money has moved yet). For each term:
+     *   Bills:  invoiced = paid so far + still owed; paid so far = paid before + during + after the term.
+     *   Cash:   cash at start + fees received + other income − expenses = cash at end.
+     *   Link:   fees received = for this term's bills + for earlier bills (arrears) + for later bills (in advance),
+     *           and "for this term's bills" is the same money as "paid during the term".
+     */
     public static function termly(): array
     {
         $first = FinancePeriod::firstActivity();
         [$startY] = FinancePeriod::termOf($first);
-        [$cy, $ct] = FinancePeriod::termOf(now());
+        [$cy] = FinancePeriod::termOf(now());
+        $alloc = self::allocations();
+        $cashNow = self::cashBalance();
         $rows = [];
         for ($y = $cy; $y >= $startY; $y--) {
             for ($t = 3; $t >= 1; $t--) {
-                if ($y === $cy && $t > $ct) continue;
                 [$from, $to] = FinancePeriod::termRange($y, $t);
                 if ($to->lt($first)) continue; // before anything was recorded
-                $to = $to->min(now()->endOfDay());
-                $cf = self::cashflow($from, $to);
-                $inv = self::invoiced($y.'-'.($y + 1), $t);
+                $session = $y.'-'.($y + 1);
+                $key = $session.':'.$t;
+                $upcoming = $from->gt(now());
+                $f = $from->format('Y-m-d H:i:s');
+                $e = $to->format('Y-m-d H:i:s');
+
+                $m = ['paidBefore' => 0, 'paidDuring' => 0, 'paidAfter' => 0, 'feesThis' => 0, 'feesEarlier' => 0, 'feesLater' => 0];
+                foreach ($alloc as [$at, $amt, $bill]) {
+                    $inTerm = $at >= $f && $at <= $e;
+                    if ($bill === $key) $m[$at < $f ? 'paidBefore' : ($inTerm ? 'paidDuring' : 'paidAfter')] += $amt;
+                    if ($inTerm) $m[$bill === $key ? 'feesThis' : ($bill < $key ? 'feesEarlier' : 'feesLater')] += $amt;
+                }
+
+                $inv = self::invoiced($session, $t);
+                $cf = $upcoming ? null : self::cashflow($from, $to->min(now()->endOfDay()));
                 $rows[] = [
-                    'key' => 'term:'.$y.'-'.($y + 1).':'.$t, 'session' => $y.'-'.($y + 1), 'term' => $t,
+                    'key' => $key, 'session' => $session, 'term' => $t,
                     'label' => 'Term '.$t.' · '.$y.' – '.($y + 1),
-                    // Bills for the term: invoiced = paid + still owed.
-                    'invoiced' => $inv['billed'], 'paid' => $inv['billed'] - $inv['outstanding'], 'outstanding' => $inv['outstanding'], 'opening' => $cf['opening'],
-                    // Cash that moved during the term (fee payments include arrears from earlier terms).
-                    'fees' => $cf['fees'], 'other' => $cf['otherIncome'],
-                    'received' => $cf['income'], 'expenses' => $cf['expenses'], 'net' => $cf['net'], 'closing' => $cf['closing'],
-                    'current' => $y === $cy && $t === $ct,
-                ];
+                    'from' => $from->toDateString(), 'to' => $to->toDateString(),
+                    'current' => !$upcoming && $to->gte(now()), 'upcoming' => $upcoming,
+                    // Bills for the term
+                    'invoiced' => $inv['billed'], 'school' => $inv['school'], 'services' => $inv['services'], 'sales' => $inv['sales'], 'discount' => $inv['discount'],
+                    'paid' => $inv['paid'], 'outstanding' => $inv['outstanding'],
+                    // Cash that moved during the term
+                    'opening' => $cf ? $cf['opening'] : $cashNow,
+                    'fees' => $cf ? $cf['fees'] : 0, 'other' => $cf ? $cf['otherIncome'] : 0,
+                    'received' => $cf ? $cf['income'] : 0, 'expenses' => $cf ? $cf['expenses'] : 0,
+                    'net' => $cf ? $cf['net'] : 0, 'closing' => $cf ? $cf['closing'] : $cashNow,
+                ] + $m;
             }
         }
 
@@ -243,61 +342,157 @@ class FinanceSummary
     }
 
     /**
-     * Every fee item (Tuition, P.T.A, Medicals, Uniform …) for a school year
-     * (optionally one term): what was billed, paid and is still owed, school-wide
-     * and per student. Payments are shared across a bill's items in proportion to
-     * their amounts; tuition discounts reduce the tuition item.
+     * Every fee item for the chosen terms ({session: [terms]}): school-fee items (Tuition, P.T.A, Medicals,
+     * Uniform …), then optional services (Feeding, Bus, Extra-curricular) and shop sales. What was billed,
+     * paid and is still owed, school-wide and per student; the items add up to invoiced() for those terms.
+     * Payments on a school bill are shared across its items in proportion to their amounts; discounts come
+     * off tuition first.
      */
-    public static function itemBreakdown(string $session, ?int $term = null): array
+    public static function itemBreakdown(array $periods): array
     {
-        $records = \App\Models\PaymentRecord::where('year', $session)
-            ->with(['payment.items', 'payment.my_class'])
-            ->whereHas('payment', function ($q) use ($term) { if ($term) $q->where('term', $term); })
-            ->get();
-
-        $students = DB::table('users as u')->leftJoin('student_records as sr', 'sr.user_id', '=', 'u.id')
-            ->leftJoin('users as p', 'p.id', '=', 'sr.my_parent_id')
-            ->whereIn('u.id', $records->pluck('student_id')->unique())
-            ->select('u.id', 'u.name', 'sr.adm_no', 'p.name as parent', 'p.phone as parent_phone', 'p.id as parent_id')->get()->keyBy('id');
-
-        $totals = [];
-        $rows = [];
-        foreach ($records as $pr) {
-            $p = $pr->payment;
-            if (!$p) continue;
-            $items = $p->items->count() ? $p->items->map(function ($i) { return [$i->name, (int) $i->amount]; })->all() : [[$p->title, (int) $p->amount]];
-            // Discount comes off tuition (or the whole fee when it is not itemised).
-            $discount = (int) $pr->discount;
-            $net = [];
-            foreach ($items as [$name, $amt]) {
-                $cut = $discount > 0 && (stripos($name, 'tuition') !== false || count($items) === 1) ? min($discount, $amt) : 0;
-                $discount -= $cut;
-                $net[] = [$name, $amt - $cut];
+        $lines = [];
+        $classNames = DB::table('my_classes')->pluck('name', 'id');
+        foreach ($periods as $session => $terms) {
+            $records = \App\Models\PaymentRecord::where('year', $session)
+                ->with(['payment.items', 'payment.my_class'])
+                ->whereHas('payment', function ($q) use ($terms) { $q->whereIn('term', $terms); })
+                ->get();
+            foreach ($records as $pr) {
+                $p = $pr->payment;
+                $items = $p->items->count() ? $p->items->map(function ($i) { return [$i->name, (int) $i->amount]; })->all() : [[$p->title, (int) $p->amount]];
+                foreach (self::splitBill($items, (int) $pr->discount, (int) $pr->amt_paid) as [$name, $amt, $paid]) {
+                    $lines[] = ['kind' => 'school', 'item' => $name, 'student_id' => $pr->student_id, 'class' => optional($p->my_class)->name, 'fee' => $p->title.' · '.$p->year, 'amount' => $amt, 'paid' => $paid];
+                }
             }
-            $owed = array_sum(array_column($net, 1));
-            $ratio = $owed > 0 ? min(1, (int) $pr->amt_paid / $owed) : 1;
-            foreach ($net as [$name, $amt]) {
-                $paid = (int) round($amt * $ratio);
-                $totals[$name] = $totals[$name] ?? ['name' => $name, 'billed' => 0, 'paid' => 0, 'students' => 0];
-                $totals[$name]['billed'] += $amt;
-                $totals[$name]['paid'] += $paid;
-                $totals[$name]['students']++;
-                $s = $students[$pr->student_id] ?? null;
-                $rows[] = [
-                    'item' => $name, 'student' => optional($s)->name, 'adm_no' => optional($s)->adm_no,
-                    'parent' => optional($s)->parent, 'parent_phone' => optional($s)->parent_phone,
-                    'class' => optional($p->my_class)->name, 'fee' => $p->title,
-                    'amount' => $amt, 'paid' => $paid, 'balance' => max($amt - $paid, 0),
-                    'invoice_url' => route('payments.invoice', \App\Helpers\Qs::hash($pr->student_id)),
-                ];
+
+            $classOf = self::classesInYear($session);
+            foreach (DB::table('optional_fee_charges')->where('year', $session)->get() as $c) {
+                if ($c->group === 'sales') {
+                    if (!in_array(self::saleTerm($c->created_at, $session), $terms, true)) continue;
+                    $amt = (int) $c->amount;
+                    $paid = (int) $c->amt_paid;
+                } else {
+                    $shares = self::termShares((int) $c->amount);
+                    $paidBy = self::paidByTerm((int) $c->amount, (int) $c->amt_paid);
+                    $amt = array_sum(array_intersect_key($shares, array_flip($terms)));
+                    $paid = array_sum(array_intersect_key($paidBy, array_flip($terms)));
+                }
+                if (!$amt && !$paid) continue;
+                $lines[] = ['kind' => 'optional', 'item' => OptionalFeeCharge::GROUPS[$c->group] ?? ucfirst($c->group), 'student_id' => $c->student_id,
+                    'class' => $classNames[$classOf[$c->student_id] ?? 0] ?? null, 'fee' => $c->label, 'amount' => $amt, 'paid' => $paid];
             }
         }
 
-        $order = ['Tuition', 'Medicals', 'Maintenance', 'P.T.A', 'Toiletries', 'Uniform', 'ID card', 'Admission form', 'Books'];
-        $items = collect($totals)->sortBy(function ($t) use ($order) { $i = array_search($t['name'], $order, true); return $i === false ? 99 : $i; })
-            ->map(function ($t) { return $t + ['due' => max($t['billed'] - $t['paid'], 0)]; })->values();
+        $students = DB::table('users as u')->leftJoin('student_records as sr', 'sr.user_id', '=', 'u.id')
+            ->leftJoin('users as p', 'p.id', '=', 'sr.my_parent_id')
+            ->whereIn('u.id', collect($lines)->pluck('student_id')->unique())
+            ->select('u.id', 'u.name', 'sr.adm_no', 'p.name as parent', 'p.phone as parent_phone')->get()->keyBy('id');
+
+        $totals = [];
+        $rows = [];
+        foreach ($lines as $l) {
+            $name = $l['item'];
+            $totals[$name] = $totals[$name] ?? ['name' => $name, 'kind' => $l['kind'], 'billed' => 0, 'paid' => 0, 'students' => []];
+            $totals[$name]['billed'] += $l['amount'];
+            $totals[$name]['paid'] += $l['paid'];
+            $totals[$name]['students'][$l['student_id']] = true;
+            $s = $students[$l['student_id']] ?? null;
+            $rows[] = [
+                'item' => $name, 'student' => optional($s)->name, 'adm_no' => optional($s)->adm_no,
+                'parent' => optional($s)->parent, 'parent_phone' => optional($s)->parent_phone,
+                'class' => $l['class'], 'fee' => $l['fee'],
+                'amount' => $l['amount'], 'paid' => $l['paid'], 'balance' => $l['amount'] - $l['paid'],
+                'invoice_url' => route('payments.invoice', \App\Helpers\Qs::hash($l['student_id'])),
+            ];
+        }
+
+        $order = array_merge(['Tuition', 'Medicals', 'Maintenance', 'P.T.A', 'Toiletries', 'Uniform', 'ID card', 'Admission form', 'Books'], array_values(OptionalFeeCharge::GROUPS));
+        $items = collect($totals)
+            ->sortBy(function ($t) use ($order) { $i = array_search($t['name'], $order, true); return ($t['kind'] === 'school' ? 0 : 100) + ($i === false ? 50 : $i); })
+            ->map(function ($t) { return ['students' => count($t['students']), 'due' => $t['billed'] - $t['paid']] + $t; })->values();
 
         return ['items' => $items, 'rows' => $rows];
+    }
+
+    /**
+     * Split one school bill into its items: [name, amount after discount, paid]. The discount comes off
+     * tuition first (then the other items); the payment is shared in proportion to the amounts, with the
+     * rounding left-over given out a cedi at a time, so the items always add up to the bill exactly.
+     */
+    public static function splitBill(array $items, int $discount, int $paid): array
+    {
+        $order = array_keys($items);
+        usort($order, function ($a, $b) use ($items) { return (stripos($items[$b][0], 'tuition') !== false) <=> (stripos($items[$a][0], 'tuition') !== false); });
+        $net = array_map(function ($i) { return $i[1]; }, $items);
+        foreach ($order as $k) {
+            $cut = min($discount, $net[$k]);
+            $net[$k] -= $cut;
+            $discount -= $cut;
+        }
+        $owed = array_sum($net);
+        $paid = min($paid, $owed);
+        $share = [];
+        foreach ($net as $k => $amt) {
+            $share[$k] = $owed > 0 ? intdiv($amt * $paid, $owed) : 0;
+        }
+        $left = $paid - array_sum($share);
+        foreach ($net as $k => $amt) {
+            if ($left <= 0) break;
+            $add = min($left, $amt - $share[$k]);
+            $share[$k] += $add;
+            $left -= $add;
+        }
+
+        $out = [];
+        foreach ($items as $k => $i) {
+            $out[] = [$i[0], $net[$k], $share[$k]];
+        }
+
+        return $out;
+    }
+
+    /** Fee payments received in a period, by the school year of the bill they paid: this year's, earlier years', later years'. */
+    public static function receivedFor(Carbon $from, Carbon $to, string $session): array
+    {
+        $f = $from->format('Y-m-d H:i:s');
+        $t = $to->format('Y-m-d H:i:s');
+        $out = ['this' => 0, 'earlier' => 0, 'later' => 0];
+        foreach (self::allocations() as [$at, $amt, $bill]) {
+            if ($at < $f || $at > $t) continue;
+            $y = explode(':', $bill)[0];
+            $out[$y === $session ? 'this' : ($y < $session ? 'earlier' : 'later')] += $amt;
+        }
+
+        return $out;
+    }
+
+    /** Fee payments received in a period by one method (cash, MTN MoMo …): who paid, for what, and when. */
+    public static function methodPayments(string $method, Carbon $from, Carbon $to): array
+    {
+        $match = function ($q) use ($method) {
+            $method === 'Cash' ? $q->where(function ($w) { $w->where('r.method', 'Cash')->orWhereNull('r.method')->orWhere('r.method', ''); }) : $q->where('r.method', $method);
+        };
+        $school = DB::table('receipts as r')->join('payment_records as pr', 'pr.id', '=', 'r.pr_id')->join('payments as p', 'p.id', '=', 'pr.payment_id')
+            ->join('users as u', 'u.id', '=', 'pr.student_id')->leftJoin('my_classes as c', 'c.id', '=', 'p.my_class_id')
+            ->whereBetween('r.created_at', [$from, $to])->where($match)
+            ->select('r.id', 'r.created_at', 'r.amt_paid', 'r.reference', 'p.title', 'p.term', 'p.year', 'u.id as student_id', 'u.name', 'c.name as class_name')->get()
+            ->map(function ($r) {
+                return ['key' => 's'.$r->id, 'at' => (string) $r->created_at, 'student' => $r->name, 'class' => $r->class_name, 'for' => $r->title.' · Term '.$r->term.' '.$r->year,
+                    'reference' => $r->reference, 'amount' => (int) $r->amt_paid, 'url' => route('payments.invoice', \App\Helpers\Qs::hash($r->student_id))];
+            });
+        $optional = DB::table('optional_fee_receipts as r')->join('optional_fee_charges as ch', 'ch.id', '=', 'r.charge_id')
+            ->join('users as u', 'u.id', '=', 'ch.student_id')
+            ->leftJoin('student_records as sr', 'sr.user_id', '=', 'ch.student_id')->leftJoin('my_classes as c', 'c.id', '=', 'sr.my_class_id')
+            ->whereBetween('r.created_at', [$from, $to])->where($match)
+            ->select('r.id', 'r.created_at', 'r.amt_paid', 'r.reference', 'ch.label', 'ch.year', 'u.id as student_id', 'u.name', 'c.name as class_name')->get()
+            ->map(function ($r) {
+                return ['key' => 'o'.$r->id, 'at' => (string) $r->created_at, 'student' => $r->name, 'class' => $r->class_name, 'for' => $r->label.' · '.$r->year,
+                    'reference' => $r->reference, 'amount' => (int) $r->amt_paid, 'url' => route('payments.invoice', \App\Helpers\Qs::hash($r->student_id))];
+            });
+
+        $rows = $school->concat($optional)->sortByDesc(function ($r) { return $r['at'].'|'.$r['key']; })->values();
+
+        return ['method' => $method, 'total' => (int) $rows->sum('amount'), 'count' => $rows->count(), 'students' => $rows->pluck('student')->unique()->count(), 'rows' => $rows];
     }
 
     /** Cash at a moment: everything received up to then minus everything spent up to then. */

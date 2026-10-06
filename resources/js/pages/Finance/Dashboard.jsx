@@ -1,18 +1,19 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ArrowDownLeft, ArrowRight, ArrowUpRight, Bus, ChevronRight, Landmark, Music2, NotebookText, Plus, Utensils } from 'lucide-react';
+import { ArrowDownLeft, ArrowRight, ArrowUpRight, ChevronRight, Plus } from 'lucide-react';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { ModuleHeader } from '@/components/app/module';
 import { EmptyState } from '@/components/app/page';
 import { HorizontalBars, Legend, Meter } from '@/components/app/charts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Segmented } from '@/components/ui/tabs';
+import { Sheet } from '@/components/ui/dialog';
+import { usePaged } from '@/components/app/data-table';
+import http from '@/lib/http';
 import { BalanceCards, PeriodPicker } from '@/components/fees/period-picker';
 import { cn, formatCompact, formatDate, formatMoney, percent } from '@/lib/utils';
 
-const SERVICE_ICONS = { feeding: Utensils, bus: Bus, extracurricular: Music2, books: NotebookText, sales: NotebookText };
 const SCOPES = [
     { value: 'total', label: 'All fees' },
     { value: 'school', label: 'School fees' },
@@ -23,7 +24,7 @@ const SCOPES = [
  * Finance dashboard: fees billed / paid / due this year (by class type),
  * income and expenses for a period, cash position and trends.
  */
-export default function FinanceDashboard({ session, period, periods, fees, cashflow, invoiced, byMethod = [], balance, monthly, recent, urls }) {
+export default function FinanceDashboard({ session, period, periods, fees, cashflow, invoiced, byMethod = [], receivedFor, balance, monthly, recent, urls }) {
     const [scope, setScope] = useState('total');
     const [breakdown, setBreakdown] = useState(false);
     const f = fees[scope];
@@ -63,7 +64,7 @@ export default function FinanceDashboard({ session, period, periods, fees, cashf
                                 See every entry in the ledger
                             </Link>
                         </div>
-                        <PeriodPicker period={period} groups={periods} url={urls.self} only={['period', 'cashflow', 'fees', 'session', 'invoiced', 'byMethod']} />
+                        <PeriodPicker period={period} groups={periods} url={urls.self} only={['period', 'cashflow', 'fees', 'session', 'invoiced', 'byMethod', 'receivedFor']} />
                     </div>
                     <BalanceCards period={period} opening={cashflow.opening} invoiced={invoiced} received={cashflow.income} expenses={cashflow.expenses} closing={cashflow.closing} />
                 </section>
@@ -106,8 +107,8 @@ export default function FinanceDashboard({ session, period, periods, fees, cashf
                     </Card>
                 </section>
 
-                <Card title="How fees were paid" eyebrow={periodLabel}>
-                    <PaymentMethods rows={byMethod} />
+                <Card title="Mode of payment" eyebrow={periodLabel}>
+                    <PaymentMethods rows={byMethod} split={receivedFor} session={session} url={urls.paymentMode} periodQuery={periodQuery} periodLabel={periodLabel} />
                 </Card>
 
                 <section className="grid grid-cols-1 gap-6 xl:grid-cols-5">
@@ -229,6 +230,12 @@ function FeesChartCard({ fees, f, scope, setScope, session, breakdown, onBreakdo
                 </div>
             </div>
 
+            <ul className="flex flex-wrap items-center gap-x-8 gap-y-2 border-y border-border py-3 text-sm">
+                <LegendRow color={C_PAID} label="Paid" value={f.paid} />
+                <LegendRow color={C_DUE} label="Still owed" value={f.due} tone="danger" />
+                {scope !== 'optional' && <LegendRow color={C_DISC} label="Discounts given" value={discount} />}
+            </ul>
+
             <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-[220px_1fr]">
                 <div className="flex flex-col items-center gap-4">
                     <div className="relative size-48">
@@ -248,11 +255,6 @@ function FeesChartCard({ fees, f, scope, setScope, session, breakdown, onBreakdo
                             <span className="tabular text-[11px] text-fg-subtle">of {formatMoney(f.expected)} billed</span>
                         </div>
                     </div>
-                    <ul className="w-full space-y-1.5 text-sm">
-                        <LegendRow color={C_PAID} label="Paid" value={f.paid} />
-                        <LegendRow color={C_DUE} label="Still owed" value={f.due} tone="danger" />
-                        {scope !== 'optional' && <LegendRow color={C_DISC} label="Discounts given" value={discount} />}
-                    </ul>
                 </div>
 
                 <div className="min-w-0">
@@ -284,7 +286,7 @@ function FeesChartCard({ fees, f, scope, setScope, session, breakdown, onBreakdo
 
 function LegendRow({ color, label, value, tone }) {
     return (
-        <li className="flex items-center justify-between gap-3">
+        <li className="flex items-center gap-2.5">
             <span className="flex items-center gap-2 text-fg-muted">
                 <span className="size-2.5 rounded-sm" style={{ background: color }} />
                 {label}
@@ -320,18 +322,14 @@ function ServicesChartCard({ services, session }) {
             </div>
             <ul className="-mx-2 divide-y divide-border">
                 {services.map((s) => {
-                    const Icon = SERVICE_ICONS[s.group];
                     return (
                         <li key={s.group}>
                             <Link href={s.url} className="flex flex-col gap-0.5 rounded-md px-2 py-2 text-sm hover:bg-muted/60">
                                 <span className="flex items-center justify-between gap-3">
-                                    <span className="flex items-center gap-2 font-medium">
-                                        <Icon className="size-4 shrink-0 text-fg-subtle" />
-                                        {s.label}
-                                    </span>
+                                    <span className="font-medium">{s.label}</span>
                                     <span className={cn('tabular text-xs font-medium', s.due > 0 ? 'text-danger-fg' : 'text-fg-subtle')}>Due {formatMoney(s.due)}</span>
                                 </span>
-                                <span className="tabular flex items-center justify-between gap-3 pl-6 text-xs text-fg-muted">
+                                <span className="tabular flex items-center justify-between gap-3 text-xs text-fg-muted">
                                     <span>{s.students} students</span>
                                     <span>
                                         Paid <span className="font-medium text-fg">{formatMoney(s.paid)}</span> of {formatMoney(s.expected)}
@@ -449,29 +447,138 @@ function IncomeSources({ cashflow }) {
     );
 }
 
-const METHOD_COLORS = { 'MTN MoMo': '#f5b800', Cash: '#4f46e5', 'Bank transfer': '#0284c7', 'Telecel Cash': '#e11d48', 'AirtelTigo Money': '#7c3aed', Cheque: '#64748b' };
-
-/** Fee payments in the period by method: cash, MTN MoMo, bank transfer… */
-function PaymentMethods({ rows }) {
+/** Fee payments in the period by mode (cash, MTN MoMo, bank transfer…); click one to see who paid that way. */
+function PaymentMethods({ rows, split, session, url, periodQuery, periodLabel }) {
+    const [open, setOpen] = useState(null);
     const total = rows.reduce((a, r) => a + r.total, 0);
     if (!total) return <EmptyState compact title="No fee payments in this period" />;
     return (
-        <div className="flex flex-col gap-4">
-            <div className="flex h-3 w-full overflow-hidden rounded-full bg-subtle">
-                {rows.map((r) => (
-                    <div key={r.method} title={`${r.method}: ${formatMoney(r.total)}`} style={{ width: `${(r.total / total) * 100}%`, background: METHOD_COLORS[r.method] ?? '#94a3b8' }} />
-                ))}
+        <>
+            <div className="-mx-6 -mb-6 overflow-x-auto">
+                <table className="w-full text-sm">
+                    <thead>
+                        <tr className="border-y border-border bg-canvas text-left text-2xs font-semibold uppercase text-fg-muted">
+                            <th className="h-9 px-6">Mode</th>
+                            <th className="h-9 px-3 text-right">Payments</th>
+                            <th className="h-9 px-3 text-right">Share</th>
+                            <th className="h-9 px-6 text-right">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody className="tabular">
+                        {rows.map((r) => (
+                            <tr key={r.method} onClick={() => setOpen(r.method)} className="cursor-pointer border-b border-border hover:bg-muted/50">
+                                <td className="px-6 py-2.5 font-medium text-primary">{r.method}</td>
+                                <td className="px-3 py-2.5 text-right text-fg-muted">{r.count}</td>
+                                <td className="px-3 py-2.5 text-right text-fg-muted">{Math.round((r.total / total) * 1000) / 10}%</td>
+                                <td className="px-6 py-2.5 text-right font-semibold">{formatMoney(r.total)}</td>
+                            </tr>
+                        ))}
+                        <tr className="bg-canvas font-semibold">
+                            <td className="px-6 py-2.5">Fees received</td>
+                            <td className="px-3 py-2.5 text-right">{rows.reduce((a, r) => a + r.count, 0)}</td>
+                            <td className="px-3 py-2.5 text-right">100%</td>
+                            <td className="px-6 py-2.5 text-right">{formatMoney(total)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                {split && (split.earlier > 0 || split.later > 0) && (
+                    <p className="tabular border-t border-border px-6 py-3 text-xs text-fg-muted">
+                        Fees received {formatMoney(total)} = {formatMoney(split.this)} for {session.replace('-', ' – ')} bills
+                        {split.earlier > 0 && ` + ${formatMoney(split.earlier)} for earlier years’ bills (arrears)`}
+                        {split.later > 0 && ` + ${formatMoney(split.later)} paid in advance for later years`}. “Paid” on the Fees card counts only {session.replace('-', ' – ')} bills.
+                    </p>
+                )}
             </div>
-            <div className="grid gap-x-8 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
-                {rows.map((r) => (
-                    <div key={r.method} className="flex items-center gap-2 text-sm">
-                        <span className="size-2.5 shrink-0 rounded-full" style={{ background: METHOD_COLORS[r.method] ?? '#94a3b8' }} />
-                        <span className="flex-1 truncate">{r.method}</span>
-                        <span className="tabular text-xs text-fg-muted">{r.count} payments</span>
-                        <span className="tabular w-28 text-right font-semibold">{formatMoney(r.total)}</span>
+            <ModePayments method={open} onClose={() => setOpen(null)} url={url} periodQuery={periodQuery} periodLabel={periodLabel} />
+        </>
+    );
+}
+
+/** Everyone who paid by one mode in the period. */
+function ModePayments({ method, onClose, url, periodQuery, periodLabel }) {
+    const [data, setData] = useState(null);
+    const [q, setQ] = useState('');
+
+    useEffect(() => {
+        if (!method) return;
+        let off = false;
+        setData(null);
+        setQ('');
+        http.get(`${url}?${periodQuery}`, { params: { method } })
+            .then(({ data }) => !off && setData(data))
+            .catch(() => !off && setData({ rows: [], total: 0, count: 0, students: 0 }));
+        return () => {
+            off = true;
+        };
+    }, [method, url, periodQuery]);
+
+    const s = q.trim().toLowerCase();
+    const rows = (data?.rows ?? []).filter((r) => !s || `${r.student} ${r.class ?? ''} ${r.for} ${r.reference ?? ''}`.toLowerCase().includes(s));
+    const { shown, pager } = usePaged(rows, 10, 'payments');
+
+    return (
+        <Sheet open={!!method} onOpenChange={(o) => !o && onClose()} title={method ?? ''} description={`Fee payments · ${periodLabel}`} className="sm:max-w-2xl">
+            {!data ? (
+                <p className="py-8 text-center text-sm text-fg-muted">Loading…</p>
+            ) : (
+                <div className="flex flex-col gap-4">
+                    <div className="tabular grid grid-cols-3 gap-3 text-sm">
+                        <div className="rounded-lg bg-canvas px-3 py-2">
+                            <div className="text-xs text-fg-muted">Amount</div>
+                            <div className="font-semibold">{formatMoney(data.total)}</div>
+                        </div>
+                        <div className="rounded-lg bg-canvas px-3 py-2">
+                            <div className="text-xs text-fg-muted">Payments</div>
+                            <div className="font-semibold">{data.count}</div>
+                        </div>
+                        <div className="rounded-lg bg-canvas px-3 py-2">
+                            <div className="text-xs text-fg-muted">Students</div>
+                            <div className="font-semibold">{data.students}</div>
+                        </div>
                     </div>
-                ))}
-            </div>
-        </div>
+                    <input
+                        value={q}
+                        onChange={(e) => setQ(e.target.value)}
+                        placeholder="Search student, class or reference"
+                        className="h-9 rounded-md border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    <div className="overflow-hidden rounded-lg border border-border">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-border bg-canvas text-left text-2xs font-semibold uppercase text-fg-muted">
+                                    <th className="h-9 px-3">Date</th>
+                                    <th className="h-9 px-3">Student</th>
+                                    <th className="h-9 px-3">For</th>
+                                    <th className="h-9 px-3 text-right">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody className="tabular">
+                                {shown.map((r) => (
+                                    <tr key={r.key} className="border-b border-border last:border-0">
+                                        <td className="whitespace-nowrap px-3 py-2 text-fg-muted">{formatDate(r.at, 'dd/MM/yyyy')}</td>
+                                        <td className="px-3 py-2">
+                                            <Link href={r.url} className="font-medium hover:text-primary hover:underline">
+                                                {r.student}
+                                            </Link>
+                                            <div className="text-xs text-fg-muted">{[r.class, r.reference].filter(Boolean).join(' · ')}</div>
+                                        </td>
+                                        <td className="px-3 py-2 text-fg-muted">{r.for}</td>
+                                        <td className="px-3 py-2 text-right font-semibold">{formatMoney(r.amount)}</td>
+                                    </tr>
+                                ))}
+                                {!rows.length && (
+                                    <tr>
+                                        <td colSpan={4} className="px-3 py-6 text-center text-fg-muted">
+                                            No payments found.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    {pager}
+                </div>
+            )}
+        </Sheet>
     );
 }

@@ -22,23 +22,31 @@ class FeeBreakdownController extends Controller
 
     public function index(Request $req)
     {
-        $years = DB::table('payment_records')->distinct()->orderByDesc('year')->pluck('year');
-        $year = $years->contains($req->query('year')) ? $req->query('year') : Qs::getCurrentSession();
-        $term = in_array((int) $req->query('term'), [1, 2, 3], true) ? (int) $req->query('term') : null;
+        $termly = FinanceSummary::termly();
+        $keys = collect($termly)->pluck('key');
 
-        $data = FinanceSummary::itemBreakdown($year, $term);
+        // One filter for the whole page: the terms ticked in the Academic Period ("YYYY-YYYY:N,…").
+        // Opens on every term of the current school year.
+        if ($req->has('periods')) {
+            $picked = $keys->intersect(array_filter(explode(',', (string) $req->query('periods'))))->values();
+        } else {
+            $current = Qs::getCurrentSession();
+            $picked = $keys->filter(function ($k) use ($current) { return strpos($k, $current.':') === 0; })->values();
+        }
+        $periods = $picked->groupBy(function ($k) { return explode(':', $k)[0]; })
+            ->map(function ($g) { return $g->map(function ($k) { return (int) explode(':', $k)[1]; })->sort()->values()->all(); })->all();
+
+        $data = FinanceSummary::itemBreakdown($periods);
         $item = $req->query('item');
         if (!$data['items']->contains('name', $item)) {
             $item = optional($data['items']->first())['name'];
         }
 
         return Inertia::render('Finance/FeeBreakdown', [
-            'session' => $year,
-            'years' => $years->values(),
-            'term' => $term,
+            'picked' => $picked,
             'item' => $item,
             'items' => $data['items'],
-            'termly' => FinanceSummary::termly(),
+            'termly' => $termly,
             'rows' => collect($data['rows'])->where('item', $item)->sortBy('student')->values(),
             'urls' => ['self' => route('finance.fee_breakdown'), 'dashboard' => route('finance.dashboard'), 'ledger' => route('finance.ledger')],
         ]);

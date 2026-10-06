@@ -34,6 +34,7 @@ class FinanceDashboardController extends Controller
             'fees' => FinanceSummary::fees($feesYear),
             'cashflow' => FinanceSummary::cashflow($p->from, $p->to),
             'byMethod' => FinanceSummary::byMethod($p->from, $p->to),
+            'receivedFor' => FinanceSummary::receivedFor($p->from, $p->to, $feesYear),
             // For a school year the first card is the bills sent for it instead of the opening balance.
             'invoiced' => $p->session ? FinanceSummary::invoiced($p->session) : null,
             'balance' => FinanceSummary::cashBalance(),
@@ -51,9 +52,20 @@ class FinanceDashboardController extends Controller
                 'self' => route('finance.dashboard'),
                 'transactions' => route('finance.transactions'),
                 'ledger' => route('finance.ledger'),
+                'paymentMode' => route('finance.payment_mode'),
                 'manage' => route('payments.manage'),
                 'setup' => route('payments.index'),
             ],
         ]);
+    }
+
+    /** Who paid by one method (Cash, MTN MoMo …) in the chosen period. */
+    public function paymentMode(Request $req)
+    {
+        $req->validate(['method' => 'required|string|max:30']);
+        [$sy] = FinancePeriod::termOf(now());
+        $p = FinancePeriod::fromRequest($req, 'school:'.$sy.'-'.($sy + 1));
+
+        return response()->json(FinanceSummary::methodPayments($req->query('method'), $p->from, $p->to));
     }
 }

@@ -112,7 +112,7 @@ export function PeriodTree({ years, value, onChange, label = 'Academic Period', 
 }
 
 /** "2026 - 2027 Academic Year", "1st Term 2025 - 2026", or "4 terms in 2 years". */
-function summary(years, value) {
+export function summary(years, value) {
     if (!value.length) return 'Choose a period';
     const bySession = {};
     value.forEach((k) => {

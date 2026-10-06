@@ -120,6 +120,7 @@ Route::group(['middleware' => 'auth'], function () {
         /*************** Finance: dashboard, income & expenses, service rosters *****************/
         Route::get('finance', 'FinanceDashboardController@index')->name('finance.dashboard');
         Route::get('finance/ledger', 'FinanceLedgerController@index')->name('finance.ledger');
+        Route::get('finance/payment-mode', 'FinanceDashboardController@paymentMode')->name('finance.payment_mode');
         Route::get('finance/fee-breakdown', 'FeeBreakdownController@index')->name('finance.fee_breakdown');
         Route::get('finance/sales', 'SalesController@index')->name('finance.sales');
         Route::post('finance/sales/items', 'SalesController@storeItem')->name('finance.sales.items.store');
