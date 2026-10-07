@@ -1,47 +1,38 @@
+@php
+    $tpl = $tpl ?? \App\Support\ReportTemplate::for(optional($class_type)->id);
+    $groups = collect($tpl['groups'])->filter(function ($g) { return ($g['show'] ?? true) && count($g['items'] ?? []); })->values();
+@endphp
+@if($groups->count() || ($tpl['key']['show'] && count($tpl['key']['scale'])))
 <div>
-    {{--KEYS TO RATING--}}
-    <div style="float: left">
-        <br>
-        <strong style="text-decoration: underline;">KEY</strong> <br>
-        <span>5 - Excellent</span> <br>
-        <span>4 - Very Good</span> <br>
-        <span>3 - Good</span> <br>
-        <span>2 - Fair</span> <br>
-        <span>1 - Poor</span> <br>
-    </div>
+    @if($tpl['key']['show'] && count($tpl['key']['scale']))
+        {{--KEYS TO RATING--}}
+        <div style="float: left">
+            <br>
+            <strong style="text-decoration: underline;">KEY</strong> <br>
+            @foreach($tpl['key']['scale'] as $k)
+                <span>{{ $k }}</span> <br>
+            @endforeach
+        </div>
+    @endif
 
-    <table align="left" style="width:40%; border-collapse:collapse; border: 1px solid #000; margin:10px 20px;" border="1">
-        <thead>
-        <tr>
-            <td><strong>AFFECTIVE TRAITS</strong></td>
-            <td><strong>RATING</strong></td>
-        </tr>
-        </thead>
-        <tbody>
-        @foreach ($skills->where('skill_type', 'AF') as $af)
+    @foreach($groups as $g)
+        @php $vals = $exr->{$g['key']} ? explode(',', $exr->{$g['key']}) : []; @endphp
+        <table align="left" style="width:{{ $groups->count() > 1 ? '38%' : '50%' }}; border-collapse:collapse; border: 1px solid #000; margin:10px 20px;" border="1">
+            <thead>
             <tr>
-                <td>{{ $af->name }}</td>
-                <td>{{ $exr->af ? explode(',', $exr->af)[$loop->index] : '' }}</td>
+                <td><strong>{{ strtoupper($g['title']) }}</strong></td>
+                <td><strong>RATING</strong></td>
             </tr>
-        @endforeach
-        </tbody>
-    </table>
-
-    <table align="left" style="width:35%; border-collapse:collapse;border: 1px solid #000;  margin: 10px 20px;" border="1">
-        <thead>
-        <tr>
-            <td><strong>PSYCHOMOTOR</strong></td>
-            <td><strong>RATING</strong></td>
-        </tr>
-        </thead>
-        <tbody>
-        @foreach ($skills->where('skill_type', 'PS') as $ps)
-            <tr>
-                <td>{{ $ps->name }}</td>
-                <td>{{ $exr->ps ? explode(',', $exr->ps)[$loop->index] : '' }}</td>
-            </tr>
-        @endforeach
-        </tbody>
-    </table>
-
+            </thead>
+            <tbody>
+            @foreach ($g['items'] as $i => $item)
+                <tr>
+                    <td>{{ strtoupper($item) }}</td>
+                    <td>{{ $vals[$i] ?? '' }}</td>
+                </tr>
+            @endforeach
+            </tbody>
+        </table>
+    @endforeach
 </div>
+@endif

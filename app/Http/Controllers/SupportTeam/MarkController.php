@@ -137,8 +137,10 @@ class MarkController extends Controller
         $hash = Qs::hash($student_id);
         $skills = $d['skills'] ?: collect();
         $ratings = function ($csv, $n) { $v = $csv ? explode(',', $csv) : []; return array_map(function ($i) use ($v) { return isset($v[$i]) && $v[$i] !== '' ? (int) $v[$i] : null; }, range(0, max($n - 1, -1))); };
-        $af = $skills->where('skill_type', 'AF')->pluck('name')->values();
-        $ps = $skills->where('skill_type', 'PS')->pluck('name')->values();
+        // Rating items come from the report-card design of the student's class type.
+        $ctId = optional($d['class_type'])->id;
+        $af = collect(\App\Support\ReportTemplate::items($ctId, 'af'));
+        $ps = collect(\App\Support\ReportTemplate::items($ctId, 'ps'));
 
         $exams = [];
         foreach ($d['exams']->sortBy('term') as $ex) {
@@ -229,6 +231,16 @@ class MarkController extends Controller
 
         // Next term fees: from Fee setup and the student's own bills (not typed in Settings).
         $d['nextFees'] = $sr ? \App\Support\Fees::nextTermFees($sr, $year, (int) $exam->term) : null;
+
+        // The report-card design for this class type, and attendance for the exam's term.
+        $d['tpl'] = \App\Support\ReportTemplate::for(optional($d['class_type'])->id);
+        $d['attendance'] = null;
+        if ($d['tpl']['attendance'] && $exam->term) {
+            [$from, $to] = \App\Support\FinancePeriod::termRange((int) substr($year, 0, 4), (int) $exam->term);
+            $att = \Illuminate\Support\Facades\DB::table('attendances')->where('student_id', $student_id)->whereBetween('date', [$from->toDateString(), $to->toDateString()])
+                ->selectRaw("count(*) as days, sum(status = 'present') as present, sum(status = 'late') as late, sum(status = 'absent') as absent")->first();
+            $d['attendance'] = ['days' => (int) $att->days, 'present' => (int) $att->present + (int) $att->late, 'late' => (int) $att->late, 'absent' => (int) $att->absent];
+        }
 
         $d['skills'] = $this->exam->getSkillByClassType() ?: NULL;
         $d['s'] = Setting::all()->flatMap(function($s){

@@ -1,3 +1,24 @@
+@php
+    // Report-card design for this class type (App\Support\ReportTemplate).
+    $tpl = $tpl ?? \App\Support\ReportTemplate::for(optional($class_type)->id);
+    $cols = collect($tpl['columns'])->where('show', true)->values();
+    $ca = $cols->whereIn('key', ['ca1', 'ca2', 'ca_total'])->values();
+    $other = $cols->whereNotIn('key', ['ca1', 'ca2', 'ca_total'])->values();
+    $value = function ($key, $mk) use ($tex) {
+        if (!$mk) return '-';
+        switch ($key) {
+            case 'ca1': return $mk->t1 ?: '-';
+            case 'ca2': return $mk->t2 ?: '-';
+            case 'ca_total': return $mk->tca ?: '-';
+            case 'exam': return $mk->exm ?: '-';
+            case 'total': return $mk->$tex ?: '-';
+            case 'grade': return $mk->grade ? $mk->grade->name : '-';
+            case 'position': return $mk->grade ? Mk::getSuffix($mk->sub_pos) : '-';
+            case 'remark': return $mk->grade ? $mk->grade->remark : '-';
+        }
+        return '';
+    };
+@endphp
 {{--<!--NAME , CLASS AND OTHER INFO -->--}}
 <table style="width:100%; border-collapse:collapse; ">
     <tbody>
@@ -12,72 +33,49 @@
         <td><strong>ACADEMIC YEAR:</strong> {{ $ex->year }}</td>
         <td><strong>AGE:</strong> {{ $sr->age ?: ($sr->user->dob ? date_diff(date_create($sr->user->dob), date_create('now'))->y : '-') }}</td>
     </tr>
-
     </tbody>
 </table>
-
 
 {{--Exam Table--}}
 <table style="width:100%; border-collapse:collapse; border: 1px solid #000; margin: 10px auto;" border="1">
     <thead>
     <tr>
-        <th rowspan="2">SUBJECTS</th>
-        <th colspan="3">CONTINUOUS ASSESSMENT</th>
-        <th rowspan="2">EXAM<br>(60)</th>
-        <th rowspan="2">FINAL MARKS <br> (100%)</th>
-        <th rowspan="2">GRADE</th>
-        <th rowspan="2">SUBJECT <br> POSITION</th>
-
-
-      {{--  @if($ex->term == 3) --}}{{-- 3rd Term --}}{{--
-        <th rowspan="2">FINAL MARKS <br>(100%) 3<sup>RD</sup> TERM</th>
-        <th rowspan="2">1<sup>ST</sup> <br> TERM</th>
-        <th rowspan="2">2<sup>ND</sup> <br> TERM</th>
-        <th rowspan="2">CUM (300%) <br> 1<sup>ST</sup> + 2<sup>ND</sup> + 3<sup>RD</sup></th>
-        <th rowspan="2">CUM AVE</th>
-        <th rowspan="2">GRADE</th>
-        @endif--}}
-
-        <th rowspan="2">REMARKS</th>
+        <th rowspan="{{ $ca->count() ? 2 : 1 }}">SUBJECTS</th>
+        @if($ca->count())
+            <th colspan="{{ $ca->count() }}">CONTINUOUS ASSESSMENT</th>
+        @endif
+        @foreach($other as $c)
+            <th rowspan="{{ $ca->count() ? 2 : 1 }}">{{ $c['label'] }}</th>
+        @endforeach
     </tr>
-    <tr>
-        <th>CA1(20)</th>
-        <th>CA2(20)</th>
-        <th>TOTAL(40)</th>
-    </tr>
+    @if($ca->count())
+        <tr>
+            @foreach($ca as $c)
+                <th>{{ $c['label'] }}</th>
+            @endforeach
+        </tr>
+    @endif
     </thead>
     <tbody>
     @foreach($subjects as $sub)
+        @php $mk = $marks->where('subject_id', $sub->id)->where('exam_id', $ex->id)->first(); @endphp
         <tr>
             <td style="font-weight: bold">{{ $sub->name }}</td>
-            @foreach($marks->where('subject_id', $sub->id)->where('exam_id', $ex->id) as $mk)
-                <td>{{ $mk->t1 ?: '-' }}</td>
-                <td>{{ $mk->t2 ?: '-' }}</td>
-                <td>{{ $mk->tca ?: '-' }}</td>
-                <td>{{ $mk->exm ?: '-' }}</td>
-
-                <td>{{ $mk->$tex ?: '-'}}</td>
-                <td>{{ $mk->grade ? $mk->grade->name : '-' }}</td>
-                <td>{!! ($mk->grade) ? Mk::getSuffix($mk->sub_pos) : '-' !!}</td>
-                <td>{{ $mk->grade ? $mk->grade->remark : '-' }}</td>
-
-                {{--@if($ex->term == 3)
-                    <td>{{ $mk->tex3 ?: '-' }}</td>
-                    <td>{{ Mk::getSubTotalTerm($student_id, $sub->id, 1, $mk->my_class_id, $year) }}</td>
-                    <td>{{ Mk::getSubTotalTerm($student_id, $sub->id, 2, $mk->my_class_id, $year) }}</td>
-                    <td>{{ $mk->cum ?: '-' }}</td>
-                    <td>{{ $mk->cum_ave ?: '-' }}</td>
-                    <td>{{ $mk->grade ? $mk->grade->name : '-' }}</td>
-                    <td>{{ $mk->grade ? $mk->grade->remark : '-' }}</td>
-                @endif--}}
-
+            @foreach($ca as $c)
+                <td>{!! $value($c['key'], $mk) !!}</td>
+            @endforeach
+            @foreach($other as $c)
+                <td>{!! $value($c['key'], $mk) !!}</td>
             @endforeach
         </tr>
     @endforeach
-    <tr>
-        <td colspan="3"><strong>TOTAL SCORES OBTAINED: </strong> {{ $exr->total }}</td>
-        <td colspan="3"><strong>FINAL AVERAGE: </strong> {{ $exr->ave }}</td>
-        <td colspan="3"><strong>CLASS AVERAGE: </strong> {{ $exr->class_ave }}</td>
-    </tr>
+    @if($tpl['summary'])
+        @php $span = max(intdiv($cols->count() + 1, 3), 1); @endphp
+        <tr>
+            <td colspan="{{ $span }}"><strong>TOTAL SCORES OBTAINED: </strong> {{ $exr->total }}</td>
+            <td colspan="{{ $span }}"><strong>FINAL AVERAGE: </strong> {{ $exr->ave }}</td>
+            <td colspan="{{ $cols->count() + 1 - 2 * $span }}"><strong>CLASS AVERAGE: </strong> {{ $exr->class_ave }}</td>
+        </tr>
+    @endif
     </tbody>
 </table>

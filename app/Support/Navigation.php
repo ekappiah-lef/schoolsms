@@ -49,6 +49,10 @@ class Navigation
             }
             $exams[] = self::item('Marks entry', null, 'marks.index', ['marks.index', 'marks.manage']);
             $exams[] = self::item('Results by class', null, 'marks.bulk', ['marks.bulk', 'marks.show']);
+            // Academic admin / admins design the report card per class type; class teachers can view theirs.
+            if (Qs::userIsTeamSA() || \App\Support\TeacherScope::ownSectionIds()) {
+                $exams[] = self::item('Report cards', null, 'reports.design');
+            }
             $academics[] = self::group('Examinations', 'notebook-pen', $exams);
         }
 

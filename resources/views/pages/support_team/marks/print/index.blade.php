@@ -11,6 +11,8 @@
     };
     $logoSrc = $img($s['logo'] ?? null);
     $photoSrc = $img($sr->user->photo);
+    // Report-card design for this class type.
+    $tpl = $tpl ?? \App\Support\ReportTemplate::for(optional($class_type)->id);
 @endphp
 <html>
 <head>
@@ -34,7 +36,7 @@
                    {{-- <strong><span style="color: #1b0c80; font-size: 20px;">MINNA, NIGER STATE</span></strong><br/>--}}
                     <strong><span
                                 style="color: #000; font-size: 15px;"><i>{{ ucwords($s['address']) }}</i></span></strong><br/>
-                    <strong><span style="color: #000; font-size: 15px;"> REPORT SHEET {{ '('.strtoupper($class_type->name).')' }}
+                    <strong><span style="color: #000; font-size: 15px;"> {{ strtoupper($tpl['title'] ?: 'REPORT SHEET') }} {{ '('.strtoupper($class_type->name).')' }}
                     </span></strong>
                 </td>
                 <td style="width: 100px; height: 100px; float: left;">
@@ -67,7 +69,7 @@
     </div>
 </div>
 
-@unless($pdf)
+@unless($pdf || ($preview ?? false))
 <script>
     window.print();
 </script>
