@@ -21,7 +21,7 @@ class FeeBreakdownController extends Controller
 
     public function index(Request $req)
     {
-        // One filter for the whole page: the terms ticked in the Academic Period (opens on the current year).
+        // One filter for the whole page: the terms ticked in the Academic Period (opens on the current term).
         $sel = TermSelection::fromRequest($req);
         $data = FinanceSummary::itemBreakdown($sel);
         $item = $req->query('item');

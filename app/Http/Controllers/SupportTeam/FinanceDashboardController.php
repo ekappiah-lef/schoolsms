@@ -20,7 +20,7 @@ class FinanceDashboardController extends Controller
 
     public function index(Request $req)
     {
-        // One filter: the terms / years ticked in the Academic Period (opens on the current school year).
+        // One filter: the terms / years ticked in the Academic Period (opens on the current term).
         $sel = TermSelection::fromRequest($req);
 
         return Inertia::render('Finance/Dashboard', [

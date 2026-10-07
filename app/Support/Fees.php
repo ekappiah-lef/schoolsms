@@ -404,7 +404,7 @@ class Fees
             $amount = max((int) $amount, 0);
             return ['label' => $label, 'amount' => $amount, 'paid' => (int) $paid, 'balance' => max($amount - (int) $paid, 0)];
         };
-        $termName = function ($pr) { return ($pr->payment->term ? 'Term '.$pr->payment->term.' · ' : '').$pr->year; };
+        $termName = function ($pr) { return ($pr->payment->term ? 'Term '.$pr->payment->term.' · ' : '').str_replace('-', ' – ', $pr->year); };
 
         $current = $records->filter($isCurrent)->map(function ($pr) use ($line) {
             return $line($pr->payment->title, (int) $pr->payment->amount - (int) $pr->discount, $pr->amt_paid);
@@ -416,10 +416,10 @@ class Fees
 
         $forward = $records->reject($isCurrent)
             ->sortBy(function ($pr) { return $pr->year.'-'.(int) $pr->payment->term; })
-            ->map(function ($pr) use ($line, $termName) { return $line($pr->payment->title.' ('.$termName($pr).')', (int) $pr->payment->amount - (int) $pr->discount, $pr->amt_paid); })
+            ->map(function ($pr) use ($line, $termName) { return $line($pr->payment->title.' · '.$termName($pr), (int) $pr->payment->amount - (int) $pr->discount, $pr->amt_paid); })
             ->filter(function ($l) { return $l['balance'] > 0; })->values();
         foreach ($charges->where('year', '!=', $session)->sortBy('year') as $c) {
-            $l = $line($c->label.' ('.$c->year.')', $c->amount, $c->amt_paid);
+            $l = $line((OptionalFeeCharge::GROUPS[$c->group] ?? ucfirst($c->group)).($c->group !== 'sales' ? ' ('.$c->label.')' : ': '.$c->label).' · '.str_replace('-', ' – ', $c->year), $c->amount, $c->amt_paid);
             if ($l['balance'] > 0) $forward->push($l);
         }
 
@@ -443,8 +443,9 @@ class Fees
             $paid = (int) $cs->sum('amt_paid');
             $table[] = ['label' => $label, 'amount' => $amt, 'paid' => $paid, 'balance' => max($amt - $paid, 0)];
         }
-        if ($forwardDue > 0) {
-            $table[] = ['label' => 'Balance from earlier terms', 'amount' => $forwardDue, 'paid' => 0, 'balance' => $forwardDue, 'forward' => true];
+        // Unpaid bills from earlier terms and years, one line each: the item, its term and year.
+        foreach ($forward as $l) {
+            $table[] = $l + ['forward' => true];
         }
 
         return [

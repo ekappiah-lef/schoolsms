@@ -17,7 +17,10 @@ use Inertia\Inertia;
 
 /**
  * Messages from the school by SMS and email: to all parents, the parents of one class,
- * all staff, teaching staff or non-teaching staff. Admins and the academic admin.
+ * all staff, teaching staff or non-teaching staff.
+ *  - Admins send straight away and approve everything.
+ *  - The academic admin's messages wait for an admin; the academic admin approves teachers' messages.
+ *  - A class teacher writes to the parents of their own class only; an academic admin or admin approves it.
  */
 class MessageController extends Controller
 {
@@ -25,28 +28,50 @@ class MessageController extends Controller
 
     public function __construct()
     {
-        $this->middleware('teamSA');
+        $this->middleware('teamSAT');
+    }
+
+    protected static function isTeacher(): bool
+    {
+        return Qs::userIsTeacher();
+    }
+
+    /** Whether the current user may approve or reject this pending message. */
+    protected static function canReview(Message $m): bool
+    {
+        if ($m->status !== 'pending') return false;
+        if (Qs::userIsTeamAdmin()) return true;
+
+        // The academic admin approves teachers' messages (not their own).
+        return Qs::userIsAcademicAdmin() && optional($m->sender)->user_type === 'teacher';
     }
 
     public function index()
     {
+        $teacher = self::isTeacher();
+        $own = $teacher ? \App\Support\TeacherScope::ownSectionIds() : null;
+        $classes = ClassOrder::sort($teacher ? MyClass::whereIn('id', Section::whereIn('id', $own)->pluck('my_class_id'))->get() : MyClass::all());
+        $history = Message::with('sender')->latest()->when($teacher, function ($q) { $q->where('sent_by', Auth::id()); })->limit(200)->get();
+
         return Inertia::render('Messages/Index', [
-            'audiences' => collect(Message::AUDIENCES)->map(function ($label, $key) { return ['value' => $key, 'label' => $label]; })->values(),
-            'counts' => collect(array_keys(Message::AUDIENCES))->reject(function ($a) { return $a === 'class'; })
+            'audiences' => collect(Message::AUDIENCES)->when($teacher, function ($a) { return $a->only('class'); })
+                ->map(function ($label, $key) use ($teacher) { return ['value' => $key, 'label' => $teacher ? 'Parents of my class' : $label]; })->values(),
+            'counts' => $teacher ? (object) [] : collect(array_keys(Message::AUDIENCES))->reject(function ($a) { return $a === 'class'; })
                 ->mapWithKeys(function ($a) { return [$a => $this->people($a)['people']]; }),
-            'classes' => ClassOrder::sort(MyClass::all())->map(function ($c) {
-                return ['id' => $c->id, 'name' => $c->name, 'sections' => Section::where('my_class_id', $c->id)->orderBy('name')->get(['id', 'name'])];
+            'classes' => $classes->map(function ($c) use ($own) {
+                return ['id' => $c->id, 'name' => $c->name, 'sections' => Section::where('my_class_id', $c->id)->when($own !== null, function ($q) use ($own) { $q->whereIn('id', $own); })->orderBy('name')->get(['id', 'name'])];
             })->values(),
-            'history' => Message::with('sender')->latest()->limit(200)->get()->map(function ($m) {
+            'isTeacher' => $teacher,
+            'history' => $history->map(function ($m) {
                 return [
                     'id' => $m->id, 'date' => $m->created_at->toIso8601String(), 'audience' => $m->audience_label, 'subject' => $m->subject,
                     'body' => $m->body, 'channels' => array_values(array_filter([$m->sms ? 'SMS' : null, $m->email ? 'Email' : null, $m->whatsapp ? 'WhatsApp' : null])),
                     'recipients' => $m->recipients, 'sent' => $m->sent, 'failed' => $m->failed, 'by' => optional($m->sender)->name,
                     'status' => $m->status, 'note' => $m->review_note,
-                    'urls' => $m->status === 'pending' && Qs::userIsTeamAdmin() ? ['approve' => route('messages.approve', $m->id), 'reject' => route('messages.reject', $m->id)] : null,
+                    'urls' => self::canReview($m) ? ['approve' => route('messages.approve', $m->id), 'reject' => route('messages.reject', $m->id)] : null,
                 ];
             })->values(),
-            'canApprove' => Qs::userIsTeamAdmin(),
+            'canApprove' => Qs::userIsTeamAdmin() || Qs::userIsAcademicAdmin(),
             'needsApproval' => !Qs::userIsTeamAdmin(),
             'whatsapp' => Notices::whatsappEnabled(),
             'demo' => (bool) config('sms.allowlist'),
@@ -57,6 +82,9 @@ class MessageController extends Controller
     /** How many people (and phones/emails) a choice reaches, for the preview before sending. */
     public function count(Request $req)
     {
+        if (self::isTeacher() && !in_array((int) $req->query('section_id'), \App\Support\TeacherScope::ownSectionIds(), true)) {
+            return response()->json(['people' => 0, 'phones' => 0, 'emails' => 0, 'label' => '']);
+        }
         $r = $this->people((string) $req->query('audience'), $req->query('class_id'), $req->query('section_id'));
 
         return response()->json(['people' => $r['people'], 'phones' => count($r['phones']), 'emails' => count($r['emails']), 'label' => $r['label']]);
@@ -81,6 +109,14 @@ class MessageController extends Controller
             return response()->json(['message' => 'Invalid', 'errors' => ['sms' => ['Choose at least one: SMS, email or WhatsApp.']]], 422);
         }
 
+        if (self::isTeacher()) {
+            $own = \App\Support\TeacherScope::ownSectionIds();
+            $sec = Section::find($d['section_id'] ?? 0);
+            if ($d['audience'] !== 'class' || !$sec || !in_array((int) $sec->id, $own, true) || (int) $sec->my_class_id !== (int) ($d['class_id'] ?? 0)) {
+                return Qs::json('You can only write to the parents of your own class.', false);
+            }
+        }
+
         $r = $this->people($d['audience'], $d['class_id'] ?? null, $d['section_id'] ?? null);
         if (!$r['people']) {
             return Qs::json('Nobody to send to for this choice.', false);
@@ -90,23 +126,25 @@ class MessageController extends Controller
             'audience' => $d['audience'], 'audience_label' => $r['label'], 'class_id' => $d['class_id'] ?? null, 'section_id' => $d['section_id'] ?? null,
             'subject' => $d['subject'] ?? null, 'body' => $d['body'], 'sms' => $sms, 'email' => $email, 'whatsapp' => $wa,
             'recipients' => $r['people'], 'sent_by' => Auth::id(),
-            // The academic admin's messages wait for an administrator to approve them.
+            // Academic admin and teachers' messages wait for approval.
             'status' => Qs::userIsTeamAdmin() ? 'sending' : 'pending',
         ]);
         if ($m->status === 'pending') {
-            return Qs::json('Message submitted for approval. An administrator must approve it before it is sent.', true);
+            return Qs::json(self::isTeacher()
+                ? 'Message submitted for approval. The academic admin (or an administrator) must approve it before it is sent.'
+                : 'Message submitted for approval. An administrator must approve it before it is sent.', true);
         }
 
         return Qs::json($this->deliver($m), true);
     }
 
-    /** An administrator approves a pending message; it is sent straight away. */
+    /** An administrator (or, for a teacher's message, the academic admin) approves; it is sent straight away. */
     public function approve($id)
     {
-        if (!Qs::userIsTeamAdmin()) {
+        $m = Message::where('status', 'pending')->findOrFail($id);
+        if (!self::canReview($m)) {
             return Qs::json(__('msg.denied'), false);
         }
-        $m = Message::where('status', 'pending')->findOrFail($id);
         $m->update(['approved_by' => Auth::id(), 'approved_at' => now()]);
 
         return Qs::json('Approved. '.$this->deliver($m), true);
@@ -114,10 +152,10 @@ class MessageController extends Controller
 
     public function reject(Request $req, $id)
     {
-        if (!Qs::userIsTeamAdmin()) {
+        $m = Message::where('status', 'pending')->findOrFail($id);
+        if (!self::canReview($m)) {
             return Qs::json(__('msg.denied'), false);
         }
-        $m = Message::where('status', 'pending')->findOrFail($id);
         $m->update(['status' => 'rejected', 'approved_by' => Auth::id(), 'approved_at' => now(), 'review_note' => mb_substr((string) $req->input('note'), 0, 255) ?: null]);
 
         return Qs::json('Message rejected; it was not sent.', true);

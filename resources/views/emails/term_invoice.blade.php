@@ -14,7 +14,10 @@
             <tr style="background:#f7f7fc;font-size:12px;color:#777587;">
                 <td style="padding:8px 12px;">Item</td><td align="right" style="padding:8px 12px;">Amount</td><td align="right" style="padding:8px 12px;">Paid</td><td align="right" style="padding:8px 12px;">Balance</td>
             </tr>
-            @foreach($invoice['table'] as $r)
+            @foreach($invoice['table'] as $i => $r)
+                @if(!empty($r['forward']) && empty($invoice['table'][$i - 1]['forward'] ?? null))
+                    <tr><td colspan="4" style="padding:7px 12px;border-top:1px solid #eceaf4;background:#fef2f2;color:#b91c1c;font-size:11px;font-weight:bold;letter-spacing:1px;">BALANCE BROUGHT FORWARD</td></tr>
+                @endif
                 <tr style="{{ !empty($r['forward']) ? 'color:#b91c1c;' : '' }}">
                     <td style="{{ $cell }}">{{ $r['label'] }}</td>
                     <td align="right" style="{{ $cell }}">{{ number_format($r['amount']) }}</td>

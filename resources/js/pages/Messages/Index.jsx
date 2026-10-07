@@ -14,8 +14,13 @@ import http, { submitForm } from '@/lib/http';
 import { cn, formatDate } from '@/lib/utils';
 
 /** Send a message by SMS and/or email to parents (all or one class) or staff (all, teaching, non-teaching). */
-export default function Messages({ audiences, counts, classes, history, canApprove, needsApproval, whatsapp, demo, urls }) {
-    const [d, setD] = useState({ audience: 'parents', class_id: '', section_id: '', subject: '', body: '', sms: true, email: true, whatsapp: false });
+export default function Messages({ audiences, counts, classes, history, canApprove, needsApproval, isTeacher, whatsapp, demo, urls }) {
+    const [d, setD] = useState(() => ({
+        audience: isTeacher ? 'class' : 'parents',
+        class_id: isTeacher && classes[0] ? classes[0].id : '',
+        section_id: isTeacher && classes[0]?.sections[0] ? classes[0].sections[0].id : '',
+        subject: '', body: '', sms: true, email: true, whatsapp: false,
+    }));
     const [view, setView] = useState(history.some((m) => m.status === 'pending') && canApprove ? 'pending' : 'all');
     const pending = history.filter((m) => m.status === 'pending');
     const listed = view === 'pending' ? pending : history;
@@ -143,7 +148,12 @@ export default function Messages({ audiences, counts, classes, history, canAppro
                     </Panel>
 
                     <div className="flex flex-col gap-4 lg:col-span-2">
-                        {needsApproval && <InfoCallout>Your messages are sent once an administrator approves them. Absence alerts from the register go out straight away.</InfoCallout>}
+                        {needsApproval && (
+                            <InfoCallout>
+                                {isTeacher ? 'Your messages are sent once the academic admin (or an administrator) approves them.' : 'Your messages are sent once an administrator approves them.'} Absence alerts from the register go out straight away.
+                            </InfoCallout>
+                        )}
+                        {isTeacher && !classes.length && <InfoCallout>You are not the class teacher of any class, so there is no class to write to.</InfoCallout>}
                         {!whatsapp && <InfoCallout>WhatsApp is not connected yet. Once the school’s WhatsApp Business number is set up, messages can also go out on WhatsApp under the school’s name.</InfoCallout>}
                         {demo && <InfoCallout>Demo mode is on: only the contacts in NOTICE_ALLOWLIST actually receive messages; everyone else is counted as held back.</InfoCallout>}
                         <InfoCallout>Parents are reached on every phone and email recorded for the family (parent account, father, mother and guardian), once per family.</InfoCallout>

@@ -25,6 +25,7 @@ class SettingUpdate extends FormRequest
             'address' => 'required|string|min:15',
             'system_email' => 'sometimes|nullable|email',
             'lock_exam' => 'required',
+            'clearenroll_url' => 'sometimes|nullable|url|max:255',
             'logo' => 'sometimes|nullable|image|mimes:jpeg,gif,png,jpg|max:2048',
 
         ];

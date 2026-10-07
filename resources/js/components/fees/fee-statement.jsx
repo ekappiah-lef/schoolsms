@@ -460,13 +460,22 @@ export function TermInvoice({ invoice, sendUrl }) {
                     </tr>
                 </thead>
                 <tbody>
-                    {invoice.table.map((r) => (
-                        <tr key={r.label} className={cn('border-b border-border', r.forward && 'text-danger-fg')}>
+                    {invoice.table.map((r, i) => (
+                        <Fragment key={r.label + i}>
+                        {r.forward && !invoice.table[i - 1]?.forward && (
+                            <tr className="border-b border-border bg-danger-soft/30">
+                                <td colSpan={4} className="px-4 py-1.5 text-2xs font-semibold uppercase tracking-wider text-danger-fg">
+                                    Balance brought forward
+                                </td>
+                            </tr>
+                        )}
+                        <tr className={cn('border-b border-border', r.forward && 'text-danger-fg')}>
                             <td className="px-4 py-2">{r.label}</td>
                             <td className="px-3 py-2 text-right">{formatMoney(r.amount)}</td>
                             <td className="px-3 py-2 text-right text-success-fg">{r.paid ? formatMoney(r.paid) : ''}</td>
                             <td className={cn('px-4 py-2 text-right', r.balance > 0 ? 'font-medium' : 'text-fg-subtle')}>{formatMoney(r.balance)}</td>
                         </tr>
+                        </Fragment>
                     ))}
                 </tbody>
                 <tfoot>

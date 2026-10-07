@@ -68,13 +68,18 @@ class Navigation
             $academics[] = self::item('My children', 'users', 'my_children');
         }
 
+        if (Qs::userIsTeamSA()) {
+            $academics[] = self::item('ClearEnroll', 'shield-check', 'clearenroll.index');
+        }
         if ($academics) {
             $sections[] = self::section('Academics', $academics);
         }
 
         /* Messages: parents, staff, a class */
-        if (Qs::userIsTeamSA()) {
-            $waiting = Qs::userIsTeamAdmin() ? \App\Models\Message::where('status', 'pending')->count() : 0;
+        if (Qs::userIsTeamSAT()) {
+            // Admins approve everything; the academic admin approves teachers' messages.
+            $waiting = Qs::userIsTeamAdmin() ? \App\Models\Message::where('status', 'pending')->count()
+                : (Qs::userIsAcademicAdmin() ? \App\Models\Message::where('status', 'pending')->whereIn('sent_by', \App\User::where('user_type', 'teacher')->pluck('id'))->count() : 0);
             $sections[] = self::section('Communication', [self::item($waiting ? "Messages ({$waiting} to approve)" : 'Messages', 'megaphone', 'messages.index')]);
         }
 

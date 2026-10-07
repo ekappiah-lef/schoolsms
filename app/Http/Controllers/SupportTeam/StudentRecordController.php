@@ -168,6 +168,11 @@ class StudentRecordController extends Controller
             $sr['admission_date'] = $req->admission_date;
             $sr['admitted_session'] = $year;
             $sr['fee_discount_id'] = $req->fee_discount_id ?: null;
+            // ClearEnroll check made before admitting (school-to-school fee clearance).
+            if (in_array($req->clearenroll_status, array_keys(\App\Http\Controllers\SupportTeam\ClearEnrollController::STATUSES), true)) {
+                $sr['clearenroll_status'] = $req->clearenroll_status;
+                $sr['clearenroll_checked_at'] = now();
+            }
             $record = $this->student->createRecord($sr); // Create Student
 
             StudentDetail::create(['user_id' => $user->id, 'terms_accepted_at' => now()] + $req->only(StudentDetail::FIELDS));
@@ -734,6 +739,7 @@ class StudentRecordController extends Controller
             'sections' => $this->sectionOptions(),
             'services' => Fees::catalogue(),
             'discounts' => Fees::discountOptions(),
+            'clearEnroll' => trim((string) Qs::getSetting('clearenroll_url')) ?: null,
             // School fees for this session, so the form can preview what will be billed.
             'fees' => \App\Models\Payment::where('year', Qs::getCurrentSession())->with('items')->get()->map(function ($p) {
                 return [

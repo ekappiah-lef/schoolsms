@@ -59,6 +59,7 @@ const EMPTY = {
     adm_no: '',
     services: EMPTY_SERVICES,
     fee_discount_id: '',
+    clearenroll_status: '',
     parent_mode: 'existing',
     my_parent_id: '',
     parent_primary: 'father',
@@ -130,7 +131,7 @@ const STUDENT_FIELDS = ['first_name', 'middle_name', 'last_name', 'gender', 'dob
 
 const STEPS = [
     { id: 'student', title: 'Student Details', description: 'Personal, contact and health information', fields: STUDENT_FIELDS },
-    { id: 'enrolment', title: 'Enrolment & Services', description: 'Class, admission details and optional services', fields: ['my_class_id', 'section_id', 'admission_date', 'adm_no', 'fee_discount_id', 'dorm_id', 'dorm_room_no', 'house', 'services'] },
+    { id: 'enrolment', title: 'Enrolment & Services', description: 'Class, admission details and optional services', fields: ['my_class_id', 'section_id', 'admission_date', 'adm_no', 'clearenroll_status', 'fee_discount_id', 'dorm_id', 'dorm_room_no', 'house', 'services'] },
     { id: 'parent', title: 'Parent / Guardian', description: 'Link an existing or add a new guardian', fields: ['parent_mode', 'my_parent_id', 'parent_primary', ...PARENT_FIELDS] },
     { id: 'review', title: 'Review & Submit', description: 'Confirm details, fees and agreements', fields: ['terms_accepted'] },
 ];
@@ -552,6 +553,34 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                     <div className="sm:col-span-2">
                         <SchoolFeesPreview fees={schoolFees} discountOn={discountOn} />
                     </div>
+                </FormSection>
+            )}
+
+            {mode === 'create' && (
+                <FormSection id="clearenroll" title="ClearEnroll check" description="Check the child on ClearEnroll before admitting, then record the result.">
+                    <FormField label="Result" hint={options.clearEnroll ? undefined : 'The ClearEnroll address is not set in Settings yet.'}>
+                        <Select
+                            id="field-clearenroll_status"
+                            value={data.clearenroll_status}
+                            onChange={(v) => set('clearenroll_status', v)}
+                            options={[
+                                { value: 'cleared', label: 'Cleared: no fees owed elsewhere' },
+                                { value: 'not_found', label: 'Not found: no record' },
+                                { value: 'flagged', label: 'Flagged: owes another school' },
+                                { value: 'not_checked', label: 'Not checked' },
+                            ]}
+                            clearable
+                            clearLabel="Not recorded"
+                            placeholder="Choose the result"
+                        />
+                    </FormField>
+                    {options.clearEnroll && (
+                        <div className="flex items-end pb-1">
+                            <a href={options.clearEnroll} target="_blank" rel="noreferrer" className="text-sm font-medium text-primary hover:underline">
+                                Check this child on ClearEnroll
+                            </a>
+                        </div>
+                    )}
                 </FormSection>
             )}
 

@@ -203,6 +203,8 @@ Route::group(['middleware' => 'auth'], function () {
         Route::post('attendance', 'AttendanceController@store')->name('attendance.store');
         Route::post('attendance/alert', 'AttendanceController@alert')->name('attendance.alert');
         Route::get('messages', 'MessageController@index')->name('messages.index');
+        Route::get('clearenroll', 'ClearEnrollController@index')->name('clearenroll.index');
+        Route::get('clearenroll/debtors.csv', 'ClearEnrollController@export')->name('clearenroll.export');
         Route::get('messages/count', 'MessageController@count')->name('messages.count');
         Route::post('messages', 'MessageController@store')->name('messages.store');
         Route::post('messages/{message}/approve', 'MessageController@approve')->name('messages.approve');

@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 
 /**
  * The terms the finance pages report on, from ?periods=2025-2026:3,2026-2027:1 (the Academic Period
- * picker: school years that open into 1st / 2nd / 3rd term). Opens on every term of the current year.
+ * picker: school years that open into 1st / 2nd / 3rd term). Opens on the current term.
  *
  * Terms cover the whole calendar with no gaps (Aug–Dec, Jan–Apr, May–Jul), so every bill, payment,
  * income and expense belongs to exactly one term. Each term starts from zero: its balance is the money
@@ -42,8 +42,12 @@ class TermSelection
         if ($req->has('periods')) {
             $picked = array_values(array_intersect($all, explode(',', (string) $req->query('periods'))));
         } else {
+            // Opens on today's term; the user ticks more terms or whole years in the Academic Period.
+            [$ty, $tt] = FinancePeriod::termOf(now());
+            $today = $ty.'-'.($ty + 1).':'.$tt;
             $current = \App\Helpers\Qs::getCurrentSession();
-            $picked = array_values(array_filter($all, function ($k) use ($current) { return strpos($k, $current.':') === 0; }));
+            $picked = in_array($today, $all, true) ? [$today]
+                : array_values(array_filter($all, function ($k) use ($current) { return strpos($k, $current.':') === 0; }));
         }
         sort($picked);
         $s->keys = $picked;
