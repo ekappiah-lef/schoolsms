@@ -24,7 +24,8 @@ class UserController extends Controller
 
     public function __construct(UserRepo $user, LocationRepo $loc, MyClassRepo $my_class)
     {
-        $this->middleware('teamAdmin', ['only' => ['index', 'store', 'edit', 'update'] ]);
+        // Admins manage every user; the academic admin manages teachers only (checked in each action).
+        $this->middleware('teamSA', ['only' => ['index', 'store', 'edit', 'update'] ]);
         $this->middleware('super_admin', ['only' => ['reset_pass','destroy'] ]);
 
         $this->user = $user;
@@ -32,14 +33,20 @@ class UserController extends Controller
         $this->my_class = $my_class;
     }
 
+    /** The academic admin may only add, see and edit teachers. */
+    protected static function teachersOnly(): bool
+    {
+        return Qs::userIsAcademicAdmin();
+    }
+
     public function index()
     {
         $ut = $this->user->getAllTypes();
         $ut2 = $ut->where('level', '>', 2);
 
-        $d['user_types'] = Qs::userIsAdmin() ? $ut2 : $ut;
+        $d['user_types'] = self::teachersOnly() ? $ut->where('title', 'teacher') : (Qs::userIsAdmin() ? $ut2 : $ut);
         $d['states'] = $this->loc->getStates();
-        $d['users'] = $this->user->getPTAUsers();
+        $d['users'] = self::teachersOnly() ? $this->user->getPTAUsers()->where('user_type', 'teacher')->values() : $this->user->getPTAUsers();
         $d['nationals'] = $this->loc->getAllNationals();
         $d['blood_groups'] = $this->user->getBloodGroups();
 
@@ -85,14 +92,17 @@ class UserController extends Controller
         $d['users'] = $this->user->getPTAUsers();
         $d['blood_groups'] = $this->user->getBloodGroups();
         $d['nationals'] = $this->loc->getAllNationals();
-        if (!$d['user']) {
+        if (!$d['user'] || (self::teachersOnly() && $d['user']->user_type !== 'teacher')) {
             return Qs::goWithDanger('users.index');
+        }
+        if (self::teachersOnly()) {
+            $d['users'] = $d['users']->where('user_type', 'teacher')->values();
         }
 
         return Ui::render('Users/Index', function () use ($d) {
             $u = $d['user'];
             $ut = $this->user->getAllTypes();
-            return $this->indexProps(Qs::userIsAdmin() ? $ut->where('level', '>', 2) : $ut, $d['users'], [
+            return $this->indexProps(self::teachersOnly() ? $ut->where('title', 'teacher') : (Qs::userIsAdmin() ? $ut->where('level', '>', 2) : $ut), $d['users'], [
                 'url' => route('users.update', Qs::hash($u->id)),
                 'name' => $u->name, 'type' => $u->user_type, 'type_name' => optional($ut->firstWhere('title', $u->user_type))->name,
                 'address' => $u->address, 'email' => $u->email, 'phone' => $u->phone, 'phone2' => $u->phone2,
@@ -120,6 +130,9 @@ class UserController extends Controller
     public function store(UserRequest $req)
     {
         $user_type = $this->user->findType($req->user_type)->title;
+        if (self::teachersOnly() && $user_type !== 'teacher') {
+            return Qs::json('You can only add teachers.', false);
+        }
 
         $data = $req->except(Qs::getStaffRecord());
         $data['name'] = ucwords($req->name);
@@ -172,6 +185,9 @@ class UserController extends Controller
         }
 
         $user = $this->user->find($id);
+        if (self::teachersOnly() && optional($user)->user_type !== 'teacher') {
+            return Qs::json('You can only edit teachers.', false);
+        }
 
         $user_type = $user->user_type;
         $user_is_staff = in_array($user_type, Qs::getStaff());

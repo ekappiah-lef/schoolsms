@@ -13,7 +13,7 @@ number, used by the demo family *Emmanuel Appiah*) really receive anything. Ever
 | --- | --- | --- | --- |
 | Super admin | `cj` | `cj` | Everything, incl. Settings and Result pins |
 | Admin | `admin` | `cj` | Everything except Settings; approves messages |
-| Academic admin | `academic` | `cj` | Students, exams, results, timetables, attendance, classes, Messages (need approval). No finance, Users or Settings |
+| Academic admin | `academic` | `cj` | Teachers (add/edit teachers only), students, exams, results, timetables, attendance, classes, Messages (need approval). No finance, other users or Settings |
 | Accountant | `accountant` | `cj` | Finance only; cannot delete income/expenses |
 | Class teacher (Class 6 Gold) | `teacher` | `cj` | Only Class 6 Gold students; marks for all Class 6 Gold subjects; attendance for Class 6 Gold |
 | Subject teacher (JHS Maths) | `LTS/STAFF/2023/03/6589` | `teacher` | No student profiles; marks for Mathematics in JHS 1–3 only |
@@ -48,7 +48,7 @@ payments → class → student** to see the invoice with the "Balance brought fo
 8. **Users → Add user → type Academic Admin** to create another academic admin.
 
 ### 2. Academic admin (`academic`)
-1. Sidebar: no Finance, no Users, no Settings.
+1. Sidebar: no Finance, no Settings; **Teachers** instead of Users. Add a teacher: only "Teacher" can be chosen.
 2. **Students → a student → Fees tab**: sees what is owed (no payment buttons).
 3. **Admit student**: type a new nationality/state/LGA (“Add …”); **Take photo** (webcam on https/localhost).
 4. **Examinations → Results tools → Tabulation sheet → Email reports to class**.

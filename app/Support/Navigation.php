@@ -107,7 +107,8 @@ class Navigation
         /* Administration */
         if (Qs::userIsTeamSA()) {
             $admin = array_filter([
-                Qs::userIsTeamAdmin() ? self::item('Users', 'user-cog', 'users.index', ['users.index', 'users.show', 'users.edit']) : null,
+                Qs::userIsTeamAdmin() ? self::item('Users', 'user-cog', 'users.index', ['users.index', 'users.show', 'users.edit'])
+                    : (Qs::userIsAcademicAdmin() ? self::item('Teachers', 'user-cog', 'users.index', ['users.index', 'users.show', 'users.edit']) : null),
                 self::item('Classes', 'school', 'classes.index', ['classes.index', 'classes.edit']),
                 self::item('Sections', 'layers', 'sections.index', ['sections.index', 'sections.edit']),
                 self::item('Subjects', 'book-open', 'subjects.index', ['subjects.index', 'subjects.edit']),
