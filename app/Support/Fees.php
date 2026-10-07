@@ -420,7 +420,28 @@ class Fees
         $currentDue = $sum($current, 'balance');
         $forwardDue = $sum($forward, 'balance');
 
+        // The short table parents see: school fees for the term, one line per service, one line for
+        // everything brought forward, and the total.
+        $schoolNow = $records->filter($isCurrent);
+        $table = [];
+        if ($schoolNow->isNotEmpty()) {
+            $amt = (int) $schoolNow->sum(function ($pr) { return max((int) $pr->payment->amount - (int) $pr->discount, 0); });
+            $paid = (int) $schoolNow->sum('amt_paid');
+            $table[] = ['label' => 'School fees'.($term ? ' · Term '.$term : ''), 'amount' => $amt, 'paid' => $paid, 'balance' => max($amt - $paid, 0)];
+        }
+        foreach (OptionalFeeCharge::GROUPS as $g => $label) {
+            $cs = $charges->where('year', $session)->where('group', $g);
+            if ($cs->isEmpty()) continue;
+            $amt = (int) $cs->sum('amount');
+            $paid = (int) $cs->sum('amt_paid');
+            $table[] = ['label' => $label, 'amount' => $amt, 'paid' => $paid, 'balance' => max($amt - $paid, 0)];
+        }
+        if ($forwardDue > 0) {
+            $table[] = ['label' => 'Balance from earlier terms', 'amount' => $forwardDue, 'paid' => 0, 'balance' => $forwardDue, 'forward' => true];
+        }
+
         return [
+            'table' => $table,
             'label' => ($term ? 'Term '.$term.' · ' : '').$session,
             'session' => $session,
             'term' => $term,

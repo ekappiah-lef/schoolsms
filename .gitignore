@@ -20,3 +20,6 @@ docker/seed/*.sql
 /public/build
 /.claude
 *.pem
+
+# Local database backups (personal data)
+/backups

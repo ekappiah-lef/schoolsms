@@ -430,19 +430,16 @@ export function PayInline({ title, balance, url, onPaid }) {
 export function TermInvoice({ invoice, sendUrl }) {
     const [sending, setSending] = useState(false);
     if (!invoice) return null;
-    const { current, forward } = invoice;
     const send = async () => {
         setSending(true);
         const r = await submitForm(sendUrl, {});
         setSending(false);
         r.ok ? toast.success(r.message) : toast.error(r.message);
     };
-    const row = 'flex items-baseline justify-between gap-4 px-4 py-2 text-sm';
 
     return (
         <Panel
             title={`Invoice · ${invoice.label.replace('-', ' – ')}`}
-            description={forward.total > 0 ? 'This term’s fees plus the balance brought forward from earlier terms.' : 'This term’s fees.'}
             flush
             actions={
                 sendUrl ? (
@@ -453,39 +450,34 @@ export function TermInvoice({ invoice, sendUrl }) {
                 ) : null
             }
         >
-            <div className="tabular divide-y divide-border">
-                {current.lines.map((l, i) => (
-                    <div key={`c${i}`} className={row}>
-                        <span className="min-w-0 truncate">{l.label}</span>
-                        <span>{formatMoney(l.amount)}</span>
-                    </div>
-                ))}
-                {current.paid > 0 && (
-                    <div className={cn(row, 'text-success-fg')}>
-                        <span>Already paid this term</span>
-                        <span>−{formatMoney(current.paid)}</span>
-                    </div>
-                )}
-                <div className={cn(row, 'font-semibold')}>
-                    <span>This term’s balance</span>
-                    <span>{formatMoney(current.balance)}</span>
-                </div>
-                {forward.total > 0 && (
-                    <>
-                        <div className="bg-danger-soft/40 px-4 pb-1 pt-2.5 text-2xs font-semibold uppercase tracking-wider text-danger-fg">Balance brought forward</div>
-                        {forward.lines.map((l, i) => (
-                            <div key={`f${i}`} className={cn(row, 'bg-danger-soft/20 text-danger-fg')}>
-                                <span className="min-w-0 truncate">{l.label}</span>
-                                <span>{formatMoney(l.balance)}</span>
-                            </div>
-                        ))}
-                    </>
-                )}
-                <div className="flex items-baseline justify-between gap-4 bg-canvas px-4 py-3">
-                    <span className="font-semibold">Total due</span>
-                    <span className={cn('text-xl font-semibold', invoice.total > 0 ? 'text-danger-fg' : 'text-success-fg')}>{formatMoney(invoice.total)}</span>
-                </div>
-            </div>
+            <table className="tabular w-full text-sm">
+                <thead>
+                    <tr className="border-b border-border bg-canvas text-left text-2xs font-semibold uppercase text-fg-muted">
+                        <th className="h-9 px-4">Item</th>
+                        <th className="h-9 px-3 text-right">Amount</th>
+                        <th className="h-9 px-3 text-right">Paid</th>
+                        <th className="h-9 px-4 text-right">Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {invoice.table.map((r) => (
+                        <tr key={r.label} className={cn('border-b border-border', r.forward && 'text-danger-fg')}>
+                            <td className="px-4 py-2">{r.label}</td>
+                            <td className="px-3 py-2 text-right">{formatMoney(r.amount)}</td>
+                            <td className="px-3 py-2 text-right text-success-fg">{r.paid ? formatMoney(r.paid) : ''}</td>
+                            <td className={cn('px-4 py-2 text-right', r.balance > 0 ? 'font-medium' : 'text-fg-subtle')}>{formatMoney(r.balance)}</td>
+                        </tr>
+                    ))}
+                </tbody>
+                <tfoot>
+                    <tr className="bg-canvas">
+                        <td colSpan={3} className="px-4 py-3 font-semibold">
+                            Total due
+                        </td>
+                        <td className={cn('px-4 py-3 text-right text-lg font-semibold', invoice.total > 0 ? 'text-danger-fg' : 'text-success-fg')}>{formatMoney(invoice.total)}</td>
+                    </tr>
+                </tfoot>
+            </table>
         </Panel>
     );
 }

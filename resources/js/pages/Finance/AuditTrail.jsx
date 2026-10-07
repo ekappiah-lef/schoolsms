@@ -26,7 +26,6 @@ export default function AuditTrail({ rows, actions, totals }) {
                 <ModuleHeader
                     crumbs={['Finance', 'Audit trail']}
                     title="Audit trail"
-                    description="Every reversed payment and every change to income or expense entries: who, when, why and the figures before and after. Nothing here can be changed or deleted."
                 />
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
