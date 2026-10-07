@@ -14,7 +14,7 @@ class Clearenroll extends Migration
     public function up()
     {
         if (!DB::table('settings')->where('type', 'clearenroll_url')->exists()) {
-            DB::table('settings')->insert(['type' => 'clearenroll_url', 'description' => '']);
+            DB::table('settings')->insert(['type' => 'clearenroll_url', 'description' => 'https://clearenrollportal.com/']);
         }
         Schema::table('student_records', function (Blueprint $t) {
             $t->string('clearenroll_status', 20)->nullable();
