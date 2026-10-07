@@ -124,13 +124,15 @@ class FinanceSummary
         };
         foreach ($sel->periods() as $session => $terms) {
             // Grouped by the class the fee was billed to, so past years show the class each student was in then.
-            foreach (self::schoolLines($session, $terms) as $r) {
-                $add($r->my_class_id, 'gross', (int) $r->amount);
-                $add($r->my_class_id, 'discount', (int) $r->discount);
-                $add($r->my_class_id, 'sPaid', (int) $r->paid);
-                $byClass[$r->my_class_id]['students'][$r->student_id] = true;
-            }
+            // A fee for "All classes" counts under the class the student was in that year.
             $classOf = self::classesInYear($session);
+            foreach (self::schoolLines($session, $terms) as $r) {
+                $cls = $r->my_class_id ?: ($classOf[$r->student_id] ?? 0);
+                $add($cls, 'gross', (int) $r->amount);
+                $add($cls, 'discount', (int) $r->discount);
+                $add($cls, 'sPaid', (int) $r->paid);
+                $byClass[$cls]['students'][$r->student_id] = true;
+            }
             foreach (self::chargeLines($session, $terms) as $c) {
                 $cls = $classOf[$c->student_id] ?? 0;
                 $add($cls, 'oAmount', $c->amount);
@@ -218,6 +220,7 @@ class FinanceSummary
         $lines = [];
         $classNames = DB::table('my_classes')->pluck('name', 'id');
         foreach ($sel->periods() as $session => $terms) {
+            $classOf = self::classesInYear($session);
             $records = \App\Models\PaymentRecord::where('year', $session)
                 ->with(['payment.items', 'payment.my_class'])
                 ->whereHas('payment', function ($q) use ($terms) { $q->whereIn('term', $terms); })
@@ -226,11 +229,10 @@ class FinanceSummary
                 $p = $pr->payment;
                 $items = $p->items->count() ? $p->items->map(function ($i) { return [$i->name, (int) $i->amount]; })->all() : [[$p->title, (int) $p->amount]];
                 foreach (self::splitBill($items, (int) $pr->discount, (int) $pr->amt_paid) as [$name, $amt, $paid]) {
-                    $lines[] = ['kind' => 'school', 'item' => $name, 'student_id' => $pr->student_id, 'class' => optional($p->my_class)->name, 'fee' => $p->title.' · '.$p->year, 'amount' => $amt, 'paid' => $paid];
+                    $lines[] = ['kind' => 'school', 'item' => $name, 'student_id' => $pr->student_id, 'class' => optional($p->my_class)->name ?? ($classNames[$classOf[$pr->student_id] ?? 0] ?? null), 'fee' => $p->title.' · '.$p->year, 'amount' => $amt, 'paid' => $paid];
                 }
             }
 
-            $classOf = self::classesInYear($session);
             foreach (self::chargeLines($session, $terms) as $c) {
                 $lines[] = ['kind' => 'optional', 'item' => OptionalFeeCharge::GROUPS[$c->group] ?? ucfirst($c->group), 'student_id' => $c->student_id,
                     'class' => $classNames[$classOf[$c->student_id] ?? 0] ?? null, 'fee' => $c->label.' · '.$session, 'amount' => $c->amount, 'paid' => $c->paid];

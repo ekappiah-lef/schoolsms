@@ -388,11 +388,18 @@ class Fees
         $session = Qs::getCurrentSession();
         $records = PaymentRecord::where('student_id', $studentId)->with('payment')->get()->filter(function ($pr) { return $pr->payment; });
         $thisYear = $records->where('year', $session);
-        // The current term is the latest term billed this year (fees without a term count as current).
-        $term = $thisYear->map(function ($pr) { return (int) $pr->payment->term; })->filter()->max();
+        // The current term is today's term when the current year is running (Aug–Dec, Jan–Apr, May–Jul);
+        // otherwise the latest term billed this year. Fees without a term count as current.
+        [$ty, $tt] = FinancePeriod::termOf(now());
+        $term = $session === $ty.'-'.($ty + 1) ? $tt : $thisYear->map(function ($pr) { return (int) $pr->payment->term; })->filter()->max();
         $isCurrent = function ($pr) use ($session, $term) {
             return $pr->year === $session && (!$term || !$pr->payment->term || (int) $pr->payment->term === $term);
         };
+        // Bills for later terms (already set up, not yet due) are left off this invoice.
+        $isLater = function ($pr) use ($session, $term) {
+            return $pr->year > $session || ($pr->year === $session && $term && (int) $pr->payment->term > $term);
+        };
+        $records = $records->reject($isLater);
         $line = function ($label, $amount, $paid) {
             $amount = max((int) $amount, 0);
             return ['label' => $label, 'amount' => $amount, 'paid' => (int) $paid, 'balance' => max($amount - (int) $paid, 0)];
@@ -523,8 +530,14 @@ class Fees
             ->sortBy(function ($pr) { return $pr->year.'-'.(int) $pr->payment->term.'-'.str_pad($pr->id, 8, '0', STR_PAD_LEFT); });
         $charges = OptionalFeeCharge::where('student_id', $studentId)->orderBy('year')->orderBy('id')->get();
 
+        // Oldest first; this year's services before school fees for terms that have not started yet.
+        [$ty, $tt] = FinancePeriod::termOf(now());
+        $nowYear = $ty.'-'.($ty + 1);
         $queue = [];
-        foreach ($records as $pr) $queue[] = ['school', $pr->year, (int) $pr->payment->term, $pr];
+        foreach ($records as $pr) {
+            $t = (int) $pr->payment->term;
+            $queue[] = ['school', $pr->year, $pr->year === $nowYear && $t > $tt ? 10 + $t : $t, $pr];
+        }
         foreach ($charges as $c) $queue[] = ['optional', $c->year, 9, $c];
         usort($queue, function ($a, $b) { return [$a[1], $a[2]] <=> [$b[1], $b[2]]; });
 

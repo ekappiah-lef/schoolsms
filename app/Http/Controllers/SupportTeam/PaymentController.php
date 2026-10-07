@@ -217,14 +217,18 @@ class PaymentController extends Controller
 
     public function pay_now(Request $req, $pr_id)
     {
-        $this->validate($req, [
-            'amt_paid' => 'required|numeric',
-            'method' => 'nullable|in:'.implode(',', Fees::METHODS),
-            'reference' => 'nullable|string|max:100',
-        ], [], ['amt_paid' => 'Amount Paid']);
-
         $pr = $this->pay->findRecord($pr_id);
         $payment = $this->pay->find($pr->payment_id);
+        // A payment must be a whole amount, at least 1 and no more than what is still owed on the bill.
+        $owed = max((int) $payment->amount - (int) $pr->discount - (int) $pr->amt_paid, 0);
+        $this->validate($req, [
+            'amt_paid' => 'required|integer|min:1|max:'.max($owed, 1),
+            'method' => 'nullable|in:'.implode(',', Fees::METHODS),
+            'reference' => 'nullable|string|max:100',
+        ], ['amt_paid.max' => 'Only '.number_format($owed).' is owed on this bill.'], ['amt_paid' => 'Amount Paid']);
+        if ($owed < 1) {
+            return response()->json(['message' => 'This bill is already fully paid.', 'errors' => ['amt_paid' => ['This bill is already fully paid.']]], 422);
+        }
         $d['amt_paid'] = $amt_p = $pr->amt_paid + $req->amt_paid;
         // Amount owed is the fee less the student's tuition discount.
         $d['balance'] = $bal = $payment->amount - (int) $pr->discount - $amt_p;
@@ -235,7 +239,7 @@ class PaymentController extends Controller
         $d2['amt_paid'] = $req->amt_paid;
         $d2['balance'] = $bal;
         $d2['pr_id'] = $pr_id;
-        $d2['year'] = $this->year;
+        $d2['year'] = $pr->year;
         $d2['method'] = $req->input('method') ?: 'Cash';
         $d2['reference'] = $req->input('reference') ?: null;
 
