@@ -1,94 +1,73 @@
+<!doctype html>
 <html>
 <head>
-    <title>TimeTable - {{ $ttr->name.' - '.$ttr->year }}</title>
+    <meta charset="utf-8">
+    <title>Timetable - {{ $ttr->name }} - {{ $ttr->year }}</title>
     <style>
-        @media print {
-
-            td, th {
-                padding: 20px 5px;
-                text-align: center;
-                font-size: 14px;
-            }
-
-            @page {
-                size: landscape;   /* auto is the initial value */
-                margin: 0;  /* this affects the margin in the printer settings */
-            }
-
-            html {
-                background-color: #FFFFFF;
-                margin: 0; /* this affects the margin on the html before sending to printer */
-            }
-
-            body {
-                margin: 0 10mm; /* margin you want for the content */
-            }
-        }
-
-        td {
-            text-align: center;
-        }
-
+        @page { size: A4 landscape; margin: 10mm; }
+        body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; }
+        h1 { font-size: 18px; margin: 0; text-align: center; }
+        h2 { font-size: 14px; margin: 4px 0 12px; text-align: center; letter-spacing: 1px; }
+        .sub { text-align: center; font-size: 11px; color: #444; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th, td { border: 1.5px solid #111; text-align: center; vertical-align: middle; font-size: 11px; padding: 4px; }
+        thead th { font-weight: 600; }
+        .day { text-align: left; font-weight: bold; width: 95px; text-transform: uppercase; }
+        .cell { height: 58px; text-transform: uppercase; }
+        .break { width: 30px; background: #f2f2f2; padding: 0; }
+        .break span { writing-mode: vertical-rl; letter-spacing: 6px; font-weight: bold; font-size: 13px; }
+        .c0 { background: #dbeafe; } .c1 { background: #ffe4e6; } .c2 { background: #ecfccb; } .c3 { background: #fef3c7; } .c4 { background: #ede9fe; }
+        .c5 { background: #ccfbf1; } .c6 { background: #ffedd5; } .c7 { background: #e0e7ff; } .c8 { background: #d1fae5; } .c9 { background: #fae8ff; }
+        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        @media screen { body { padding: 24px; } }
     </style>
 </head>
 <body>
-<div class="container">
-    <div id="print" xmlns:margin-top="http://www.w3.org/1999/xhtml">
-        {{--    Logo N School Details--}}
-        <table width="100%">
-            <tr>
-                <td >
-                    <strong><span style="color: #1b0c80; font-size: 25px;">{{ strtoupper(config('app.name')) }}</span></strong><br/>
-                    {{-- <strong><span style="color: #1b0c80; font-size: 20px;">MINNA, NIGER STATE</span></strong><br/>--}}
-                    <strong><span style="color: #000; font-size: 15px;"><i>{{ ucwords($s['address']) }}</i></span></strong><br/>
-                    <strong><span style="color: #000; text-decoration: underline; font-size: 15px;"><i>{{ config('app.url') }}/i></span></strong>
-                    <br /> <br />
-                    <strong><span style="color: #000; font-size: 15px;"> TIMETABLE FOR {{ strtoupper($my_class->name. ' ('.$ttr->year.')' ) }}
-                    </span></strong>
-                </td>
-            </tr>
-        </table>
+    <h1>{{ strtoupper($s['system_name'] ?? config('app.name')) }}</h1>
+    <div class="sub">{{ $s['address'] ?? '' }}</div>
+    <h2>TIMETABLE — {{ strtoupper(optional($my_class)->name) }}{{ $exam ? ' · '.strtoupper($exam->name) : '' }} ({{ $ttr->year }})</h2>
 
-        {{--Background Logo--}}
-        <div style="position: relative;  text-align: center; ">
-            <img src="{{ $s['logo'] }}"
-                 style="max-width: 500px; max-height:600px; margin-top: 60px; position:absolute ; opacity: 0.2; margin-left: auto;margin-right: auto; left: 0; right: 0;" />
-        </div>
-
-        {{-- Tabulation Begins --}}
-        <table cellpadding="20" style="width:100%; border-collapse:collapse; border: 1px solid #000; margin: 10px auto;" border="1">
+    @if(count($rows) && count($slots))
+        @php $n = 0; @endphp
+        <table>
             <thead>
-            <tr>
-                <th rowspan="2">Time <i class="icon-arrow-right7 ml-2"></i> <br> Date<i class="icon-arrow-down7 ml-2"></i>
-                </th>
-                @foreach($time_slots as $tms)
-                    <th rowspan="2">{{ $tms->time_from }} <br>
-                        {{ $tms->time_to }}
-                    </th>
-                @endforeach
-            </tr>
-            </thead>
-
-            <tbody>
-            @foreach($days as $day)
                 <tr>
-                    @if($ttr->exam_id)
-                        <td><strong>{{ date('l', strtotime($day)) }} <br> {{ date('d/m/Y', strtotime($day)) }} </strong></td>
-                    @else
-                        <td><strong>{{ $day }}</strong></td>
-                    @endif
-                    @foreach($d_time->where('day', $day) as $dt)
-                        <td>{{ $dt['subject'] }}</td>
+                    <th class="day" rowspan="2">{{ $isExam ? 'DATE' : 'DAY' }}</th>
+                    @foreach($slots as $sl)
+                        <th @if($sl['label']) class="break" @endif>{{ $sl['from'] }}<br>{{ $sl['to'] }}</th>
                     @endforeach
                 </tr>
-            @endforeach
+                <tr>
+                    @foreach($slots as $sl)
+                        <th @if($sl['label']) class="break" @endif>{{ $sl['label'] ? '' : ++$n }}</th>
+                    @endforeach
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($rows as $r)
+                    <tr>
+                        <td class="day">
+                            @if($isExam)
+                                {{ date('l', strtotime($r['day'])) }}<br><span style="font-weight:normal">{{ date('d/m/Y', strtotime($r['day'])) }}</span>
+                            @else
+                                {{ $r['day'] }}
+                            @endif
+                        </td>
+                        @foreach($r['cells'] as $c)
+                            @if($c['kind'] === 'break')
+                                <td class="break" rowspan="{{ $c['rowspan'] }}"><span>{{ strtoupper($c['text']) }}</span></td>
+                            @else
+                                <td class="cell {{ $c['kind'] === 'subject' ? 'c'.($c['colour'] % 10) : '' }}" colspan="{{ $c['colspan'] }}">{{ $c['text'] }}</td>
+                            @endif
+                        @endforeach
+                    </tr>
+                @endforeach
             </tbody>
         </table>
-    </div>
-</div>
+    @else
+        <p style="text-align:center">Nothing scheduled yet.</p>
+    @endif
 
-<script>
-    window.print();
-</script>
+    <script>window.addEventListener('load', function () { window.print(); });</script>
 </body>
 </html>

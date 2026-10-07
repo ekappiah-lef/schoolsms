@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { BookOpen, BookOpenText, Pencil, School, Trash2, UserRound } from 'lucide-react';
+import { BookOpen, Pencil, School, Trash2, UserRound } from 'lucide-react';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { Field, InfoCallout, ModuleHeader, ModuleTabs, NativeSelect, RegistryCard, RowIconButton, SetupCard, SummaryTile, fieldInput, useModuleTab } from '@/components/app/module';
 import { useConfirmAction } from '@/components/app/confirm-action';
@@ -93,9 +93,6 @@ export default function SubjectsIndex({ session, canDelete, classes, teachers, s
                                     exportValue: (r) => r.name,
                                     cell: (r) => (
                                         <div className="flex items-center gap-3">
-                                            <div className="flex size-9 items-center justify-center rounded-lg bg-primary-soft/70 text-primary-hover">
-                                                <BookOpenText className="size-[18px]" />
-                                            </div>
                                             <div>
                                                 <div className="font-semibold">{r.name}</div>
                                                 {r.slug && <div className="font-mono text-[11px] text-fg-muted">{r.slug}</div>}

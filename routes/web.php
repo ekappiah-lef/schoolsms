@@ -79,7 +79,7 @@ Route::group(['middleware' => 'auth'], function () {
 
                 Route::get('show/{ttr}', 'TimeTableController@show_record')->name('ttr.show');
                 Route::get('print/{ttr}', 'TimeTableController@print_record')->name('ttr.print');
-                Route::delete('/{ttr}', 'TimeTableController@delete_record')->name('ttr.destroy');
+                Route::delete('/{ttr}', 'TimeTableController@delete_record')->name('ttr.destroy')->middleware('super_admin');
 
             });
 

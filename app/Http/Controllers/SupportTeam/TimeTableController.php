@@ -14,6 +14,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\Ui;
 use App\Support\ClassOrder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class TimeTableController extends Controller
@@ -28,11 +29,42 @@ class TimeTableController extends Controller
         $this->year = Qs::getCurrentSession();
     }
 
+    /** Classes whose timetables the user may see: students their own class, parents their children's; staff null (all). */
+    protected function visibleClassIds(): ?array
+    {
+        if (Qs::userIsStudent()) {
+            return DB::table('student_records')->where('user_id', Auth::id())->pluck('my_class_id')->all();
+        }
+        if (Qs::userIsParent()) {
+            return DB::table('student_records')->where('my_parent_id', Auth::id())->where('grad', 0)->pluck('my_class_id')->unique()->values()->all();
+        }
+
+        return null;
+    }
+
+    protected function canSee($ttr): bool
+    {
+        $ids = $this->visibleClassIds();
+
+        return $ids === null || in_array((int) $ttr->my_class_id, array_map('intval', $ids), true);
+    }
+
     public function index()
     {
         $d['exams'] = $this->exam->getExam(['year' => $this->year]);
         $d['my_classes'] = $this->my_class->all();
         $d['tt_records'] = $this->tt->getAllRecords();
+
+        $ids = $this->visibleClassIds();
+        if ($ids !== null) {
+            $mine = $d['tt_records']->filter(function ($r) use ($ids) { return in_array((int) $r->my_class_id, array_map('intval', $ids), true) && $r->year === $this->year; })->values();
+            $classTimetables = $mine->whereNull('exam_id')->values();
+            // A student (or a parent with one child) opens straight on the class timetable.
+            if ($classTimetables->count() === 1 && $mine->count() === 1) {
+                return redirect()->route('ttr.show', $classTimetables->first()->id);
+            }
+            $d['tt_records'] = $mine;
+        }
 
         return Ui::render('Timetables/Index', function () use ($d) {
             return $this->pageProps($d['tt_records']);
@@ -127,7 +159,7 @@ class TimeTableController extends Controller
             'isExam' => $isExam,
             'days' => $isExam ? $tts->pluck('exam_date')->filter()->unique()->sort()->values() : Qs::getDaysOfTheWeek(),
             'slots' => $slots->map(function ($t) use ($parse) {
-                return ['id' => $t->id, 'full' => $t->full, 'from' => $parse($t->time_from), 'to' => $parse($t->time_to),
+                return ['id' => $t->id, 'full' => $t->full, 'label' => $t->label, 'from' => $parse($t->time_from), 'to' => $parse($t->time_to),
                     'urls' => ['update' => route('ts.update', $t->id), 'destroy' => route('ts.destroy', $t->id)]];
             })->values(),
             'entries' => $tts->map(function ($e) {
@@ -188,6 +220,7 @@ class TimeTableController extends Controller
         $data['timestamp_from'] = strtotime($tf);
         $data['timestamp_to'] = strtotime($tt);
         $data['full'] = $tf.' - '.$tt;
+        $data['label'] = trim((string) $req->label) ?: null;
 
         if($tf == $tt){
             return response()->json(['msg' => __('msg.invalid_time_slot'), 'ok' => FALSE]);
@@ -229,6 +262,7 @@ class TimeTableController extends Controller
         $data['timestamp_from'] = strtotime($tf);
         $data['timestamp_to'] = strtotime($tt);
         $data['full'] = $tf.' - '.$tt;
+        $data['label'] = trim((string) $req->label) ?: null;
 
         if($tf == $tt){
             return back()->with('flash_danger', __('msg.invalid_time_slot'));
@@ -265,84 +299,114 @@ class TimeTableController extends Controller
         }, 'pages.support_team.timetables.edit', $d);
     }
 
+    /**
+     * The timetable as a grid, the way schools print it: days down the side, periods across.
+     * A labelled slot (Break, Registration …) is one tall cell across every day; the same subject in
+     * periods next to each other on a day is merged into one wide cell.
+     */
+    protected function grid($ttr): array
+    {
+        $slots = $this->tt->getTimeSlotByTTR($ttr->id)->sortBy('timestamp_from')->values();
+        $tts = $this->tt->getTimeTable(['ttr_id' => $ttr->id]);
+        $isExam = (bool) $ttr->exam_id;
+        $key = $isExam ? 'exam_date' : 'day';
+        if ($isExam) {
+            $days = $tts->pluck('exam_date')->filter()->unique()->sort()->values()->all();
+        } else {
+            $used = $tts->pluck('day')->unique()->all();
+            $days = array_values(array_filter(Qs::getDaysOfTheWeek(), function ($d) use ($used) { return !in_array($d, ['Saturday', 'Sunday'], true) || in_array($d, $used, true); }));
+        }
+        // One colour per subject, in the order the subjects first appear.
+        $colours = $tts->sortBy('ts_id')->pluck('subject_id')->filter()->unique()->values()->flip()->all();
+
+        $rows = [];
+        foreach ($days as $i => $day) {
+            $cells = [];
+            foreach ($slots as $ts) {
+                if ($ts->label) {
+                    if ($i === 0) $cells[] = ['kind' => 'break', 'text' => $ts->label, 'colspan' => 1, 'rowspan' => count($days)];
+                    if ($cells) $cells[count($cells) - 1]['open'] = false; // never merge across a break
+                    continue;
+                }
+                $e = $tts->where('ts_id', $ts->id)->where($key, $day)->first();
+                $name = $e ? optional($e->subject)->name : null;
+                $last = count($cells) - 1;
+                if ($name && $last >= 0 && ($cells[$last]['open'] ?? false) && $cells[$last]['kind'] === 'subject' && $cells[$last]['text'] === $name) {
+                    $cells[$last]['colspan']++;
+                    continue;
+                }
+                $cells[] = ['kind' => $name ? 'subject' : 'empty', 'text' => $name, 'colspan' => 1, 'rowspan' => 1, 'open' => true,
+                    'colour' => $e ? ($colours[$e->subject_id] ?? 0) : null];
+            }
+            $rows[] = ['day' => $day, 'cells' => array_map(function ($c) { unset($c['open']); return $c; }, $cells)];
+        }
+
+        return [
+            'isExam' => $isExam,
+            'slots' => $slots->map(function ($t) { return ['id' => $t->id, 'from' => $t->time_from, 'to' => $t->time_to, 'label' => $t->label]; })->values()->all(),
+            'rows' => $rows,
+        ];
+    }
+
     public function show_record($ttr_id)
     {
-        $d_time = [];
-        $d['ttr'] = $ttr = $this->tt->findRecord($ttr_id);
-        $d['ttr_id'] = $ttr_id;
-        $d['my_class'] = $this->my_class->find($ttr->my_class_id);
-
-        $d['time_slots'] = $tms = $this->tt->getTimeSlotByTTR($ttr_id);
-        $d['tts'] = $tts = $this->tt->getTimeTable(['ttr_id' => $ttr_id]);
-
-        if($ttr->exam_id){
-            $d['exam_id'] = $ttr->exam_id;
-            $d['exam'] = $this->exam->find($ttr->exam_id);
-            $d['days'] = $days = $tts->unique('exam_date')->pluck('exam_date');
-            $d_date = 'exam_date';
+        $ttr = $this->tt->findRecord($ttr_id);
+        if (!$ttr || !$this->canSee($ttr)) {
+            return redirect()->route('tt.index')->with('flash_danger', 'You can only see your own class timetable.');
         }
+        $class = $this->my_class->find($ttr->my_class_id);
+        $exam = $ttr->exam_id ? $this->exam->find($ttr->exam_id) : null;
+        $grid = $this->grid($ttr);
+        // Other timetables this user may open (e.g. the exam timetable of the same class).
+        $ids = $this->visibleClassIds();
+        $others = $this->tt->getAllRecords()->filter(function ($r) use ($ttr, $ids) {
+            return $r->id !== $ttr->id && $r->year === $ttr->year && ($ids === null ? $r->my_class_id == $ttr->my_class_id : in_array((int) $r->my_class_id, array_map('intval', $ids), true));
+        })->map(function ($r) { return ['name' => $r->name, 'url' => route('ttr.show', $r->id)]; })->values();
 
-        else{
-            $d['days'] = $days = $tts->unique('day')->pluck('day');
-            $d_date = 'day';
-        }
-
-        foreach ($days as $day) {
-            foreach ($tms as $tm) {
-                $d_time[] = ['day' => $day, 'time' => $tm->full, 'subject' => $tts->where('ts_id', $tm->id)->where($d_date, $day)->first()->subject->name ?? NULL ];
-            }
-        }
-
-        $d['d_time'] = collect($d_time);
-
-        return Ui::render('Timetables/Show', function () use ($d, $ttr) {
-            return [
-                'record' => ['name' => $ttr->name, 'year' => $ttr->year, 'class' => optional($d['my_class'])->name, 'exam' => isset($d['exam']) ? $d['exam']->name : null],
-                'days' => collect($d['days'])->values(),
-                'slots' => $d['time_slots']->sortBy('timestamp_from')->pluck('full')->values(),
-                'cells' => $d['d_time']->values(),
+        return Ui::render('Timetables/Show', function () use ($ttr, $class, $exam, $grid, $others) {
+            return $grid + [
+                'record' => ['name' => $ttr->name, 'year' => $ttr->year, 'class' => optional($class)->name, 'exam' => optional($exam)->name],
+                'others' => $others,
                 'urls' => array_filter([
                     'print' => route('ttr.print', $ttr->id),
                     'manage' => Qs::userIsTeamSA() ? route('ttr.manage', $ttr->id) : null,
-                    'index' => route('tt.index'),
+                    'index' => Qs::userIsStudent() ? null : route('tt.index'),
                 ]),
             ];
-        }, 'pages.support_team.timetables.show', $d);
+        }, 'pages.support_team.timetables.show', $this->legacyShowData($ttr));
     }
-    public function print_record($ttr_id)
+
+    /** Data for the classic (Blade) view of a timetable. */
+    protected function legacyShowData($ttr): array
     {
+        $tms = $this->tt->getTimeSlotByTTR($ttr->id);
+        $tts = $this->tt->getTimeTable(['ttr_id' => $ttr->id]);
+        $key = $ttr->exam_id ? 'exam_date' : 'day';
+        $days = $tts->unique($key)->pluck($key);
         $d_time = [];
-        $d['ttr'] = $ttr = $this->tt->findRecord($ttr_id);
-        $d['ttr_id'] = $ttr_id;
-        $d['my_class'] = $this->my_class->find($ttr->my_class_id);
-
-        $d['time_slots'] = $tms = $this->tt->getTimeSlotByTTR($ttr_id);
-        $d['tts'] = $tts = $this->tt->getTimeTable(['ttr_id' => $ttr_id]);
-
-        if($ttr->exam_id){
-            $d['exam_id'] = $ttr->exam_id;
-            $d['exam'] = $this->exam->find($ttr->exam_id);
-            $d['days'] = $days = $tts->unique('exam_date')->pluck('exam_date');
-            $d_date = 'exam_date';
-        }
-
-        else{
-            $d['days'] = $days = $tts->unique('day')->pluck('day');
-            $d_date = 'day';
-        }
-
         foreach ($days as $day) {
             foreach ($tms as $tm) {
-                $d_time[] = ['day' => $day, 'time' => $tm->full, 'subject' => $tts->where('ts_id', $tm->id)->where($d_date, $day)->first()->subject->name ?? NULL ];
+                $d_time[] = ['day' => $day, 'time' => $tm->full, 'subject' => $tm->label ?: (optional(optional($tts->where('ts_id', $tm->id)->where($key, $day)->first())->subject)->name)];
             }
         }
 
-        $d['d_time'] = collect($d_time);
-        $d['s'] = Setting::all()->flatMap(function($s){
-            return [$s->type => $s->description];
-        });
+        return ['ttr' => $ttr, 'ttr_id' => $ttr->id, 'my_class' => $this->my_class->find($ttr->my_class_id), 'time_slots' => $tms, 'tts' => $tts, 'days' => $days,
+            'd_time' => collect($d_time), 'exam_id' => $ttr->exam_id, 'exam' => $ttr->exam_id ? $this->exam->find($ttr->exam_id) : null];
+    }
 
-        return view('pages.support_team.timetables.print', $d);
+    public function print_record($ttr_id)
+    {
+        $ttr = $this->tt->findRecord($ttr_id);
+        if (!$ttr || !$this->canSee($ttr)) {
+            return redirect()->route('tt.index')->with('flash_danger', 'You can only see your own class timetable.');
+        }
+
+        return view('pages.support_team.timetables.print', $this->grid($ttr) + [
+            'ttr' => $ttr,
+            'my_class' => $this->my_class->find($ttr->my_class_id),
+            'exam' => $ttr->exam_id ? $this->exam->find($ttr->exam_id) : null,
+            's' => Setting::all()->flatMap(function ($s) { return [$s->type => $s->description]; }),
+        ]);
     }
 
     public function store_record(TTRecordRequest $req)
@@ -364,6 +428,9 @@ class TimeTableController extends Controller
 
     public function delete_record($ttr_id)
     {
+        if (!Qs::userIsSuperAdmin()) {
+            return back()->with('flash_danger', __('msg.denied'));
+        }
         $this->tt->deleteRecord($ttr_id);
         return back()->with('flash_success', __('msg.delete_ok'));
     }

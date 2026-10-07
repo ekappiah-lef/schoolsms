@@ -81,14 +81,7 @@ export default function ClassesIndex({ session, canDelete, types, classes, editi
                                     header: 'Name',
                                     sort: (r) => r.name,
                                     exportValue: (r) => r.name,
-                                    cell: (r) => (
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex size-9 items-center justify-center rounded-lg bg-primary-soft/70 text-primary-hover">
-                                                <School className="size-[18px]" />
-                                            </div>
-                                            <span className="font-semibold">{r.name}</span>
-                                        </div>
-                                    ),
+                                    cell: (r) => <span className="font-semibold">{r.name}</span>,
                                 },
                                 { key: 'type', header: 'Class Type', sort: (r) => r.type, exportValue: (r) => r.type, cell: (r) => <span className="rounded bg-subtle px-2 py-0.5 text-xs font-semibold">{r.type}</span> },
                                 { key: 'sections', header: 'Sections', sort: (r) => r.sections, exportValue: (r) => r.sections, cell: (r) => <span className="tabular">{r.sections}</span> },

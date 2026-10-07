@@ -107,7 +107,6 @@ export default function SectionsIndex({ session, canDelete, classes, teachers, s
                                     exportValue: (r) => r.name,
                                     cell: (r) => (
                                         <div className="flex items-center gap-3">
-                                            <div className="flex size-9 items-center justify-center rounded-lg bg-primary-soft/70 font-semibold text-primary-hover">{r.name.slice(0, 2)}</div>
                                             <div>
                                                 <div className="font-semibold">
                                                     {r.class} {r.name}

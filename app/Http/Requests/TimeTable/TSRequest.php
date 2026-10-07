@@ -26,6 +26,7 @@ class TSRequest extends FormRequest
             'hour_to' => 'required|numeric|between:1,12',
             'min_to' => 'required|string|size:2',
             'meridian_to' => 'required|string|size:2',
+            'label' => 'nullable|string|max:40',
         ];
     }
 
