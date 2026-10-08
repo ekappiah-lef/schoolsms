@@ -73,7 +73,11 @@ class Navigation
         }
 
         if (Qs::userIsTeamSA()) {
-            $academics[] = self::item('ClearEnroll', 'shield-check', 'clearenroll.index');
+            $academics[] = self::group('ClearEnroll', 'shield-check', [
+                self::item('Verify student', null, 'clearenroll.student'),
+                self::item('Verify teacher', null, 'clearenroll.teacher'),
+                self::item('Fee status sync', null, 'clearenroll.sync'),
+            ]);
         }
         if ($academics) {
             $sections[] = self::section('Academics', $academics);

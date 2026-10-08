@@ -48,6 +48,7 @@ class FinanceLog
             DB::table('receipts')->where('pr_id', $pr->id)->delete();
             $owed = max((int) optional($pr->payment)->amount - (int) $pr->discount, 0);
             $pr->update(['amt_paid' => 0, 'paid' => 0, 'balance' => $owed]);
+            ClearEnroll::studentChanged((int) $pr->student_id);
 
             return $total;
         });
@@ -68,6 +69,7 @@ class FinanceLog
             }
             DB::table('optional_fee_receipts')->where('charge_id', $c->id)->delete();
             $c->update(['amt_paid' => 0]);
+            ClearEnroll::studentChanged((int) $c->student_id);
 
             return $total;
         });

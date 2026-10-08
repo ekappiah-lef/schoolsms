@@ -557,8 +557,11 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
             )}
 
             {mode === 'create' && (
-                <FormSection id="clearenroll" title="ClearEnroll check" description="Check the child on ClearEnroll before admitting, then record the result.">
-                    <FormField label="Result" hint={options.clearEnroll ? undefined : 'The ClearEnroll address is not set in Settings yet.'}>
+                <FormSection id="clearenroll" title="ClearEnroll check" description="Check the child on ClearEnroll before admitting; the result is recorded with the admission.">
+                    <div className="sm:col-span-2">
+                        <ClearEnrollCheck searchUrl={options.clearEnroll} name={[data.first_name, data.last_name].filter(Boolean).join(' ')} onResult={(v) => set('clearenroll_status', v)} />
+                    </div>
+                    <FormField label="Result recorded">
                         <Select
                             id="field-clearenroll_status"
                             value={data.clearenroll_status}
@@ -574,13 +577,6 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                             placeholder="Choose the result"
                         />
                     </FormField>
-                    {options.clearEnroll && (
-                        <div className="flex items-end pb-1">
-                            <a href={options.clearEnroll} target="_blank" rel="noreferrer" className="text-sm font-medium text-primary hover:underline">
-                                Check this child on ClearEnroll
-                            </a>
-                        </div>
-                    )}
                 </FormSection>
             )}
 
@@ -929,6 +925,10 @@ function Agreement({ checked, onChange, error }) {
                 <li>Payment is by bank transfer, mobile money, cheque or another approved school platform.</li>
                 <li>If fees are not paid, the school may withhold results, deny access to classes or activities, or withdraw the student, and may take lawful steps to recover the debt.</li>
                 <li>They have read the school policy and accept full financial responsibility for the learner.</li>
+                <li>
+                    They agree that the school may share the learner’s and their own details (names, date of birth, phone) and any unpaid fees with ClearEnroll, the school-to-school fee clearance service, which
+                    other schools check before admitting a child; the record is updated when fees are paid and cleared when nothing is owed (Data Protection Act, 2012 (Act 843)).
+                </li>
             </ul>
             <label className="mt-4 flex items-start gap-3 text-sm">
                 <Checkbox id="field-terms_accepted" className="mt-0.5" checked={checked} onCheckedChange={(v) => onChange(v === true)} />
@@ -1040,5 +1040,43 @@ function SectionIndex({ errors }) {
                 </ul>
             </div>
         </nav>
+    );
+}
+
+/** Search ClearEnroll for the child being admitted and record the result (Cleared / Not found / Flagged). */
+function ClearEnrollCheck({ searchUrl, name, onResult }) {
+    const [busy, setBusy] = useState(false);
+    const [res, setRes] = useState(null);
+    if (!searchUrl) return <p className="text-sm text-fg-muted">ClearEnroll is not connected yet, so the check cannot be made from here.</p>;
+    const check = async () => {
+        setBusy(true);
+        try {
+            const { data } = await http.post(searchUrl, { kind: 'student', query: name });
+            setRes(data);
+            onResult(data.status === 'FLAGGED' ? 'flagged' : data.status === 'CLEAR' ? 'cleared' : 'not_found');
+        } catch (e) {
+            setRes({ error: e.response?.data?.message || 'ClearEnroll could not search right now.' });
+        }
+        setBusy(false);
+    };
+    const flagged = res?.flags ?? [];
+    return (
+        <div className="flex flex-col gap-2">
+            <div>
+                <Button type="button" onClick={check} disabled={busy || name.trim().length < 3}>
+                    {busy ? 'Checking…' : `Check ${name || 'this child'} on ClearEnroll`}
+                </Button>
+            </div>
+            {res?.error && <p className="text-sm text-danger-fg">{res.error}</p>}
+            {res && !res.error && (
+                <div className={cn('rounded-md px-3 py-2 text-sm', res.status === 'FLAGGED' ? 'bg-danger-soft text-danger-fg' : res.status === 'CLEAR' ? 'bg-success-soft text-success-fg' : 'bg-subtle text-fg-muted')}>
+                    {res.status === 'FLAGGED'
+                        ? `Flagged: ${flagged.map((f) => `${f.student} owes ${f.currency} ${formatMoney(Number(f.amount_owed))} at ${f.reported_by}`).join('; ')}`
+                        : res.status === 'CLEAR'
+                          ? `Cleared: ${res.students.length} record(s) found, no unpaid fees.`
+                          : 'Not found on ClearEnroll.'}
+                </div>
+            )}
+        </div>
     );
 }

@@ -203,11 +203,14 @@ Route::group(['middleware' => 'auth'], function () {
         Route::post('attendance', 'AttendanceController@store')->name('attendance.store');
         Route::post('attendance/alert', 'AttendanceController@alert')->name('attendance.alert');
         Route::get('messages', 'MessageController@index')->name('messages.index');
-        Route::get('clearenroll', 'ClearEnrollController@index')->name('clearenroll.index');
+        Route::get('clearenroll/verify-student', 'ClearEnrollController@student')->name('clearenroll.student');
+        Route::get('clearenroll/verify-teacher', 'ClearEnrollController@teacher')->name('clearenroll.teacher');
+        Route::post('clearenroll/search', 'ClearEnrollController@search')->name('clearenroll.search');
+        Route::get('clearenroll/sync', 'ClearEnrollController@sync')->name('clearenroll.sync');
+        Route::post('clearenroll/sync', 'ClearEnrollController@runSync')->name('clearenroll.sync.run');
         Route::get('reports/design', 'ReportDesignController@index')->name('reports.design');
         Route::post('reports/design/{type}', 'ReportDesignController@save')->name('reports.design.save');
         Route::match(['get', 'post'], 'reports/design/{type}/preview', 'ReportDesignController@preview')->name('reports.design.preview');
-        Route::get('clearenroll/debtors.csv', 'ClearEnrollController@export')->name('clearenroll.export');
         Route::get('messages/count', 'MessageController@count')->name('messages.count');
         Route::post('messages', 'MessageController@store')->name('messages.store');
         Route::post('messages/{message}/approve', 'MessageController@approve')->name('messages.approve');

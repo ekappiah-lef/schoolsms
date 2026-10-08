@@ -739,7 +739,7 @@ class StudentRecordController extends Controller
             'sections' => $this->sectionOptions(),
             'services' => Fees::catalogue(),
             'discounts' => Fees::discountOptions(),
-            'clearEnroll' => trim((string) Qs::getSetting('clearenroll_url')) ?: null,
+            'clearEnroll' => \App\Support\ClearEnroll::enabled() ? route('clearenroll.search') : null,
             // School fees for this session, so the form can preview what will be billed.
             'fees' => \App\Models\Payment::where('year', Qs::getCurrentSession())->with('items')->get()->map(function ($p) {
                 return [

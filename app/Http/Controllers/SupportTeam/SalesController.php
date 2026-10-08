@@ -183,6 +183,8 @@ class SalesController extends Controller
         });
 
         $total = collect($charges)->sum('amount');
+        // A sale changes what the student owes; ClearEnroll gets the new balance.
+        \App\Support\ClearEnroll::studentChanged((int) $charges[0]->student_id, (int) $req->pay_now ? min((int) $req->pay_now, (int) $total) : null, 'Shop sale');
         return response()->json(['ok' => true, 'msg' => 'Sale recorded: '.number_format($total).' charged'.((int) $req->pay_now ? ', '.number_format(min((int) $req->pay_now, $total)).' paid now.' : ' to the student\'s account.')]);
     }
 

@@ -24,8 +24,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // $schedule->command('inspire')
-        //          ->hourly();
+        // ClearEnroll: send every student who owes fees once at the start of each term (checked daily).
+        $schedule->command('clearenroll:sync --if-new-term')->dailyAt('06:00');
     }
 
     /**

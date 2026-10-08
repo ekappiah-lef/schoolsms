@@ -4,12 +4,14 @@ namespace App\Http\Controllers\SupportTeam;
 
 use App\Helpers\Qs;
 use App\Http\Controllers\Controller;
+use App\Support\ClearEnroll;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 /**
- * ClearEnroll, LEF Signature's school-to-school fee clearance portal, inside the school system:
- * the portal itself (embedded), and the students who left owing fees, ready to upload to it.
+ * ClearEnroll inside the school system (through ClearEnroll's API, no embedded website):
+ * verify a student or teacher, and keep ClearEnroll's fee flags in step with what parents owe here.
  */
 class ClearEnrollController extends Controller
 {
@@ -20,61 +22,65 @@ class ClearEnrollController extends Controller
         $this->middleware('teamSA');
     }
 
-    public function index()
+    public function student()
     {
-        return Inertia::render('ClearEnroll/Index', [
-            'portal' => trim((string) Qs::getSetting('clearenroll_url')) ?: null,
-            'debtors' => $this->debtors(),
-            'admissions' => DB::table('student_records as sr')->join('users as u', 'u.id', '=', 'sr.user_id')
-                ->whereNotNull('sr.clearenroll_status')->orderByDesc('sr.clearenroll_checked_at')->limit(50)
-                ->get(['u.name', 'sr.clearenroll_status', 'sr.clearenroll_checked_at'])->map(function ($r) {
-                    return ['name' => $r->name, 'status' => self::STATUSES[$r->clearenroll_status] ?? $r->clearenroll_status, 'key' => $r->clearenroll_status, 'date' => $r->clearenroll_checked_at];
+        return Inertia::render('ClearEnroll/Verify', ['kind' => 'student', 'connected' => ClearEnroll::enabled(), 'urls' => ['search' => route('clearenroll.search')]]);
+    }
+
+    public function teacher()
+    {
+        return Inertia::render('ClearEnroll/Verify', ['kind' => 'teacher', 'connected' => ClearEnroll::enabled(), 'urls' => ['search' => route('clearenroll.search')]]);
+    }
+
+    /** Search ClearEnroll (used by the verify pages and the admission form). */
+    public function search(Request $req)
+    {
+        $d = $req->validate(['kind' => 'required|in:student,teacher', 'query' => 'required|string|min:2|max:100']);
+        $r = ClearEnroll::verify($d['kind'], trim($d['query']));
+        if (!empty($r['error'])) {
+            return response()->json(['message' => $r['error']], 422);
+        }
+
+        // Only what the school needs to see; ClearEnroll already masks other schools' parent details.
+        if ($d['kind'] === 'teacher') {
+            $r['teachers'] = collect($r['teachers'] ?? [])->map(function ($t) {
+                return array_intersect_key((array) $t, array_flip(['id', 'first_name', 'last_name', 'other_names', 'date_of_birth', 'gender', 'qualification', 'status', 'reason', 'school']));
+            })->values();
+        }
+
+        return response()->json($r);
+    }
+
+    public function sync()
+    {
+        $debtors = collect(ClearEnroll::debtors());
+
+        return Inertia::render('ClearEnroll/Sync', [
+            'connection' => ClearEnroll::ping(),
+            'debtors' => $debtors->map(function ($p) {
+                return ['id' => $p['external_id'], 'name' => $p['_name'], 'class' => $p['class_name'], 'balance' => $p['balance'],
+                    'consented' => $p['_consented'], 'problem' => ClearEnroll::problem($p),
+                    'url' => route('payments.invoice', Qs::hash((int) $p['external_id']))];
+            })->values(),
+            'history' => DB::table('clearenroll_syncs as s')->leftJoin('users as u', 'u.id', '=', 's.user_id')->leftJoin('users as st', 'st.id', '=', 's.student_id')
+                ->orderByDesc('s.id')->limit(50)->get(['s.*', 'u.name as by_name', 'st.name as student_name'])
+                ->map(function ($r) {
+                    return ['id' => $r->id, 'kind' => $r->kind, 'term' => $r->term, 'student' => $r->student_name, 'sent' => $r->sent, 'flagged' => $r->flagged,
+                        'updated' => $r->updated, 'cleared' => $r->cleared, 'rejected' => $r->rejected ? count(json_decode($r->rejected, true)) : 0,
+                        'error' => $r->error, 'by' => $r->by_name ?: 'Automatic', 'at' => $r->created_at];
                 })->values(),
-            'canSetUrl' => Qs::userIsSuperAdmin(),
-            'urls' => ['export' => route('clearenroll.export'), 'settings' => Qs::userIsSuperAdmin() ? route('settings') : null],
+            'canSync' => ClearEnroll::enabled(),
+            'urls' => ['run' => route('clearenroll.sync.run')],
         ]);
     }
 
-    /** Download the debtors in a plain spreadsheet (CSV) for ClearEnroll's bulk upload. */
-    public function export()
+    public function runSync()
     {
-        $rows = $this->debtors();
-        $cols = ['Student name', 'Date of birth', 'Gender', 'Admission no.', 'Last class', 'Last term attended', 'Date left', 'Parent / guardian', 'Parent phone', 'Parent email', 'Amount owed (GHS)'];
+        $r = ClearEnroll::syncAll();
+        if (!empty($r['error'])) {
+            return Qs::json('ClearEnroll sync failed: '.$r['error'], false);
+        }
 
-        return response()->streamDownload(function () use ($rows, $cols) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, $cols);
-            foreach ($rows as $r) {
-                fputcsv($out, [$r['name'], $r['dob'], $r['gender'], $r['adm_no'], $r['class'], $r['last_term'], $r['left'], $r['parent'], $r['phone'], $r['email'], $r['owed']]);
-            }
-            fclose($out);
-        }, 'clearenroll-debtors-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv']);
-    }
-
-    /** Students who have left (completed / graduated) and still owe school fees or services. */
-    protected function debtors(): array
-    {
-        $left = DB::table('student_records as sr')->join('users as u', 'u.id', '=', 'sr.user_id')
-            ->leftJoin('users as p', 'p.id', '=', 'sr.my_parent_id')->leftJoin('my_classes as c', 'c.id', '=', 'sr.my_class_id')
-            ->where('sr.grad', 1)
-            ->get(['u.id', 'u.name', 'u.dob', 'u.gender', 'sr.adm_no', 'sr.grad', 'sr.grad_date', 'c.name as class', 'p.name as parent', 'p.phone', 'p.email']);
-        if ($left->isEmpty()) return [];
-
-        $ids = $left->pluck('id');
-        $school = DB::table('payment_records as pr')->join('payments as pa', 'pa.id', '=', 'pr.payment_id')->whereIn('pr.student_id', $ids)
-            ->groupBy('pr.student_id')->selectRaw('pr.student_id, sum(greatest(pa.amount - pr.discount - coalesce(pr.amt_paid,0), 0)) as owed, max(concat(pr.year, " · Term ", coalesce(pa.term, ""))) as last_term')
-            ->get()->keyBy('student_id');
-        $optional = DB::table('optional_fee_charges')->whereIn('student_id', $ids)->groupBy('student_id')
-            ->selectRaw('student_id, sum(greatest(amount - amt_paid, 0)) as owed')->pluck('owed', 'student_id');
-
-        return $left->map(function ($s) use ($school, $optional) {
-            $owed = (int) optional($school[$s->id] ?? null)->owed + (int) ($optional[$s->id] ?? 0);
-            return [
-                'id' => $s->id, 'name' => $s->name, 'dob' => $s->dob, 'gender' => $s->gender, 'adm_no' => $s->adm_no, 'class' => $s->class,
-                'last_term' => optional($school[$s->id] ?? null)->last_term, 'left' => $s->grad_date ? 'Completed '.$s->grad_date : 'Completed',
-                'parent' => $s->parent, 'phone' => $s->phone, 'email' => $s->email, 'owed' => $owed,
-                'url' => route('payments.invoice', Qs::hash($s->id)),
-            ];
-        })->filter(function ($r) { return $r['owed'] > 0; })->sortByDesc('owed')->values()->all();
+        return Qs::json("Sent {$r['sent']} students to ClearEnroll: {$r['flagged']} flagged, {$r['updated']} updated, {$r['cleared']} cleared".($r['rejected'] ? ', some could not be taken (see below).' : '.'));
     }
 }

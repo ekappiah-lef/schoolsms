@@ -564,6 +564,10 @@ class Fees
             $left -= $pay;
         }
 
+        if ($applied) {
+            ClearEnroll::studentChanged($studentId, $amount - $left, $reference ?: $method);
+        }
+
         return $applied;
     }
 }

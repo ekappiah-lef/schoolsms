@@ -92,9 +92,6 @@ export default function Settings({ settings, logo, years, urls }) {
                             <Field label="Next term begins" error={errors.term_begins}>
                                 <DatePicker value={data.term_begins} onChange={(v) => set('term_begins', v)} fromYear={2020} toYear={new Date().getFullYear() + 2} />
                             </Field>
-                            <Field label="ClearEnroll portal address" error={errors.clearenroll_url} hint="The web address of the school's ClearEnroll portal, e.g. https://…" span={2}>
-                                <input className={fieldInput} type="url" value={data.clearenroll_url ?? ''} onChange={(e) => set('clearenroll_url', e.target.value)} placeholder="https://" />
-                            </Field>
                             <Field label="Lock exam results" hint="When locked, parents and students cannot see results until they are unlocked." span={2}>
                                 <NativeSelect value={String(data.lock_exam)} onChange={(v) => set('lock_exam', v)}>
                                     <option value="0">No, results are visible</option>

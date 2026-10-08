@@ -36,6 +36,7 @@ class OptionalFeeController extends Controller
             'method' => $req->input('method') ?: 'Cash',
             'reference' => $req->input('reference') ?: null,
         ]);
+        \App\Support\ClearEnroll::studentChanged((int) $c->student_id, (int) $req->amt_paid, 'OF-'.str_pad($receipt->id, 6, '0', STR_PAD_LEFT));
 
         return response()->json(['ok' => true, 'msg' => __('msg.update_ok'), 'receipt' => ReceiptController::urls('optional', $receipt->id)]);
     }

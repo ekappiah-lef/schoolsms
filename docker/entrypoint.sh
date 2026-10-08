@@ -28,4 +28,7 @@ php artisan config:cache
 php artisan view:cache
 chown -R www-data:www-data storage bootstrap/cache
 
+# Laravel scheduler (e.g. the ClearEnroll sync at the start of each term): runs every minute in the background.
+( while true; do su -s /bin/sh www-data -c "php /var/www/html/artisan schedule:run" >> /var/www/html/storage/logs/scheduler.log 2>&1; sleep 60; done ) &
+
 exec "$@"
