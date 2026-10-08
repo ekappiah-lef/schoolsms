@@ -119,7 +119,7 @@ class StudentRecordController extends Controller
         $data['password'] = Hash::make('student');
         $data['photo'] = Qs::getDefaultUserImage();
         $adm_no = $req->adm_no;
-        $data['username'] = strtoupper(Qs::getAppCode().'/'.$ct.'/'.$sr['year_admitted'].'/'.($adm_no ?: mt_rand(1000, 99999)));
+        $data['username'] = $adm_no ? strtoupper(Qs::getAppCode().'/'.$ct.'/'.$sr['year_admitted'].'/'.$adm_no) : Qs::uniqueUsername(Qs::getAppCode().'/'.$ct.'/'.$sr['year_admitted'].'/', 1000, 99999);
 
         if($req->hasFile('photo')) {
             $photo = $req->file('photo');
@@ -237,7 +237,7 @@ class StudentRecordController extends Controller
             'address' => $address ?: $req->address,
             'user_type' => 'parent',
             'code' => strtoupper(Str::random(10)),
-            'username' => strtoupper(Qs::getAppCode().'/PARENT/'.date('Y/m').'/'.mt_rand(1000, 9999)),
+            'username' => Qs::uniqueUsername(Qs::getAppCode().'/PARENT/'.date('Y/m').'/'),
             'password' => Hash::make('parent'),
             'photo' => Qs::getDefaultUserImage(),
         ]);

@@ -44,10 +44,19 @@ class FinanceDashboardController extends Controller
                 'transactions' => route('finance.transactions'),
                 'ledger' => route('finance.ledger'),
                 'paymentMode' => route('finance.payment_mode'),
+                'feeStudents' => route('finance.fee_students'),
                 'manage' => route('payments.manage'),
                 'setup' => route('payments.index'),
             ],
         ]);
+    }
+
+    /** The students behind Paid / Still owed / Discounts given on the Fees card. */
+    public function feeStudents(Request $req)
+    {
+        $d = $req->validate(['kind' => 'required|in:paid,owed,discount', 'scope' => 'required|in:total,school,optional']);
+
+        return response()->json(FinanceSummary::feeStudents(TermSelection::fromRequest($req), $d['scope'], $d['kind']));
     }
 
     /** Who paid by one mode (Cash, Mobile payment …) in the chosen terms. */

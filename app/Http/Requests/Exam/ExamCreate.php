@@ -2,7 +2,10 @@
 
 namespace App\Http\Requests\Exam;
 
+use App\Helpers\Qs;
+use App\Models\Exam;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ExamCreate extends FormRequest
 {
@@ -17,8 +20,14 @@ class ExamCreate extends FormRequest
     {
         return [
             'name' => 'required|string',
-            'term' => 'required|numeric',
+            // One exam per term in a year: its marks fill that term's column on the report sheets.
+            'term' => ['required', 'integer', 'in:1,2,3', Rule::unique('exams')->where('year', Qs::getCurrentSession())],
         ];
+    }
+
+    public function messages()
+    {
+        return ['term.unique' => 'This year already has an exam for Term '.$this->input('term').'. Edit that exam instead, or choose another term.'];
     }
 
 }

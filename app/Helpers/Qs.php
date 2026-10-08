@@ -29,6 +29,17 @@ class Qs
         return self::getSetting('system_title') ?: 'CJ';
     }
 
+    /** A login username "<prefix><random number>" that no one has yet (upper case). */
+    public static function uniqueUsername(string $prefix, int $min = 1000, int $max = 9999): string
+    {
+        for ($i = 0; $i < 50; $i++) {
+            $name = strtoupper($prefix.mt_rand($min, $max));
+            if (!\App\User::where('username', $name)->exists()) return $name;
+        }
+
+        return strtoupper($prefix.mt_rand($max + 1, $max * 10 + 9)); // the range is crowded: use a longer number
+    }
+
     /** Rebuild an absolute URL to this app's storage/asset folders against the current host. */
     public static function localAsset($url)
     {

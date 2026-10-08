@@ -69,7 +69,17 @@ export default function FinanceDashboard({ selection, fees, cashflow, invoiced, 
 
                 {/* Fees this year and optional services */}
                 <section className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-                    <FeesChartCard fees={fees} f={f} scope={scope} setScope={setScope} label={periodLabel} breakdown={breakdown} onBreakdown={() => (breakdown ? setBreakdown(false) : openBreakdown())} />
+                    <FeesChartCard
+                        fees={fees}
+                        f={f}
+                        scope={scope}
+                        setScope={setScope}
+                        label={periodLabel}
+                        breakdown={breakdown}
+                        onBreakdown={() => (breakdown ? setBreakdown(false) : openBreakdown())}
+                        studentsUrl={urls.feeStudents}
+                        periodQuery={periodQuery}
+                    />
                     <ServicesChartCard services={fees.services} label={periodLabel} />
                 </section>
 
@@ -193,7 +203,8 @@ function MoneyTip({ active, payload, label }) {
 }
 
 /** Fees: donut (paid / owed / discounts) and paid vs owed per class type. */
-function FeesChartCard({ fees, f, scope, setScope, label, breakdown, onBreakdown }) {
+function FeesChartCard({ fees, f, scope, setScope, label, breakdown, onBreakdown, studentsUrl, periodQuery }) {
+    const [list, setList] = useState(null);
     const discount = scope === 'optional' ? 0 : fees.school.discount;
     const slices = [
         { name: 'Paid', value: f.paid, fill: C_PAID },
@@ -229,10 +240,11 @@ function FeesChartCard({ fees, f, scope, setScope, label, breakdown, onBreakdown
             </div>
 
             <ul className="flex flex-wrap items-center gap-x-8 gap-y-2 border-y border-border py-3 text-sm">
-                <LegendRow color={C_PAID} label="Paid" value={f.paid} />
-                <LegendRow color={C_DUE} label="Still owed" value={f.due} tone="danger" />
-                {scope !== 'optional' && <LegendRow color={C_DISC} label="Discounts given" value={discount} />}
+                <LegendRow color={C_PAID} label="Paid" value={f.paid} onClick={() => setList('paid')} />
+                <LegendRow color={C_DUE} label="Still owed" value={f.due} tone="danger" onClick={() => setList('owed')} />
+                {scope !== 'optional' && <LegendRow color={C_DISC} label="Discounts given" value={discount} onClick={() => setList('discount')} />}
             </ul>
+            <FeeStudents kind={list} scope={scope} onClose={() => setList(null)} url={studentsUrl} periodQuery={periodQuery} periodLabel={label} />
 
             <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-[220px_1fr]">
                 <div className="flex flex-col items-center gap-4">
@@ -282,15 +294,142 @@ function FeesChartCard({ fees, f, scope, setScope, label, breakdown, onBreakdown
     );
 }
 
-function LegendRow({ color, label, value, tone }) {
+function LegendRow({ color, label, value, tone, onClick }) {
     return (
-        <li className="flex items-center gap-2.5">
-            <span className="flex items-center gap-2 text-fg-muted">
-                <span className="size-2.5 rounded-sm" style={{ background: color }} />
-                {label}
-            </span>
-            <span className={cn('tabular font-semibold', tone === 'danger' && value > 0 ? 'text-danger-fg' : 'text-fg')}>{formatMoney(value)}</span>
+        <li>
+            <button
+                type="button"
+                onClick={onClick}
+                disabled={!value}
+                title={value ? `See the students under ${label.toLowerCase()}` : undefined}
+                className="-mx-2 flex items-center gap-2.5 rounded-md px-2 py-1 transition-colors enabled:hover:bg-muted disabled:cursor-default"
+            >
+                <span className="flex items-center gap-2 text-fg-muted">
+                    <span className="size-2.5 rounded-sm" style={{ background: color }} />
+                    {label}
+                </span>
+                <span className={cn('tabular font-semibold', tone === 'danger' && value > 0 ? 'text-danger-fg' : 'text-fg')}>{formatMoney(value)}</span>
+            </button>
         </li>
+    );
+}
+
+const FEE_LISTS = {
+    paid: { title: 'Paid', column: 'Paid', empty: 'No payments in this period.' },
+    owed: { title: 'Still owed', column: 'Owed', empty: 'Nobody owes in this period.' },
+    discount: { title: 'Discounts given', column: 'Discount', empty: 'No discounts in this period.' },
+};
+
+/** The students behind Paid / Still owed / Discounts given, for the chosen terms and fees. */
+function FeeStudents({ kind, scope, onClose, url, periodQuery, periodLabel }) {
+    const [data, setData] = useState(null);
+    const [q, setQ] = useState('');
+    const [open, setOpen] = useState(null);
+    const meta = FEE_LISTS[kind] ?? FEE_LISTS.owed;
+    const scopeLabel = SCOPES.find((s) => s.value === scope)?.label;
+
+    useEffect(() => {
+        if (!kind) return;
+        let off = false;
+        setData(null);
+        setQ('');
+        setOpen(null);
+        http.get(`${url}?${periodQuery}`, { params: { kind, scope } })
+            .then(({ data }) => !off && setData(data))
+            .catch(() => !off && setData({ rows: [], total: 0, students: 0 }));
+        return () => {
+            off = true;
+        };
+    }, [kind, scope, url, periodQuery]);
+
+    const s = q.trim().toLowerCase();
+    const rows = (data?.rows ?? []).filter((r) => !s || `${r.student} ${r.class ?? ''} ${r.adm_no ?? ''} ${r.parent ?? ''} ${r.parent_phone ?? ''}`.toLowerCase().includes(s));
+    const { shown, pager } = usePaged(rows, 10, 'students');
+
+    return (
+        <Modal open={!!kind} onOpenChange={(o) => !o && onClose()} title={meta.title} description={`${scopeLabel} · ${periodLabel}`} className="top-[6vh] max-w-3xl">
+            {!data ? (
+                <p className="py-8 text-center text-sm text-fg-muted">Loading…</p>
+            ) : (
+                <div className="flex flex-col gap-4">
+                    <div className="tabular grid grid-cols-2 gap-3 text-sm">
+                        <div className="rounded-lg bg-canvas px-3 py-2">
+                            <div className="text-xs text-fg-muted">{meta.column}</div>
+                            <div className={cn('font-semibold', kind === 'owed' && 'text-danger-fg')}>{formatMoney(data.total)}</div>
+                        </div>
+                        <div className="rounded-lg bg-canvas px-3 py-2">
+                            <div className="text-xs text-fg-muted">Students</div>
+                            <div className="font-semibold">{data.students}</div>
+                        </div>
+                    </div>
+                    <input
+                        value={q}
+                        onChange={(e) => setQ(e.target.value)}
+                        placeholder="Search student, class, parent or phone"
+                        className="h-9 rounded-md border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    <div className="overflow-x-auto rounded-lg border border-border">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-border bg-canvas text-left text-2xs font-semibold uppercase text-fg-muted">
+                                    <th className="h-9 px-3">Student</th>
+                                    <th className="h-9 px-3">Parent</th>
+                                    <th className="h-9 px-3 text-right">Billed</th>
+                                    <th className="h-9 px-3 text-right">Paid</th>
+                                    <th className="h-9 px-3 text-right">{kind === 'discount' ? 'Discount' : 'Owed'}</th>
+                                </tr>
+                            </thead>
+                            <tbody className="tabular">
+                                {shown.map((r) => (
+                                    <Fragment key={r.id}>
+                                        <tr onClick={() => setOpen(open === r.id ? null : r.id)} className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/50">
+                                            <td className="px-3 py-2">
+                                                <Link href={r.url} onClick={(e) => e.stopPropagation()} className="font-medium hover:text-primary hover:underline">
+                                                    {r.student}
+                                                </Link>
+                                                <div className="text-xs text-fg-muted">{[r.class, r.adm_no].filter(Boolean).join(' · ')}</div>
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                {r.parent || '—'}
+                                                <div className="text-xs text-fg-muted">{r.parent_phone}</div>
+                                            </td>
+                                            <td className="px-3 py-2 text-right text-fg-muted">{formatMoney(r.billed)}</td>
+                                            <td className={cn('px-3 py-2 text-right', kind === 'paid' ? 'font-semibold' : 'text-fg-muted')}>{formatMoney(r.paid)}</td>
+                                            <td className={cn('px-3 py-2 text-right', kind !== 'paid' && 'font-semibold', kind === 'owed' && 'text-danger-fg')}>
+                                                {formatMoney(kind === 'discount' ? r.discount : r.owed)}
+                                            </td>
+                                        </tr>
+                                        {open === r.id && (
+                                            <tr className="border-b border-border bg-canvas/60">
+                                                <td colSpan={5} className="px-3 py-2">
+                                                    <ul className="flex flex-col gap-1 text-xs">
+                                                        {r.lines.map((l, i) => (
+                                                            <li key={i} className="flex justify-between gap-4">
+                                                                <span className="text-fg-muted">{l.label}</span>
+                                                                <span className="font-medium">{formatMoney(l[kind === 'discount' ? 'discount' : kind])}</span>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </Fragment>
+                                ))}
+                                {!rows.length && (
+                                    <tr>
+                                        <td colSpan={5} className="px-3 py-6 text-center text-fg-muted">
+                                            {meta.empty}
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p className="text-xs text-fg-muted">Click a student to see each bill; the name opens their invoice.</p>
+                    {pager}
+                </div>
+            )}
+        </Modal>
     );
 }
 

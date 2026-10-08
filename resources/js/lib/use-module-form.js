@@ -40,8 +40,8 @@ export function useModuleForm({ initial, editing, storeUrl, indexUrl, mode = 'js
         const url = editing ? editing.url : storeUrl;
 
         if (mode === 'redirect') {
-            const visit = editing ? router.put : router.post;
-            visit(url, data, {
+            // Called on the router itself: a detached router.post loses `this` and never sends.
+            router[editing ? 'put' : 'post'](url, data, {
                 preserveScroll: true,
                 preserveState: true,
                 onStart: () => setProcessing(true),

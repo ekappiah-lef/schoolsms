@@ -394,6 +394,59 @@ class FinanceSummary
     }
 
     /** Fee payments received in the selection by one mode: who paid, for what, and when. */
+    /**
+     * The students behind the Fees card for the selection (scope: total | school | optional), from the same
+     * bill lines as fees(), so the totals here equal the card: billed, discount, paid and still owed per student,
+     * with each bill. kind: paid | owed | discount picks who is listed.
+     */
+    public static function feeStudents(TermSelection $sel, string $scope, string $kind): array
+    {
+        $students = [];
+        $add = function ($id, $line) use (&$students) {
+            $students[$id] = $students[$id] ?? ['billed' => 0, 'discount' => 0, 'paid' => 0, 'owed' => 0, 'lines' => []];
+            foreach (['billed', 'discount', 'paid', 'owed'] as $k) $students[$id][$k] += $line[$k];
+            $students[$id]['lines'][] = $line;
+        };
+        foreach ($sel->periods() as $session => $terms) {
+            $year = str_replace('-', ' – ', $session);
+            if ($scope !== 'optional') {
+                $rows = DB::table('payment_records as pr')->join('payments as p', 'p.id', '=', 'pr.payment_id')
+                    ->where('pr.year', $session)->whereIn('p.term', $terms)
+                    ->select('pr.student_id', 'p.title', 'p.term', 'p.amount', 'pr.discount', DB::raw('coalesce(pr.amt_paid,0) as paid'))->get();
+                foreach ($rows as $r) {
+                    $billed = (int) $r->amount - (int) $r->discount;
+                    $add($r->student_id, ['label' => $r->title.' · Term '.$r->term.' · '.$year, 'billed' => $billed, 'discount' => (int) $r->discount,
+                        'paid' => (int) $r->paid, 'owed' => max($billed - (int) $r->paid, 0)]);
+                }
+            }
+            if ($scope !== 'school') {
+                foreach (self::chargeLines($session, $terms) as $c) {
+                    $add($c->student_id, ['label' => (OptionalFeeCharge::GROUPS[$c->group] ?? ucfirst($c->group)).': '.$c->label.' · '.$year, 'billed' => $c->amount,
+                        'discount' => 0, 'paid' => $c->paid, 'owed' => max($c->amount - $c->paid, 0)]);
+                }
+            }
+        }
+
+        $field = ['paid' => 'paid', 'owed' => 'owed', 'discount' => 'discount'][$kind];
+        $students = array_filter($students, function ($s) use ($field) { return $s[$field] > 0; });
+        $info = DB::table('users as u')->leftJoin('student_records as sr', 'sr.user_id', '=', 'u.id')
+            ->leftJoin('my_classes as c', 'c.id', '=', 'sr.my_class_id')->leftJoin('users as p', 'p.id', '=', 'sr.my_parent_id')
+            ->whereIn('u.id', array_keys($students))
+            ->select('u.id', 'u.name', 'sr.adm_no', 'c.name as class', 'p.name as parent', 'p.phone as parent_phone')->get()->keyBy('id');
+
+        $rows = collect($students)->map(function ($s, $id) use ($info, $field) {
+            $u = $info[$id] ?? null;
+            $lines = collect($s['lines'])->filter(function ($l) use ($field) { return $l[$field] > 0; })->values();
+
+            return ['id' => $id, 'student' => optional($u)->name, 'adm_no' => optional($u)->adm_no, 'class' => optional($u)->class,
+                'parent' => optional($u)->parent, 'parent_phone' => optional($u)->parent_phone,
+                'billed' => $s['billed'], 'discount' => $s['discount'], 'paid' => $s['paid'], 'owed' => $s['owed'], 'amount' => $s[$field],
+                'lines' => $lines, 'url' => route('payments.invoice', \App\Helpers\Qs::hash($id))];
+        })->sortByDesc('amount')->values();
+
+        return ['kind' => $kind, 'scope' => $scope, 'total' => (int) $rows->sum('amount'), 'students' => $rows->count(), 'rows' => $rows];
+    }
+
     public static function methodPayments(string $method, TermSelection $sel): array
     {
         $match = function ($q) use ($method) {
