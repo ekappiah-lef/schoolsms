@@ -203,6 +203,7 @@ class SalesController extends Controller
             }
             $c->delete();
         });
+        \App\Support\ClearEnroll::studentChanged((int) $c->student_id);
 
         return back()->with('flash_success', 'Sale returned and removed from the student\'s account.');
     }

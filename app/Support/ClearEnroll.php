@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
  * Talks to ClearEnroll's school-system API (config/clearenroll.php).
  *
  *  - Verify a student or teacher (the same lookup as the ClearEnroll portal).
- *  - Send every student who owes anything, with the amount (full sync: at each new term, daily, or "Sync now").
+ *  - Send every student who owes anything, with the amount (full sync: every day at 23:00, or "Sync now").
  *  - Send one student's new balance straight after a payment (or a reversal) is recorded here.
  *
  * Only students whose parent accepted the admission agreement (which covers ClearEnroll) are sent.

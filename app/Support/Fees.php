@@ -13,6 +13,7 @@ use App\Models\Payment;
 use App\Models\PaymentRecord;
 use App\Models\StudentRecord;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * School fees (itemised, billed by class and new/continuing category) and
@@ -53,14 +54,77 @@ class Fees
         return $category === 'all' || $category === self::categoryFor($sr, $year);
     }
 
-    /** Create the student's school-fee records for the session (idempotent). */
+    /**
+     * Whether a fee is due yet: a term's fees are billed only once that term has started (a later term's
+     * amount may still change). Fees without a term are due for the whole year; past years are all due.
+     */
+    public static function isDue(Payment $p, string $year): bool
+    {
+        [$ty, $tt] = FinancePeriod::termOf(now());
+        $now = $ty.'-'.($ty + 1);
+
+        return $year < $now || ($year === $now && (!$p->term || (int) $p->term <= $tt));
+    }
+
+    /** The term running now in the given session (1 before it starts, 3 after it ends). */
+    public static function termNow(?string $session = null): int
+    {
+        $session = $session ?: Qs::getCurrentSession();
+        [$ty, $tt] = FinancePeriod::termOf(now());
+        $now = $ty.'-'.($ty + 1);
+
+        return $session === $now ? $tt : ($session > $now ? 1 : 3);
+    }
+
+    /** Term a service charge or shop sale belongs to. */
+    public static function chargeTerm(OptionalFeeCharge $c): int
+    {
+        return $c->group === 'sales' ? FinanceSummary::saleTerm($c->created_at ?: now(), $c->year) : ((int) $c->term ?: 1);
+    }
+
+    /** Create the student's school-fee records for the session, for the terms that have started (idempotent). */
     public static function billSchoolFees(StudentRecord $sr, string $year): void
     {
         foreach (self::paymentsFor($sr, $year) as $p) {
+            if (!self::isDue($p, $year)) continue;
             $rec = PaymentRecord::firstOrCreate(['student_id' => $sr->user_id, 'payment_id' => $p->id, 'year' => $year]);
             $rec->ref_no ?: $rec->update(['ref_no' => mt_rand(100000, 99999999)]);
         }
         self::applyDiscount($sr, $year);
+    }
+
+    /**
+     * Bill every current student for the terms that have started (run nightly, so a new term is billed on
+     * its first day): school fees, and once per new term the services each student had last term, at the
+     * prices in Fee setup now (prices can change before a term reopens). Returns the number of new bills.
+     */
+    public static function billDueTerms(): int
+    {
+        $year = Qs::getCurrentSession();
+        $term = self::termNow($year);
+        $before = PaymentRecord::where('year', $year)->count() + OptionalFeeCharge::where('year', $year)->count();
+        $students = StudentRecord::where('grad', 0)->get();
+        $students->each(function (StudentRecord $sr) use ($year) {
+            self::billSchoolFees($sr, $year);
+        });
+
+        // Services carry into a new term once (a student taken off a service this term stays off).
+        $key = $year.':'.$term;
+        $done = DB::table('settings')->where('type', 'services_billed_term')->value('description');
+        if ($done !== $key) {
+            if ($done) {
+                [$py, $pt] = $term > 1 ? [$year, $term - 1] : [((int) substr($year, 0, 4) - 1).'-'.substr($year, 0, 4), 3];
+                foreach ($students as $sr) {
+                    $has = OptionalFeeCharge::where(['student_id' => $sr->user_id, 'year' => $year, 'term' => $term])->where('group', '!=', 'sales')->exists();
+                    $last = OptionalFeeCharge::where(['student_id' => $sr->user_id, 'year' => $py, 'term' => $pt])->where('group', '!=', 'sales')->get();
+                    if ($has || $last->isEmpty()) continue;
+                    self::syncOptional($sr->user_id, $year, self::selectionOf($last));
+                }
+            }
+            DB::table('settings')->updateOrInsert(['type' => 'services_billed_term'], ['description' => $key]);
+        }
+
+        return PaymentRecord::where('year', $year)->count() + OptionalFeeCharge::where('year', $year)->count() - $before;
     }
 
     /* ------------------------------------------------------------------
@@ -176,15 +240,17 @@ class Fees
     }
 
     /**
-     * Make the student's feeding, bus and extra-curricular charges for the year
-     * match the selection. Unpaid charges that were deselected are removed;
-     * charges with payments are kept (they must be reset first) and reported.
+     * Make the student's feeding, bus and extra-curricular charges for this term
+     * match the selection (services are billed term by term at that term's price).
+     * Unpaid charges that were deselected are removed; charges with payments are
+     * kept (they must be reset first) and reported. Earlier terms are not touched.
      * Shop sales are never touched here: they are sold and returned under Sales.
      */
     public static function syncOptional(int $studentId, string $year, array $sel): array
     {
+        $term = self::termNow($year);
         $wanted = collect(self::chargesFromSelection($sel));
-        $existing = OptionalFeeCharge::where(['student_id' => $studentId, 'year' => $year])->where('group', '!=', 'sales')->get();
+        $existing = OptionalFeeCharge::where(['student_id' => $studentId, 'year' => $year, 'term' => $term])->where('group', '!=', 'sales')->get();
         $key = function ($r) { return ($r['fee_option_id'] ?? '').'|'.($r['bus_route_id'] ?? '').'|'.($r['bus_direction'] ?? ''); };
 
         $kept = [];
@@ -203,7 +269,7 @@ class Fees
         $have = $existing->map(function ($c) use ($key) { return $key($c->toArray()); });
         foreach ($wanted as $w) {
             if (!$have->contains($key($w))) {
-                OptionalFeeCharge::create($w + ['student_id' => $studentId, 'year' => $year, 'amt_paid' => 0]);
+                OptionalFeeCharge::create($w + ['student_id' => $studentId, 'year' => $year, 'term' => $term, 'amt_paid' => 0]);
             }
         }
 
@@ -243,10 +309,21 @@ class Fees
         return $charge;
     }
 
-    /** The current selection, in the shape the form uses. */
+    /** The current selection (this term's services, or the latest term's before it is billed), in the shape the form uses. */
     public static function selectionFor(int $studentId, string $year): array
     {
-        $charges = OptionalFeeCharge::where(['student_id' => $studentId, 'year' => $year])->get();
+        $all = OptionalFeeCharge::where('student_id', $studentId)->where('group', '!=', 'sales')
+            ->where(function ($q) use ($year) {
+                $q->where('year', '<', $year)->orWhere(function ($q) use ($year) { $q->where('year', $year)->where('term', '<=', self::termNow($year)); });
+            })->get();
+        $latest = $all->map(function ($c) { return $c->year.':'.(int) $c->term; })->max();
+
+        return self::selectionOf($all->filter(function ($c) use ($latest) { return $c->year.':'.(int) $c->term === $latest; }));
+    }
+
+    /** A set of service charges as a form selection. */
+    public static function selectionOf(Collection $charges): array
+    {
         $bus = $charges->firstWhere('group', 'bus');
         $ids = function ($g) use ($charges) {
             return $charges->where('group', $g)->pluck('fee_option_id')->filter()->map(function ($v) { return (int) $v; })->values()->all();
@@ -344,7 +421,8 @@ class Fees
                 'id' => Qs::hash($c->id),
                 'group' => $c->group,
                 'group_label' => OptionalFeeCharge::GROUPS[$c->group] ?? ucfirst($c->group),
-                'label' => $c->label,
+                'label' => $c->label.($c->group !== 'sales' && $c->term ? ' · Term '.$c->term : ''),
+                'term' => self::chargeTerm($c),
                 'year' => $c->year,
                 'amount' => (int) $c->amount,
                 'paid' => (int) $c->amt_paid,
@@ -409,8 +487,16 @@ class Fees
         $current = $records->filter($isCurrent)->map(function ($pr) use ($line) {
             return $line($pr->payment->title, (int) $pr->payment->amount - (int) $pr->discount, $pr->amt_paid);
         })->values();
+        // Services of this term and shop sales made this term are current; earlier ones unpaid are brought forward.
         $charges = OptionalFeeCharge::where('student_id', $studentId)->get();
-        foreach ($charges->where('year', $session) as $c) {
+        $chargeNow = function ($c) use ($session, $term) {
+            return $c->year === $session && (!$term || self::chargeTerm($c) === $term);
+        };
+        $chargeLater = function ($c) use ($session, $term) {
+            return $c->year > $session || ($c->year === $session && $term && self::chargeTerm($c) > $term);
+        };
+        $charges = $charges->reject($chargeLater);
+        foreach ($charges->filter($chargeNow) as $c) {
             $current->push($line($c->label, $c->amount, $c->amt_paid));
         }
 
@@ -418,8 +504,10 @@ class Fees
             ->sortBy(function ($pr) { return $pr->year.'-'.(int) $pr->payment->term; })
             ->map(function ($pr) use ($line, $termName) { return $line($pr->payment->title.' · '.$termName($pr), (int) $pr->payment->amount - (int) $pr->discount, $pr->amt_paid); })
             ->filter(function ($l) { return $l['balance'] > 0; })->values();
-        foreach ($charges->where('year', '!=', $session)->sortBy('year') as $c) {
-            $l = $line((OptionalFeeCharge::GROUPS[$c->group] ?? ucfirst($c->group)).($c->group !== 'sales' ? ' ('.$c->label.')' : ': '.$c->label).' · '.str_replace('-', ' – ', $c->year), $c->amount, $c->amt_paid);
+        foreach ($charges->reject($chargeNow)->sortBy(function ($c) { return $c->year.'-'.self::chargeTerm($c); }) as $c) {
+            $group = OptionalFeeCharge::GROUPS[$c->group] ?? ucfirst($c->group);
+            $name = $c->group === 'sales' ? $group.': '.$c->label : (strpos($c->label, $group) === 0 ? $c->label : $group.' ('.$c->label.')');
+            $l = $line($name.' · Term '.self::chargeTerm($c).' · '.str_replace('-', ' – ', $c->year), $c->amount, $c->amt_paid);
             if ($l['balance'] > 0) $forward->push($l);
         }
 
@@ -437,7 +525,7 @@ class Fees
             $table[] = ['label' => 'School fees'.($term ? ' · Term '.$term : ''), 'amount' => $amt, 'paid' => $paid, 'balance' => max($amt - $paid, 0)];
         }
         foreach (OptionalFeeCharge::GROUPS as $g => $label) {
-            $cs = $charges->where('year', $session)->where('group', $g);
+            $cs = $charges->filter($chargeNow)->where('group', $g);
             if ($cs->isEmpty()) continue;
             $amt = (int) $cs->sum('amount');
             $paid = (int) $cs->sum('amt_paid');
@@ -491,22 +579,21 @@ class Fees
         $owed = (int) $records->filter(function ($pr) use ($upTo) { return $pr->year.':'.$pr->payment->term <= $upTo; })
             ->sum(function ($pr) { return max((int) $pr->payment->amount - (int) $pr->discount - (int) $pr->amt_paid, 0); });
 
-        // Optional services and sales, cut into terms the same way as the finance pages.
+        // Services and sales: unpaid up to this term are owed; next term's services are billed when it
+        // starts, so they are what the student takes now at the prices in Fee setup (or already billed).
         $services = 0;
+        $billedNextServices = false;
         foreach (OptionalFeeCharge::where('student_id', $sr->user_id)->get() as $c) {
-            if ($c->group === 'sales') {
-                $due = [FinanceSummary::saleTerm($c->created_at, $c->year) => max((int) $c->amount - (int) $c->amt_paid, 0)];
-            } else {
-                $shares = FinanceSummary::termShares((int) $c->amount);
-                $paid = FinanceSummary::paidByTerm((int) $c->amount, (int) $c->amt_paid);
-                $due = array_map(function ($s, $p) { return max($s - $p, 0); }, $shares, $paid);
-                $due = array_combine([1, 2, 3], $due);
+            $k = $c->year.':'.self::chargeTerm($c);
+            $due = max((int) $c->amount - (int) $c->amt_paid, 0);
+            if ($k <= $upTo) $owed += $due;
+            elseif ($k === $nKey && $c->group !== 'sales') {
+                $services += $due;
+                $billedNextServices = true;
             }
-            foreach ($due as $t => $amt) {
-                $k = $c->year.':'.$t;
-                if ($k <= $upTo) $owed += $amt;
-                elseif ($k === $nKey) $services += $amt;
-            }
+        }
+        if (!$billedNextServices) {
+            $services = (int) collect(self::chargesFromSelection(self::selectionFor($sr->user_id, $year)))->sum('amount');
         }
 
         return [
@@ -531,7 +618,7 @@ class Fees
             ->sortBy(function ($pr) { return $pr->year.'-'.(int) $pr->payment->term.'-'.str_pad($pr->id, 8, '0', STR_PAD_LEFT); });
         $charges = OptionalFeeCharge::where('student_id', $studentId)->orderBy('year')->orderBy('id')->get();
 
-        // Oldest first; this year's services before school fees for terms that have not started yet.
+        // Oldest first by year and term: school fees, then services of the same term.
         [$ty, $tt] = FinancePeriod::termOf(now());
         $nowYear = $ty.'-'.($ty + 1);
         $queue = [];
@@ -539,7 +626,7 @@ class Fees
             $t = (int) $pr->payment->term;
             $queue[] = ['school', $pr->year, $pr->year === $nowYear && $t > $tt ? 10 + $t : $t, $pr];
         }
-        foreach ($charges as $c) $queue[] = ['optional', $c->year, 9, $c];
+        foreach ($charges as $c) $queue[] = ['optional', $c->year, self::chargeTerm($c), $c];
         usort($queue, function ($a, $b) { return [$a[1], $a[2]] <=> [$b[1], $b[2]]; });
 
         foreach ($queue as [$kind, , , $bill]) {

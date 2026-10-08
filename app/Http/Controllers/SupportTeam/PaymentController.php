@@ -385,7 +385,8 @@ class PaymentController extends Controller
             foreach($payments as $p){
                 foreach($students as $st){
                     // New-student / continuing-student fees only go to that group.
-                    if (!Fees::appliesTo($p, $st, $this->year)) {
+                    // Later terms are billed when they start.
+                    if (!Fees::appliesTo($p, $st, $this->year) || !Fees::isDue($p, $this->year)) {
                         continue;
                     }
                     $pr['student_id'] = $st->user_id;

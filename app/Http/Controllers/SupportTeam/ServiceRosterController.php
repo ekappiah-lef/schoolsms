@@ -27,6 +27,8 @@ class ServiceRosterController extends Controller
         $years = OptionalFeeCharge::where('group', $group)->distinct()->orderByDesc('year')->pluck('year');
         $current = Qs::getCurrentSession();
         $year = $years->contains($req->query('year')) ? $req->query('year') : $current;
+        // Services are billed term by term: the roster shows one term (this term by default). Sales: the whole year.
+        $term = in_array((int) $req->query('term'), [1, 2, 3], true) ? (int) $req->query('term') : \App\Support\Fees::termNow($year);
 
         $charges = DB::table('optional_fee_charges as c')
             ->join('users as u', 'u.id', '=', 'c.student_id')
@@ -35,6 +37,7 @@ class ServiceRosterController extends Controller
             ->leftJoin('sections as s', 's.id', '=', 'sr.section_id')
             ->leftJoin('bus_routes as br', 'br.id', '=', 'c.bus_route_id')
             ->where('c.group', $group)->where('c.year', $year)
+            ->when($group !== 'sales', function ($q) use ($term) { $q->where('c.term', $term); })
             ->select('c.*', 'u.name', 'u.photo', 'sr.adm_no', 'sr.my_class_id', 'mc.name as class_name', 's.name as section_name', 'br.name as route_name')
             ->orderBy('u.name')->get();
 
@@ -88,6 +91,7 @@ class ServiceRosterController extends Controller
             'group' => $group,
             'label' => OptionalFeeCharge::GROUPS[$group],
             'year' => $year,
+            'term' => $group === 'sales' ? null : $term,
             'years' => $years->push($current)->unique()->sort()->reverse()->values(),
             'rows' => $rows,
             'options' => $options,

@@ -35,9 +35,10 @@ class FinanceConfigController extends Controller
         $year = Qs::getCurrentSession();
 
         // How many students currently use each option/route this session.
-        $optionUse = OptionalFeeCharge::where('year', $year)->whereNotNull('fee_option_id')
+        $term = \App\Support\Fees::termNow($year);
+        $optionUse = OptionalFeeCharge::where(['year' => $year, 'term' => $term])->whereNotNull('fee_option_id')
             ->groupBy('fee_option_id')->select('fee_option_id', DB::raw('count(*) as n'))->pluck('n', 'fee_option_id');
-        $routeUse = OptionalFeeCharge::where('year', $year)->whereNotNull('bus_route_id')
+        $routeUse = OptionalFeeCharge::where(['year' => $year, 'term' => $term])->whereNotNull('bus_route_id')
             ->groupBy('bus_route_id')->select('bus_route_id', DB::raw('count(*) as n'))->pluck('n', 'bus_route_id');
 
         $policy = Qs::getSetting('admission_policy');

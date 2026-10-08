@@ -59,9 +59,11 @@ class FinanceSummary
     public static function chargeLines(string $session, array $terms): array
     {
         $out = [];
-        foreach (DB::table('optional_fee_charges')->where('year', $session)->get(['student_id', 'group', 'label', 'amount', 'amt_paid', 'created_at']) as $c) {
-            if ($c->group === 'sales') {
-                if (!in_array(self::saleTerm($c->created_at, $session), $terms, true)) continue;
+        foreach (DB::table('optional_fee_charges')->where('year', $session)->get(['student_id', 'group', 'label', 'term', 'amount', 'amt_paid', 'created_at']) as $c) {
+            // Shop sales: the term of the sale. Services: billed term by term, so the term on the charge
+            // (a charge without a term, from before, is spread a third per term).
+            if ($c->group === 'sales' || $c->term) {
+                if (!in_array($c->term ? (int) $c->term : self::saleTerm($c->created_at, $session), $terms, true)) continue;
                 $amt = (int) $c->amount;
                 $paid = (int) $c->amt_paid;
             } else {

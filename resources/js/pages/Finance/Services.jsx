@@ -39,6 +39,7 @@ export default function ServiceRoster({
     group,
     label,
     year,
+    term,
     years,
     rows,
     options,
@@ -142,22 +143,38 @@ export default function ServiceRoster({
                 <ModuleHeader
                     crumbs={["Finance", "Services", label]}
                     title={label}
-                    session={year}
+                    session={term ? `Term ${term} · ${year}` : year}
                     aside={
-                        years.length > 1 ? (
-                            <Select
-                                size="sm"
-                                className="w-36"
-                                value={year}
-                                onChange={(v) =>
-                                    router.get(urls.self, { year: v })
-                                }
-                                options={years.map((y) => ({
-                                    value: y,
-                                    label: y,
-                                }))}
-                            />
-                        ) : null
+                        <div className="flex gap-2">
+                            {term && (
+                                <Select
+                                    size="sm"
+                                    className="w-28"
+                                    value={String(term)}
+                                    onChange={(v) =>
+                                        router.get(urls.self, { year, term: v })
+                                    }
+                                    options={[1, 2, 3].map((t) => ({
+                                        value: String(t),
+                                        label: `Term ${t}`,
+                                    }))}
+                                />
+                            )}
+                            {years.length > 1 && (
+                                <Select
+                                    size="sm"
+                                    className="w-36"
+                                    value={year}
+                                    onChange={(v) =>
+                                        router.get(urls.self, { year: v })
+                                    }
+                                    options={years.map((y) => ({
+                                        value: y,
+                                        label: y,
+                                    }))}
+                                />
+                            )}
+                        </div>
                     }
                 />
 
@@ -177,7 +194,7 @@ export default function ServiceRoster({
                         label="Total billed"
                         value={formatMoney(totals.amount)}
                         note={
-                            active ? "For the filtered students" : "This year"
+                            active ? "For the filtered students" : term ? `Term ${term}` : "This year"
                         }
                     />
                     <Card

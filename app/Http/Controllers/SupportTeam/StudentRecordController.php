@@ -404,6 +404,9 @@ class StudentRecordController extends Controller
             if ($req->has('services')) {
                 $kept = Fees::syncOptional($sr->user_id, Qs::getCurrentSession(), (array) json_decode((string) $req->services, true));
             }
+            if ($discountChanged || $req->has('services')) {
+                \App\Support\ClearEnroll::studentChanged((int) $sr->user_id);
+            }
             if ($kept) {
                 return Qs::json(rtrim(__('msg.update_ok'), '.').'. Kept because payments were recorded: '.implode(', ', $kept).'. Reset those payments first to remove them.');
             }

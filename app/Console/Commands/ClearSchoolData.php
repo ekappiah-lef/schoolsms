@@ -35,6 +35,8 @@ class ClearSchoolData extends Command
         'finance_transactions', 'finance_logs', 'momo_payments',
         // communication
         'messages', 'notification_logs',
+        // ClearEnroll send history
+        'clearenroll_syncs',
     ];
 
     public function handle()
@@ -62,6 +64,7 @@ class ClearSchoolData extends Command
             DB::table('staff_records')->whereNotIn('user_id', $ids)->delete();
             DB::table('users')->whereNotIn('id', $ids)->delete();
             DB::table('password_resets')->truncate();
+            DB::table('settings')->where('type', 'services_billed_term')->delete();
         } finally {
             DB::statement('SET FOREIGN_KEY_CHECKS=1');
         }

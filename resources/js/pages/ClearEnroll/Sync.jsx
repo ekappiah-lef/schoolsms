@@ -58,7 +58,7 @@ export default function ClearEnrollSync({ connection, debtors, history, canSync,
                 </div>
 
                 <InfoCallout>
-                    At the start of each term every student who owes fees is sent to ClearEnroll with the amount. Each payment recorded here sends the student’s new balance straight away, and ClearEnroll clears the
+                    Every day at 11 pm every student who owes fees is sent to ClearEnroll with the amount. Each payment recorded here sends the student’s new balance straight away, and ClearEnroll clears the
                     flag once nothing is owed. Only students whose parent accepted the admission agreement are sent.
                 </InfoCallout>
 

@@ -24,8 +24,10 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // ClearEnroll: send every student who owes fees once at the start of each term (checked daily).
-        $schedule->command('clearenroll:sync --if-new-term')->dailyAt('06:00');
+        // School fees: a term is billed on its first day (later terms are not billed ahead).
+        $schedule->command('fees:bill-terms')->dailyAt('00:10');
+        // ClearEnroll: send every student who owes fees, with the amount, at the end of each day (Sync now does it at once).
+        $schedule->command('clearenroll:sync')->dailyAt('23:00');
     }
 
     /**
