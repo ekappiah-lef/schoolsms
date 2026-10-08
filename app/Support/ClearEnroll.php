@@ -32,6 +32,15 @@ class ClearEnroll
         return $method === 'GET' ? $req->get($url) : $req->post($url, $body);
     }
 
+    /** Web address of a photo stored on ClearEnroll (students / teachers), as the portal builds it. */
+    public static function photoUrl(?string $photo, string $folder): ?string
+    {
+        if (!$photo || !self::enabled()) return null;
+        $base = preg_replace('#/integration/v1$#', '', config('clearenroll.url'));
+
+        return strpos($photo, 'uploads/') === 0 ? $base.'/'.$photo : $base.'/uploads/'.$folder.'/'.rawurlencode($photo);
+    }
+
     /** Which ClearEnroll school the key belongs to, or why it cannot connect. */
     public static function ping(): array
     {

@@ -41,11 +41,20 @@ class ClearEnrollController extends Controller
             return response()->json(['message' => $r['error']], 422);
         }
 
-        // Only what the school needs to see; ClearEnroll already masks other schools' parent details.
+        // Only what the school needs to see (ClearEnroll masks other schools' contact details), with photos.
         if ($d['kind'] === 'teacher') {
             $r['teachers'] = collect($r['teachers'] ?? [])->map(function ($t) {
-                return array_intersect_key((array) $t, array_flip(['id', 'first_name', 'last_name', 'other_names', 'date_of_birth', 'gender', 'qualification', 'status', 'reason', 'school']));
+                $t = (array) $t;
+                return array_intersect_key($t, array_flip(['id', 'first_name', 'last_name', 'other_names', 'date_of_birth', 'gender', 'qualification', 'status', 'reason', 'school']))
+                    + ['photo' => ClearEnroll::photoUrl($t['teacher_photo'] ?? null, 'teachers')];
             })->values();
+        } else {
+            foreach (['students', 'flags'] as $k) {
+                $r[$k] = collect($r[$k] ?? [])->unique('id')->map(function ($s) {
+                    $s = (array) $s;
+                    return $s + ['photo' => ClearEnroll::photoUrl($s['student_photo'] ?? null, 'students')];
+                })->values();
+            }
         }
 
         return response()->json($r);

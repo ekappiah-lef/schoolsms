@@ -4,6 +4,7 @@ import { Search } from 'lucide-react';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { InfoCallout, ModuleHeader, fieldInput } from '@/components/app/module';
 import { EmptyState, Panel } from '@/components/app/page';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import http from '@/lib/http';
 import { cn, formatDate, formatMoney } from '@/lib/utils';
@@ -87,7 +88,12 @@ export default function ClearEnrollVerify({ kind, connected, urls }) {
                                     <tbody>
                                         {res.flags.map((f) => (
                                             <tr key={f.id} className="border-b border-border last:border-0">
-                                                <td className="px-5 py-2.5 font-medium">{f.student}</td>
+                                                <td className="px-5 py-2.5">
+                                                    <div className="flex items-center gap-3">
+                                                        <Avatar src={f.photo} name={f.student} size="lg" />
+                                                        <span className="font-medium">{f.student}</span>
+                                                    </div>
+                                                </td>
                                                 <td className="px-3 py-2.5">{f.reported_by}</td>
                                                 <td className="px-3 py-2.5">
                                                     {f.parent || '—'}
@@ -109,6 +115,7 @@ export default function ClearEnrollVerify({ kind, connected, urls }) {
                                 <ul className="divide-y divide-border">
                                     {res.students.map((s) => (
                                         <li key={s.id} className="flex flex-wrap items-center gap-x-6 gap-y-1 px-5 py-3 text-sm">
+                                            <Avatar src={s.photo} name={s.name} size="xl" />
                                             <span className="font-medium">{s.name}</span>
                                             <span className="text-fg-muted">{s.date_of_birth ? formatDate(s.date_of_birth, 'dd/MM/yyyy') : ''}</span>
                                             <span className="text-fg-muted">{s.gender}</span>
@@ -128,7 +135,9 @@ export default function ClearEnrollVerify({ kind, connected, urls }) {
                             <Panel title={`Teachers found (${res.teachers.length})`} flush>
                                 <ul className="divide-y divide-border">
                                     {res.teachers.map((t) => (
-                                        <li key={t.id} className="flex flex-col gap-1 px-5 py-3 text-sm">
+                                        <li key={t.id} className="flex items-start gap-4 px-5 py-3 text-sm">
+                                            <Avatar src={t.photo} name={[t.first_name, t.last_name].join(' ')} size="xl" />
+                                            <div className="flex flex-col gap-1">
                                             <div className="flex flex-wrap items-center gap-3">
                                                 <span className="font-medium">{[t.first_name, t.other_names, t.last_name].filter(Boolean).join(' ')}</span>
                                                 <span className={cn('rounded px-1.5 py-0.5 text-2xs font-semibold uppercase', t.status === 'FLAGGED' ? 'bg-danger-soft text-danger-fg' : 'bg-success-soft text-success-fg')}>
@@ -142,6 +151,7 @@ export default function ClearEnrollVerify({ kind, connected, urls }) {
                                                     {t.reason ? `: ${t.reason}` : ''}
                                                 </div>
                                             )}
+                                            </div>
                                         </li>
                                     ))}
                                 </ul>
