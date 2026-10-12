@@ -2,6 +2,16 @@
 
 Auth::routes();
 
+/* Health check for deployments and monitoring: the app is up and can reach its database. */
+Route::get('/healthz', function () {
+    try {
+        \Illuminate\Support\Facades\DB::select('select 1');
+        return response()->json(['status' => 'ok']);
+    } catch (\Throwable $e) {
+        return response()->json(['status' => 'database unavailable'], 503);
+    }
+})->name('healthz');
+
 //Route::get('/test', 'TestController@index')->name('test');
 Route::get('/privacy-policy', 'HomeController@privacy_policy')->name('privacy_policy');
 Route::get('/terms-of-use', 'HomeController@terms_of_use')->name('terms_of_use');

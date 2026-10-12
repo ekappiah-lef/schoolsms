@@ -1,0 +1,99 @@
+name: EduNetwork CD
+
+# Runs after CI passes on main (or by hand from the Actions tab):
+# builds the image, pushes it to GitHub's registry, deploys it to the server over SSH,
+# checks the app is healthy and goes back to the previous version if it is not.
+on:
+  workflow_run:
+    workflows: ["EduNetwork CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    name: Build & push image
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.vars.outputs.image_tag }}
+      image: ${{ steps.vars.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Compute image name and tag
+        id: vars
+        run: |
+          echo "image_tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.image_tag }}
+            ${{ steps.vars.outputs.image }}:latest
+
+  deploy:
+    name: Deploy & health-check (rollback on failure)
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Copy the compose file and deploy scripts to the server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          source: "docker-compose.prod.yml,deploy/deploy.sh,deploy/backup.sh"
+          target: ${{ secrets.DEPLOY_PATH }}
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          IMAGE: ${{ needs.build-and-push.outputs.image }}
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEALTH_CHECK_URL: ${{ secrets.HEALTH_CHECK_URL }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          envs: IMAGE,IMAGE_TAG,GHCR_USER,GHCR_TOKEN,HEALTH_CHECK_URL
+          command_timeout: 20m
+          script: |
+            set -e
+            cd "${{ secrets.DEPLOY_PATH }}"
+            sed -i 's/\r$//' deploy/deploy.sh deploy/backup.sh
+            bash deploy/deploy.sh

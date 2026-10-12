@@ -15,7 +15,7 @@ export default function Login({ school, phone, urls }) {
 
     // Laravel reports login failures under the resolved field (email/username).
     const error = errors.identity || errors.username || errors.email || errors.password;
-    const logo = (app?.code || school || 'LOGO').toUpperCase().split('').join(' ');
+    const code = (app?.code || '').toUpperCase();
 
     const submit = (e) => {
         e.preventDefault();
@@ -27,7 +27,7 @@ export default function Login({ school, phone, urls }) {
 
     return (
         <div className="min-h-screen" style={{ fontFamily: "'Montserrat', system-ui, sans-serif" }}>
-            <Head title="Log in">
+            <Head title="EduNetwork Portal · Log in">
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
             </Head>
@@ -39,7 +39,10 @@ export default function Login({ school, phone, urls }) {
                 }}
             >
                 <header className="z-10 flex w-full items-center justify-between px-8 py-7 md:px-12 md:py-9">
-                    <span className="text-base font-medium uppercase tracking-[0.35em] text-white md:text-lg">{logo}</span>
+                    <span className="flex items-baseline gap-2.5 text-white">
+                        <span className="text-base font-semibold uppercase tracking-[0.3em] md:text-lg">EduNetwork</span>
+                        <span className="text-[11px] font-medium uppercase tracking-[0.35em] text-[#7cf3d5]">Portal</span>
+                    </span>
                     <span className="hidden text-xs font-light text-white/70 sm:block">{school}</span>
                 </header>
 
@@ -54,7 +57,12 @@ export default function Login({ school, phone, urls }) {
                             boxShadow: '0 20px 45px rgba(2, 28, 33, 0.35)',
                         }}
                     >
-                        <h1 className="mb-8 mt-2 text-lg font-semibold uppercase tracking-[0.25em] text-white">Log In</h1>
+                        <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.35em] text-[#7cf3d5]">EduNetwork Portal</p>
+                        <h1 className="mt-2 text-lg font-semibold uppercase tracking-[0.25em] text-white">Log In</h1>
+                        <p className="mb-7 mt-2 text-center text-xs font-light text-white/75">
+                            {school}
+                            {code ? ` · ${code}` : ''}
+                        </p>
 
                         {error && (
                             <div role="alert" className="mb-4 flex w-full items-start gap-2 rounded-sm bg-white/95 px-3 py-2 text-xs font-medium text-red-700">
@@ -141,7 +149,9 @@ export default function Login({ school, phone, urls }) {
                     </div>
                 </div>
 
-                <footer aria-hidden="true" className="h-10 w-full" />
+                <footer className="z-10 flex w-full items-center justify-center px-8 pb-6 text-[11px] font-light text-white/55">
+                    © {new Date().getFullYear()} EduNetwork. All rights reserved.
+                </footer>
             </main>
         </div>
     );

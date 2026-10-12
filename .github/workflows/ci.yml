@@ -1,0 +1,116 @@
+name: EduNetwork CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (lint, fresh database, tests)
+    runs-on: ubuntu-latest
+    needs: frontend
+    services:
+      mariadb:
+        image: mariadb:10.6
+        env:
+          MARIADB_DATABASE: lav_sms_ci
+          MARIADB_ROOT_PASSWORD: ci-root-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: lav_sms_ci
+      DB_USERNAME: root
+      DB_PASSWORD: ci-root-password
+      MAIL_DRIVER: log
+      SMS_DRIVER: log
+      MOMO_DRIVER: fake
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.0'
+          extensions: pdo_mysql, gd, zip, mbstring, bcmath, intl, exif
+          coverage: none
+          tools: composer:v2
+
+      - name: Check composer files
+        run: composer validate --no-check-publish --no-check-all
+
+      - name: Install PHP packages
+        run: composer install --no-interaction --prefer-dist --no-progress --ignore-platform-reqs
+
+      - name: PHP syntax check
+        run: find app config database routes tests -name '*.php' -print0 | xargs -0 -n 20 -P 4 php -l > /dev/null
+
+      - name: Get the built front-end (pages are rendered in the tests)
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: public/build
+
+      - name: Prepare the app
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Build a fresh database (every migration, then the seeders)
+        run: php artisan migrate --seed --force
+
+      - name: The app boots and its routes load
+        run: php artisan route:list > /dev/null
+
+      - name: Tests
+        run: vendor/bin/phpunit
+
+  frontend:
+    name: Frontend (build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: public/build
+          include-hidden-files: true
+          retention-days: 3
+
+  docker-build:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+    needs: [backend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the app image (not pushed)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

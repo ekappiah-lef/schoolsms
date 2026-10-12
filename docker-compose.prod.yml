@@ -1,0 +1,60 @@
+# EduNetwork Portal: live server (https://edusuite.lefsignature.com, folder /opt/edusuite).
+# The image is built by GitHub Actions (EduNetwork CD) and pulled here. The server's own nginx holds the
+# HTTPS certificate and forwards to this app on 127.0.0.1:8003.
+# Next to this file on the server (never in git):
+#   .env          APP_IMAGE=ghcr.io/<owner>/<repo>  IMAGE_TAG=<deployed tag>
+#   .env.docker   the app's settings and passwords (see .env.docker.example)
+#   seed/         optional lav_sms.sql loaded once into an empty database
+#   backups/      database dumps (every 6 hours and before each deployment)
+name: edunetwork
+services:
+  app:
+    image: ${APP_IMAGE}:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env.docker
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      # Only this server can reach it; the server's nginx publishes it with HTTPS.
+      - "127.0.0.1:${APP_PORT:-8003}:80"
+    volumes:
+      - uploads:/var/www/html/storage/app/public
+      - logs:/var/www/html/storage/logs
+      - ./seed:/docker/seed:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  db:
+    image: mariadb:10.6
+    restart: unless-stopped
+    env_file: .env.docker   # MARIADB_* variables
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # Dumps the database to ./backups when it starts and every 6 hours; keeps 30 days.
+  backup:
+    image: mariadb:10.6
+    restart: unless-stopped
+    env_file: .env.docker
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backups:/backups
+      - ./deploy/backup.sh:/backup.sh:ro
+    entrypoint: ["bash", "/backup.sh"]
+
+volumes:
+  dbdata:
+  uploads:
+  logs:
