@@ -41,9 +41,6 @@ class LoginController extends Controller
     {
         return \App\Helpers\Ui::render('Auth/Login', function () {
             return [
-                'school' => \App\Helpers\Qs::getSystemName(),
-                'address' => \App\Helpers\Qs::getSetting('address'),
-                'phone' => \App\Helpers\Qs::getSetting('phone'),
                 'urls' => [
                     'login' => route('login'),
                     'forgot' => route('password.request'),

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import { CircleAlert, Eye, EyeOff, LoaderCircle, LockKeyhole, UserRound } from 'lucide-react';
 
 /*
@@ -8,14 +8,12 @@ import { CircleAlert, Eye, EyeOff, LoaderCircle, LockKeyhole, UserRound } from '
  * icon inputs and the mint "LOG IN" button. Posts to the existing Laravel
  * login (username or email via the `identity` field).
  */
-export default function Login({ school, phone, urls }) {
-    const { app } = usePage().props;
+export default function Login({ urls }) {
     const [showPassword, setShowPassword] = useState(false);
     const { data, setData, post, processing, errors } = useForm({ identity: '', password: '', remember: false });
 
     // Laravel reports login failures under the resolved field (email/username).
     const error = errors.identity || errors.username || errors.email || errors.password;
-    const code = (app?.code || '').toUpperCase();
 
     const submit = (e) => {
         e.preventDefault();
@@ -27,7 +25,7 @@ export default function Login({ school, phone, urls }) {
 
     return (
         <div className="min-h-screen" style={{ fontFamily: "'Montserrat', system-ui, sans-serif" }}>
-            <Head title="EduNetwork Portal · Log in">
+            <Head title="Log in">
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
             </Head>
@@ -43,7 +41,6 @@ export default function Login({ school, phone, urls }) {
                         <span className="text-base font-semibold uppercase tracking-[0.3em] md:text-lg">EduNetwork</span>
                         <span className="text-[11px] font-medium uppercase tracking-[0.35em] text-[#7cf3d5]">Portal</span>
                     </span>
-                    <span className="hidden text-xs font-light text-white/70 sm:block">{school}</span>
                 </header>
 
                 <div className="z-10 flex w-full flex-1 items-center justify-center px-4 py-8">
@@ -58,11 +55,7 @@ export default function Login({ school, phone, urls }) {
                         }}
                     >
                         <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.35em] text-[#7cf3d5]">EduNetwork Portal</p>
-                        <h1 className="mt-2 text-lg font-semibold uppercase tracking-[0.25em] text-white">Log In</h1>
-                        <p className="mb-7 mt-2 text-center text-xs font-light text-white/75">
-                            {school}
-                            {code ? ` · ${code}` : ''}
-                        </p>
+                        <h1 className="mb-7 mt-2 text-lg font-semibold uppercase tracking-[0.25em] text-white">Log In</h1>
 
                         {error && (
                             <div role="alert" className="mb-4 flex w-full items-start gap-2 rounded-sm bg-white/95 px-3 py-2 text-xs font-medium text-red-700">
@@ -139,7 +132,14 @@ export default function Login({ school, phone, urls }) {
 
                             <div className="space-y-1.5 pt-4 text-center">
                                 <p className="text-xs font-light text-white/75">
-                                    No account yet? <span className="font-medium">Contact the school office{phone ? ` on ${phone}` : ''}</span>
+                                    No account yet? Contact{' '}
+                                    <a href="mailto:info@lefsignature.com" className="font-medium hover:text-white">
+                                        info@lefsignature.com
+                                    </a>{' '}
+                                    or{' '}
+                                    <a href="tel:+233256111811" className="font-medium hover:text-white">
+                                        0256111811
+                                    </a>
                                 </p>
                                 <a href={urls.forgot} className="block text-[11px] font-light text-white/65 transition-colors hover:text-white/90">
                                     Forgot password?

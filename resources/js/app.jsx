@@ -5,7 +5,7 @@ import { createInertiaApp } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
 
 createInertiaApp({
-    title: (title) => (title ? `${title} · School Portal` : 'School Portal'),
+    title: (title) => (title ? `${title} · EduNetwork Portal` : 'EduNetwork Portal'),
     resolve: (name) => {
         // Each page is its own chunk, so the first load only ships what it needs.
         const pages = import.meta.glob('./pages/**/*.jsx');

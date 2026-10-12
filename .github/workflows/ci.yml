@@ -50,6 +50,9 @@ jobs:
       - name: Check composer files
         run: composer validate --no-check-publish --no-check-all
 
+      - name: Create the runtime folders (not kept in git)
+        run: mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs storage/app/public bootstrap/cache
+
       - name: Install PHP packages
         run: composer install --no-interaction --prefer-dist --no-progress --ignore-platform-reqs
 
