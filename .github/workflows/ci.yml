@@ -67,7 +67,13 @@ jobs:
 
       - name: Prepare the app
         run: |
-          cp .env.example .env
+          echo 'APP_NAME="EduNetwork Portal"' > .env
+          echo 'APP_KEY=' >> .env
+          echo 'APP_DEBUG=true' >> .env
+          echo 'APP_URL=http://localhost' >> .env
+          echo 'CACHE_DRIVER=file' >> .env
+          echo 'SESSION_DRIVER=file' >> .env
+          echo 'QUEUE_CONNECTION=sync' >> .env
           php artisan key:generate
 
       - name: Build a fresh database (every migration, then the seeders)
