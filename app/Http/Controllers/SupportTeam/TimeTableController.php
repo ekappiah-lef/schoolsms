@@ -78,11 +78,18 @@ class TimeTableController extends Controller
         $isSA = Qs::userIsTeamSA();
         $classes = ClassOrder::sort($this->my_class->all()->load('class_type'));
 
-        $rows = $records->sortByDesc('year')->map(function ($r) use ($periods, $slots, $isSA) {
+        // A parent sees which of their children each timetable is for.
+        $childrenOf = Qs::userIsParent()
+            ? DB::table('student_records as sr')->join('users as u', 'u.id', '=', 'sr.user_id')->where('sr.my_parent_id', Auth::id())->where('sr.grad', 0)
+                ->orderBy('u.name')->get(['u.name', 'sr.my_class_id'])->groupBy('my_class_id')->map(function ($g) { return $g->pluck('name')->values(); })
+            : collect();
+
+        $rows = $records->sortByDesc('year')->map(function ($r) use ($periods, $slots, $isSA, $childrenOf) {
             return [
                 'id' => $r->id,
                 'name' => $r->name,
                 'class' => optional($r->my_class)->name,
+                'children' => $childrenOf[$r->my_class_id] ?? [],
                 'type' => $r->exam_id ? 'exam' : 'class',
                 'exam' => optional($r->exam)->name,
                 'year' => $r->year,
@@ -104,6 +111,8 @@ class TimeTableController extends Controller
         return [
             'session' => $this->year,
             'canCreate' => $isSA,
+            // staff | student | parent: parents and students only see their own classes, to view and print.
+            'viewer' => Qs::userIsParent() ? 'parent' : (Qs::userIsStudent() ? 'student' : 'staff'),
             'records' => $rows,
             'summary' => [
                 'periods' => (int) $current->sum('periods'),

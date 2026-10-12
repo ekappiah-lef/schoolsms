@@ -70,6 +70,8 @@ class Navigation
 
         if (Qs::userIsParent()) {
             $academics[] = self::item('My children', 'users', 'my_children');
+            // Only their children's classes are listed (TimeTableController::visibleClassIds).
+            $academics[] = self::item('Timetables', 'calendar-clock', 'tt.index', ['tt.index', 'ttr.show']);
         }
 
         if (Qs::userIsTeamSA()) {

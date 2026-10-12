@@ -11,7 +11,8 @@ import { cn, timeAgo } from '@/lib/utils';
  * manage_timetables_simple_minimal (Show tab). Backed by TimeTableController:
  * ttr.store / ttr.update (JSON), ttr.destroy, ttr.manage (period editor).
  */
-export default function TimetablesIndex({ session, canCreate, records, summary, classGroups, exams, editing, urls }) {
+export default function TimetablesIndex({ session, canCreate, viewer = 'staff', records, summary, classGroups, exams, editing, urls }) {
+    const isStaff = viewer === 'staff';
     const [tab, setTab] = useModuleTab(editing ? 'create' : records.length || !canCreate ? 'list' : 'create');
     const [confirm, confirmDialog] = useConfirmAction();
     const form = useModuleForm({
@@ -36,10 +37,16 @@ export default function TimetablesIndex({ session, canCreate, records, summary, 
                 <ModuleHeader
                     crumbs={['Academics', 'Schedule']}
                     title="Timetables"
-                    description="Create and assign class or exam schedules for the active academic year."
+                    description={
+                        isStaff
+                            ? 'Create and assign class or exam schedules for the active academic year.'
+                            : viewer === 'parent'
+                              ? 'The class and exam timetables of your children.'
+                              : 'Your class and exam timetables.'
+                    }
                     session={session}
                     aside={
-                        tab === 'list' && (
+                        isStaff && tab === 'list' && (
                             <span className="flex items-center gap-1.5 rounded-lg bg-surface px-3 py-1.5 shadow-card">
                                 <CalendarCheck className="size-[18px] text-success" />
                                 <span className="text-2xs font-semibold text-fg-muted">Active calendars:</span>
@@ -49,7 +56,7 @@ export default function TimetablesIndex({ session, canCreate, records, summary, 
                     }
                 />
 
-                <ModuleTabs value={tab} onChange={(t) => (editing && t === 'list' ? router.visit(urls.index) : setTab(t))} createLabel="Timetable" listLabel="Show Timetables" count={records.length} canCreate={canCreate} editing={!!editing} />
+                {isStaff && <ModuleTabs value={tab} onChange={(t) => (editing && t === 'list' ? router.visit(urls.index) : setTab(t))} createLabel="Timetable" listLabel="Show Timetables" count={records.length} canCreate={canCreate} editing={!!editing} />}
 
                 {tab === 'create' && canCreate ? (
                     <div className="flex flex-col gap-3">
@@ -138,11 +145,11 @@ export default function TimetablesIndex({ session, canCreate, records, summary, 
                 ) : (
                     <>
                         <RegistryCard
-                            title="Manage TimeTables"
+                            title={isStaff ? 'Manage TimeTables' : viewer === 'parent' ? "Your children's timetables" : 'Your timetables'}
                             rows={records}
                             exportName={`timetables-${session}`}
                             searchText={(r) => `${r.name} ${r.class} ${r.exam ?? ''} ${r.year}`}
-                            emptyText="No timetables yet."
+                            emptyText={isStaff ? 'No timetables yet.' : 'The school has not published a timetable for this class yet.'}
                             columns={[
                                 { key: 'sn', header: 'S/N', headerClassName: 'w-16' },
                                 {
@@ -167,7 +174,12 @@ export default function TimetablesIndex({ session, canCreate, records, summary, 
                                     header: 'Class',
                                     sort: (r) => r.class,
                                     exportValue: (r) => r.class,
-                                    cell: (r) => <span className="rounded bg-subtle px-2 py-0.5 text-xs font-semibold text-fg">{r.class}</span>,
+                                    cell: (r) => (
+                                        <div className="flex flex-col items-start gap-1">
+                                            <span className="rounded bg-subtle px-2 py-0.5 text-xs font-semibold text-fg">{r.class}</span>
+                                            {r.children?.length > 0 && <span className="text-xs text-fg-muted">{r.children.join(', ')}</span>}
+                                        </div>
+                                    ),
                                 },
                                 {
                                     key: 'type',
@@ -220,11 +232,13 @@ export default function TimetablesIndex({ session, canCreate, records, summary, 
                                 },
                             ]}
                         />
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <SummaryTile icon={Clock3} label="Total periods scheduled" value={`${summary.periods} periods`} />
-                            <SummaryTile icon={UsersRound} label="Class allocation" value={`${summary.classesCovered} of ${summary.classes} classes`} />
-                            <SummaryTile icon={RefreshCcw} label="Last updated" value={summary.updated ? timeAgo(summary.updated) : '—'} />
-                        </div>
+                        {isStaff && (
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                <SummaryTile icon={Clock3} label="Total periods scheduled" value={`${summary.periods} periods`} />
+                                <SummaryTile icon={UsersRound} label="Class allocation" value={`${summary.classesCovered} of ${summary.classes} classes`} />
+                                <SummaryTile icon={RefreshCcw} label="Last updated" value={summary.updated ? timeAgo(summary.updated) : '—'} />
+                            </div>
+                        )}
                     </>
                 )}
             </div>
