@@ -24,7 +24,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Brand, SessionCard, SidebarNav } from '@/components/app/sidebar';
+import { Brand, SidebarNav } from '@/components/app/sidebar';
 import { CommandMenu } from '@/components/app/command-menu';
 import { NavLink } from '@/components/app/nav-link';
 
@@ -110,14 +110,12 @@ export default function AppLayout({ children }) {
                 >
                     <Brand app={app} collapsed={collapsed} />
                     <SidebarNav nav={nav ?? []} collapsed={collapsed} />
-                    <SessionCard session={app.session} collapsed={collapsed} />
                 </aside>
 
                 {/* Mobile / tablet drawer */}
                 <Sheet open={mobileOpen} onOpenChange={setMobileOpen} side="left" title="Navigation" hideTitle className="w-72">
                     <Brand app={app} />
                     <SidebarNav nav={nav ?? []} onNavigate={() => setMobileOpen(false)} />
-                    <SessionCard session={app.session} />
                 </Sheet>
 
                 <div className={cn('flex min-h-screen flex-col transition-[padding] duration-200', collapsed ? 'lg:pl-16' : 'lg:pl-64')}>

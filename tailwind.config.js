@@ -13,7 +13,7 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Inter', 'InterVariable', ...defaultTheme.fontFamily.sans],
+                sans: ['Calibri', 'Carlito', 'Segoe UI', ...defaultTheme.fontFamily.sans],
             },
             fontSize: {
                 // label-sm from the design doc: uppercase overlines / table headers

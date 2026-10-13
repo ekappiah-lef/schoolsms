@@ -4,13 +4,13 @@ import { CircleAlert, Eye, EyeOff, LoaderCircle, LockKeyhole, UserRound } from '
 
 /*
  * Login — implements stitch_minimalist_logo_login_page/teal_gradient_login_page:
- * Montserrat, teal radial-gradient canvas inside a dark frame, frosted card,
+ * Calibri (Carlito where Calibri is not installed), teal radial-gradient canvas inside a dark frame, frosted card,
  * icon inputs and the mint "LOG IN" button. Posts to the existing Laravel
  * login (username or email via the `identity` field).
  */
 export default function Login({ urls }) {
     const [showPassword, setShowPassword] = useState(false);
-    const { data, setData, post, processing, errors } = useForm({ identity: '', password: '', remember: false });
+    const { data, setData, post, processing, errors } = useForm({ identity: '', password: '' });
 
     // Laravel reports login failures under the resolved field (email/username).
     const error = errors.identity || errors.username || errors.email || errors.password;
@@ -24,10 +24,10 @@ export default function Login({ urls }) {
         'w-full rounded-sm border-0 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-800 placeholder:text-[0.85rem] placeholder:font-light placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-[#12d1a5]/60';
 
     return (
-        <div className="min-h-screen" style={{ fontFamily: "'Montserrat', system-ui, sans-serif" }}>
+        <div className="min-h-screen" style={{ fontFamily: "Calibri, Carlito, 'Segoe UI', system-ui, sans-serif" }}>
             <Head title="Log in">
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
-                <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+                <link href="https://fonts.googleapis.com/css2?family=Carlito:wght@400;700&display=swap" rel="stylesheet" />
             </Head>
 
             <main
@@ -109,15 +109,6 @@ export default function Login({ urls }) {
                                 </button>
                             </div>
 
-                            <label className="flex cursor-pointer select-none items-center gap-2 text-xs font-light text-white/80">
-                                <input
-                                    type="checkbox"
-                                    checked={data.remember}
-                                    onChange={(e) => setData('remember', e.target.checked)}
-                                    className="size-3.5 rounded-sm border-0 accent-[#12d1a5]"
-                                />
-                                Keep me signed in
-                            </label>
 
                             <div className="pt-3">
                                 <button

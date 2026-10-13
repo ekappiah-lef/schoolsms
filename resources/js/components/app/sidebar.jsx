@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import * as Collapsible from '@radix-ui/react-collapsible';
-import { BadgeCheck, CalendarDays, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -11,9 +11,7 @@ export function Brand({ app, collapsed }) {
     const code = (app.code || app.name || 'S').slice(0, 2).toUpperCase();
     return (
         <div className={cn('flex h-16 shrink-0 items-center gap-2.5 border-b border-sidebar-border', collapsed ? 'justify-center px-2' : 'px-4')}>
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold tracking-tight text-white shadow-btn">
-                {code}
-            </div>
+            {collapsed && <span className="text-xs font-bold tracking-tight text-fg">{code}</span>}
             {!collapsed && (
                 <div className="min-w-0 leading-tight">
                     <div className="truncate text-md font-semibold leading-tight tracking-tight text-fg">{app.name}</div>
@@ -134,28 +132,5 @@ export function SidebarNav({ nav, collapsed = false, onNavigate }) {
                 </div>
             ))}
         </nav>
-    );
-}
-
-export function SessionCard({ session, collapsed }) {
-    if (collapsed) {
-        return (
-            <Tooltip content={`Year ${session}`} side="right">
-                <div className="mx-auto mb-3 flex size-8 items-center justify-center rounded-md border border-border text-fg-subtle">
-                    <CalendarDays className="size-4" />
-                </div>
-            </Tooltip>
-        );
-    }
-    return (
-        <div className="border-t border-sidebar-border p-3">
-          <div className="flex items-center gap-2.5 rounded-lg bg-muted px-3 py-2.5">
-            <BadgeCheck className="size-5 shrink-0 text-success" />
-            <div className="min-w-0 leading-tight">
-                <div className="text-xs font-semibold text-fg">Academic year</div>
-                <div className="tabular text-xs text-fg-muted">{session} · active</div>
-            </div>
-            </div>
-        </div>
     );
 }

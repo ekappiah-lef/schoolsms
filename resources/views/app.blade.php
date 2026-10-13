@@ -8,7 +8,7 @@
     <link rel="icon" href="{{ asset('global_assets/images/favicon.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Carlito:wght@400;700&display=swap" rel="stylesheet">
     {{ \App\Helpers\Vite::tags('resources/js/app.jsx') }}
 </head>
 <body>

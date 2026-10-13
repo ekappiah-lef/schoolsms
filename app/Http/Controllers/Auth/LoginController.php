@@ -49,6 +49,15 @@ class LoginController extends Controller
         }, 'auth.login');
     }
 
+    /**
+     * Sign in for this browser session only: there is no "keep me signed in", so a user is asked to log in
+     * again after the browser closes or after the idle time in config/session.php.
+     */
+    protected function attemptLogin(\Illuminate\Http\Request $request)
+    {
+        return $this->guard()->attempt($this->credentials($request), false);
+    }
+
     /*
      *  Login with Username or Email
      * */

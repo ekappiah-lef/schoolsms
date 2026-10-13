@@ -476,7 +476,7 @@ function printTable(title, cols, rows) {
     const w = window.open('', '_blank');
     if (!w) return toast.error('Allow pop-ups to export PDF');
     w.document.write(`<!doctype html><title>${esc(title)}</title>
-<style>body{font-family:Inter,Arial,sans-serif;padding:24px;color:#131b2e}h1{font-size:18px}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border-bottom:1px solid #e2e7ff;padding:6px 8px;text-align:left}th{background:#f2f3ff;text-transform:uppercase;font-size:10px;letter-spacing:.04em}</style>
+<style>body{font-family:Calibri,Carlito,Arial,sans-serif;padding:24px;color:#131b2e}h1{font-size:18px}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border-bottom:1px solid #e2e7ff;padding:6px 8px;text-align:left}th{background:#f2f3ff;text-transform:uppercase;font-size:10px;letter-spacing:.04em}</style>
 <h1>${esc(title)}</h1><table><thead><tr><th>#</th>${cols.map((c) => `<th>${esc(c.label)}</th>`).join('')}</tr></thead><tbody>
 ${rows.map((r, i) => `<tr><td>${i + 1}</td>${cols.map((c) => `<td>${esc(c.value(r))}</td>`).join('')}</tr>`).join('')}
 </tbody></table><script>window.onload=()=>{window.print()}</script>`);
