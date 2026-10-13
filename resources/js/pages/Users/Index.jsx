@@ -5,6 +5,7 @@ import { Eye, KeyRound, Pencil, Trash2, UserPlus } from 'lucide-react';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { Field, InfoCallout, ModuleHeader, ModuleTabs, NativeSelect, RegistryCard, RowIconButton, SetupCard, fieldInput, useModuleTab } from '@/components/app/module';
 import { useConfirmAction } from '@/components/app/confirm-action';
+import { useResetPassword } from '@/components/app/reset-password';
 import { PhotoUploader } from '@/components/app/file-uploader';
 import { Avatar } from '@/components/ui/avatar';
 import { Combobox } from '@/components/ui/select';
@@ -14,17 +15,22 @@ import { useModuleForm } from '@/lib/use-module-form';
 import http from '@/lib/http';
 import { cn } from '@/lib/utils';
 
-const BLANK = { user_type: '', name: '', address: '', email: '', username: '', phone: '', phone2: '', emp_date: '', password: '', gender: '', nal_id: '', state_id: '', lga_id: '', bg_id: '', photo: null };
+const BLANK = { user_type: '', name: '', address: '', email: '', username: '', phone: '', phone2: '', emp_date: '', employment_type: '', password: '', gender: '', nal_id: '', state_id: '', lga_id: '', bg_id: '', photo: null };
 // When editing, the type, username, password and photo are never sent unless changed
 // (an empty photo or password would overwrite the saved one).
-const EDIT_BLANK = { name: '', address: '', email: '', phone: '', phone2: '', emp_date: '', gender: '', nal_id: '', state_id: '', lga_id: '', bg_id: '' };
+const EDIT_BLANK = { name: '', address: '', email: '', phone: '', phone2: '', emp_date: '', employment_type: '', gender: '', nal_id: '', state_id: '', lga_id: '', bg_id: '' };
+
+const EMPLOYMENT = { full_time: 'Full time', part_time: 'Part time' };
 
 /** Users — Create user / Show users (UserController; JSON store & update). Students are managed under Students. */
-export default function UsersIndex({ userTypes, users, options, editing, urls }) {
+export default function UsersIndex({ userTypes, users, options, editing, teachersView, urls }) {
     const [tab, setTab] = useModuleTab(editing ? 'create' : 'list');
     const [type, setType] = useState('all');
     const [confirm, confirmDialog] = useConfirmAction();
+    const [resetPassword, resetDialog] = useResetPassword();
     const [photoError, setPhotoError] = useState(null);
+    const [showPassword, setShowPassword] = useState(true);
+    const what = teachersView ? 'Teacher' : 'User';
 
     const form = useModuleForm({
         initial: editing ? EDIT_BLANK : BLANK,
@@ -58,21 +64,21 @@ export default function UsersIndex({ userTypes, users, options, editing, urls })
 
     return (
         <>
-            <Head title="Users" />
+            <Head title={`${what}s`} />
             <div className={cn('mx-auto flex w-full flex-col gap-6', tab === 'create' ? 'max-w-4xl' : 'max-w-7xl')}>
-                <ModuleHeader crumbs={['People', 'Users']} title="Users" />
-                <ModuleTabs value={tab} onChange={(t) => (editing && t === 'list' ? router.visit(urls.index) : setTab(t))} createLabel="User" listLabel="Show Users" count={users.length} editing={!!editing} />
+                <ModuleHeader crumbs={['People', `${what}s`]} title={`${what}s`} />
+                <ModuleTabs value={tab} onChange={(t) => (editing && t === 'list' ? router.visit(urls.index) : setTab(t))} createLabel={what} listLabel={`Show ${what}s`} count={users.length} editing={!!editing} />
 
                 {tab === 'create' ? (
                     <div className="flex flex-col gap-3">
                         <SetupCard
-                            title={editing ? `Edit ${editing.name}` : 'New User'}
-                            description={editing ? `${editing.type_name} account. The type of user cannot be changed.` : 'Create a staff or parent account. Students are admitted under Students.'}
+                            title={editing ? `Edit ${editing.name}` : `New ${what}`}
+                           
                             icon={UserPlus}
                             onSubmit={form.submit}
                             onReset={form.reset}
                             onCancel={() => (editing ? router.visit(urls.index) : setTab('list'))}
-                            submitLabel={editing ? 'Save User' : 'Create User'}
+                            submitLabel={editing ? `Save ${what}` : `Create ${what}`}
                             processing={form.processing}
                         >
                             {!editing && (
@@ -101,9 +107,18 @@ export default function UsersIndex({ userTypes, users, options, editing, urls })
                                     <option value="Female">Female</option>
                                 </NativeSelect>
                             </Field>
-                            <Field label="Date of employment" error={form.errors.emp_date} hint="Staff only.">
+                            <Field label="Date of employment" error={form.errors.emp_date}>
                                 <DatePicker value={form.data.emp_date} onChange={(v) => form.set('emp_date', v)} fromYear={1980} />
                             </Field>
+                            {typeTitle !== 'parent' && (
+                                <Field label="Employment" error={form.errors.employment_type}>
+                                    <NativeSelect value={form.data.employment_type} onChange={(v) => form.set('employment_type', v)}>
+                                        <option value="">Not set</option>
+                                        <option value="full_time">Full time</option>
+                                        <option value="part_time">Part time</option>
+                                    </NativeSelect>
+                                </Field>
+                            )}
                             <Field label="Phone" error={form.errors.phone}>
                                 <input className={fieldInput} value={form.data.phone} onChange={(e) => form.set('phone', e.target.value)} inputMode="tel" placeholder="e.g., 0241234567" />
                             </Field>
@@ -120,7 +135,12 @@ export default function UsersIndex({ userTypes, users, options, editing, urls })
                             )}
                             {!editing && (
                                 <Field label="Password" error={form.errors.password} hint="Leave blank to use the type of user as the password.">
-                                    <input className={fieldInput} type="password" autoComplete="new-password" value={form.data.password} onChange={(e) => form.set('password', e.target.value)} />
+                                    <div className="relative">
+                                        <input className={cn(fieldInput, 'pr-16')} type={showPassword ? 'text' : 'password'} autoComplete="new-password" value={form.data.password} onChange={(e) => form.set('password', e.target.value)} />
+                                        <button type="button" onClick={() => setShowPassword((s) => !s)} className="absolute inset-y-0 right-0 px-3 text-xs font-medium text-fg-muted hover:text-fg">
+                                            {showPassword ? 'Hide' : 'Show'}
+                                        </button>
+                                    </div>
                                 </Field>
                             )}
                             <Field label="Address" required error={form.errors.address} span={2}>
@@ -142,24 +162,23 @@ export default function UsersIndex({ userTypes, users, options, editing, urls })
                                 <PhotoUploader value={form.data.photo} onChange={(f) => form.set('photo', f)} currentUrl={editing?.photo} name={form.data.name} onError={setPhotoError} />
                             </Field>
                         </SetupCard>
-                        <InfoCallout>New staff can sign in with their username (or email) and the password above. Super administrators can reset a password from the list.</InfoCallout>
                     </div>
                 ) : (
                     <>
-                        <Segmented
+                        {!teachersView && <Segmented
                             value={type}
                             onChange={setType}
                             options={[
                                 { value: 'all', label: `All (${users.length})` },
                                 ...userTypes.filter((t) => counts[t.title]).map((t) => ({ value: t.title, label: `${t.name}s (${counts[t.title]})` })),
                             ]}
-                        />
+                        />}
                         <RegistryCard
                             key={type}
-                            title="Manage Users"
+                            title={`Manage ${what}s`}
                             rows={rows}
-                            exportName="users"
-                            searchText={(r) => `${r.name} ${r.username ?? ''} ${r.email ?? ''} ${r.phone ?? ''} ${r.type_name}`}
+                            exportName={teachersView ? 'teachers' : 'users'}
+                            searchText={(r) => `${r.name} ${r.username ?? ''} ${r.email ?? ''} ${r.phone ?? ''} ${r.type_name} ${(r.class_teacher ?? []).join(' ')} ${(r.subjects ?? []).join(' ')}`}
                             columns={[
                                 { key: 'sn', header: 'S/N', headerClassName: 'w-16' },
                                 {
@@ -177,7 +196,39 @@ export default function UsersIndex({ userTypes, users, options, editing, urls })
                                         </button>
                                     ),
                                 },
-                                { key: 'type', header: 'Type', sort: (r) => r.type_name, exportValue: (r) => r.type_name, cell: (r) => <span className="rounded bg-subtle px-2 py-0.5 text-xs font-semibold">{r.type_name}</span> },
+                                ...(teachersView
+                                    ? [
+                                          {
+                                              key: 'class_teacher',
+                                              header: 'Class teacher of',
+                                              sort: (r) => r.class_teacher.join(', '),
+                                              exportValue: (r) => r.class_teacher.join(', '),
+                                              cell: (r) => (r.class_teacher.length ? <span className="font-medium">{r.class_teacher.join(', ')}</span> : <span className="text-fg-subtle">—</span>),
+                                          },
+                                          {
+                                              key: 'subjects',
+                                              header: 'Subjects taught',
+                                              exportValue: (r) => r.subjects.join('; '),
+                                              cell: (r) =>
+                                                  r.subjects.length ? (
+                                                      <div className="flex flex-col gap-0.5 text-xs">
+                                                          {r.subjects.map((s) => (
+                                                              <span key={s}>{s}</span>
+                                                          ))}
+                                                      </div>
+                                                  ) : (
+                                                      <span className="text-fg-subtle">—</span>
+                                                  ),
+                                          },
+                                          {
+                                              key: 'employment',
+                                              header: 'Employment',
+                                              sort: (r) => r.employment ?? '',
+                                              exportValue: (r) => EMPLOYMENT[r.employment] ?? '',
+                                              cell: (r) => (r.employment ? <span className="rounded bg-subtle px-2 py-0.5 text-xs font-semibold">{EMPLOYMENT[r.employment]}</span> : <span className="text-fg-subtle">—</span>),
+                                          },
+                                      ]
+                                    : [{ key: 'type', header: 'Type', sort: (r) => r.type_name, exportValue: (r) => r.type_name, cell: (r) => <span className="rounded bg-subtle px-2 py-0.5 text-xs font-semibold">{r.type_name}</span> }]),
                                 { key: 'phone', header: 'Phone', sort: (r) => r.phone ?? '', exportValue: (r) => r.phone, cell: (r) => <span className="tabular">{r.phone || '—'}</span> },
                                 { key: 'email', header: 'Email', sort: (r) => r.email ?? '', exportValue: (r) => r.email, cell: (r) => r.email || <span className="text-fg-subtle">—</span> },
                                 {
@@ -193,9 +244,7 @@ export default function UsersIndex({ userTypes, users, options, editing, urls })
                                                 <RowIconButton
                                                     icon={KeyRound}
                                                     title="Reset password"
-                                                    onClick={() =>
-                                                        confirm({ title: `Reset ${r.name}'s password?`, description: 'The password becomes “user”. Ask them to change it after signing in.', confirmLabel: 'Reset password', tone: 'primary', url: r.urls.reset_pass })
-                                                    }
+                                                    onClick={() => resetPassword({ name: r.name, url: r.urls.reset_pass })}
                                                 />
                                             )}
                                             {r.urls.destroy && (
@@ -215,6 +264,7 @@ export default function UsersIndex({ userTypes, users, options, editing, urls })
                 )}
             </div>
             {confirmDialog}
+            {resetDialog}
         </>
     );
 }

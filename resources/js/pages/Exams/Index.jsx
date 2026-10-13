@@ -44,7 +44,7 @@ export default function ExamsIndex({ session, canDelete, exams, editing, urls })
                     <div className="flex flex-col gap-3">
                         <SetupCard
                             title={editing ? `Edit ${editing.name}` : 'New Exam Setup'}
-                            description={editing ? `Year ${editing.year}` : 'The exam is created for the active year.'}
+                           
                             icon={NotebookPen}
                             onSubmit={form.submit}
                             onReset={form.reset}
@@ -73,7 +73,6 @@ export default function ExamsIndex({ session, canDelete, exams, editing, urls })
                                 </NativeSelect>
                             </Field>
                         </SetupCard>
-                        <InfoCallout>The term decides which total column (1st, 2nd or 3rd term) marks are recorded in on report sheets.</InfoCallout>
                     </div>
                 ) : (
                     <ExamList exams={exams} canDelete={canDelete} confirm={confirm} />

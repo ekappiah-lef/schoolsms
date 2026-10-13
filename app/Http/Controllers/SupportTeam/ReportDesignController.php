@@ -44,17 +44,17 @@ class ReportDesignController extends Controller
             'template' => $type ? ReportTemplate::for($type->id) : null,
             'standard' => ReportTemplate::defaults(),
             'columns' => ReportTemplate::COLUMNS,
-            'canEdit' => Qs::userIsTeamSA(),
+            'canEdit' => (bool) $type,   // only the class types this user may design are listed
             'urls' => $type ? ['save' => route('reports.design.save', $type->id), 'preview' => route('reports.design.preview', $type->id)] : null,
         ]);
     }
 
     public function save(Request $req, $type)
     {
-        if (!Qs::userIsTeamSA()) {
+        // Admins and the academic admin: any class type. A class teacher: the type of their own class.
+        if (!$this->types()->contains('id', (int) $type)) {
             return Qs::json(__('msg.denied'), false);
         }
-        abort_unless(DB::table('class_types')->where('id', $type)->exists(), 404);
         ReportTemplate::save((int) $type, $this->clean($req));
 
         return Qs::json('Report card design saved for '.DB::table('class_types')->where('id', $type)->value('name').'.');

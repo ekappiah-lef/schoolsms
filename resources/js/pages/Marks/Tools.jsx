@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { toast } from 'sonner';
-import { Mail, Printer, Search, Wrench } from 'lucide-react';
+import { Mail, Printer, Search } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { withAppLayout } from '@/layouts/AppLayout';
-import { Field, InfoCallout, ModuleHeader, NativeSelect } from '@/components/app/module';
+import { Field, ModuleHeader, NativeSelect } from '@/components/app/module';
 import { EmptyState, Panel } from '@/components/app/page';
 import { usePaged } from '@/components/app/data-table';
 import { Avatar } from '@/components/ui/avatar';
@@ -16,12 +16,11 @@ import { ordinal } from '@/lib/utils';
 const TOOLS = [
     { value: 'tabulation', label: 'Tabulation sheet' },
     { value: 'sheets', label: 'Results by class' },
-    { value: 'fix', label: 'Recalculate totals' },
 ];
 
 /**
- * Marks tools for the current year: the tabulation sheet of a class, opening each
- * student's results, and recalculating grades, totals and positions.
+ * Marks tools for the current year: the tabulation sheet of a class and opening each
+ * student's results.
  */
 export default function MarkTools({ tool, year, exams, classes, sections, selected, sheet, students, urls }) {
     const needsExam = tool !== 'sheets';
@@ -29,21 +28,13 @@ export default function MarkTools({ tool, year, exams, classes, sections, select
     const [exam, setExam] = useState(String(selected?.exam ?? exams[exams.length - 1]?.id ?? ''));
     const [cls, setCls] = useState(String(selected?.class ?? ''));
     const [sec, setSec] = useState(String(selected?.section ?? ''));
-    const [busy, setBusy] = useState(false);
     const ready = cls && sec && (!needsExam || exam);
 
     const pickClass = (v) => {
         setCls(v);
         setSec(secs(v)[0] ? String(secs(v)[0].id) : '');
     };
-    const go = async () => {
-        if (tool === 'tabulation') return router.get(`${urls.tabulation}/${exam}/${cls}/${sec}`);
-        if (tool === 'sheets') return router.get(`${urls.sheets}/${cls}/${sec}`);
-        setBusy(true);
-        const r = await submitForm(urls.fixUpdate, { exam_id: exam, my_class_id: cls, section_id: sec }, { method: 'put' });
-        setBusy(false);
-        r.ok ? toast.success('Grades, totals, averages and positions recalculated.') : toast.error(r.message);
-    };
+    const go = () => router.get(tool === 'tabulation' ? `${urls.tabulation}/${exam}/${cls}/${sec}` : `${urls.sheets}/${cls}/${sec}`);
 
     return (
         <>
@@ -97,14 +88,13 @@ export default function MarkTools({ tool, year, exams, classes, sections, select
                                 ))}
                             </NativeSelect>
                         </Field>
-                        <Button variant="primary" onClick={go} disabled={!ready || busy}>
-                            {tool === 'fix' ? <Wrench /> : <Search />}
-                            {tool === 'fix' ? (busy ? 'Working…' : 'Recalculate') : 'Show'}
+                        <Button variant="primary" onClick={go} disabled={!ready}>
+                            <Search />
+                            Show
                         </Button>
                     </div>
                 </Panel>
 
-                {tool === 'fix' && <InfoCallout>Recalculates each subject grade, then every student’s total, average, class average and position for the exam. Use it after changing grades or marks.</InfoCallout>}
                 {tool === 'tabulation' && sheet && <Tabulation sheet={sheet} />}
                 {tool === 'sheets' && selected && <Students students={students} />}
             </div>

@@ -45,12 +45,13 @@ class Navigation
                 $exams[] = self::item('Exam list', null, 'exams.index', ['exams.index', 'exams.edit']);
                 $exams[] = self::item('Grades', null, 'grades.index', ['grades.index', 'grades.edit']);
                 $exams[] = self::item('Tabulation sheet', null, 'marks.tabulation');
-                $exams[] = self::item('Recalculate totals', null, 'marks.batch_fix');
             }
             $exams[] = self::item('Marks entry', null, 'marks.index', ['marks.index', 'marks.manage']);
             $exams[] = self::item('Results by class', null, 'marks.bulk', ['marks.bulk', 'marks.show']);
-            // Academic admin / admins design the report card per class type; class teachers can view theirs.
+            // Class teachers write each student's remark; the academic admin / admins add the head's remark.
+            // Both design the report card (a class teacher for their own class type).
             if (Qs::userIsTeamSA() || \App\Support\TeacherScope::ownSectionIds()) {
+                $exams[] = self::item('Report remarks', null, 'marks.remarks');
                 $exams[] = self::item('Report cards', null, 'reports.design');
             }
             $academics[] = self::group('Examinations', 'notebook-pen', $exams);
@@ -122,8 +123,9 @@ class Navigation
         /* Administration */
         if (Qs::userIsTeamSA()) {
             $admin = array_filter([
-                Qs::userIsTeamAdmin() ? self::item('Users', 'user-cog', 'users.index', ['users.index', 'users.show', 'users.edit'])
-                    : (Qs::userIsAcademicAdmin() ? self::item('Teachers', 'user-cog', 'users.index', ['users.index', 'users.show', 'users.edit']) : null),
+                Qs::userIsTeamAdmin() ? self::item('Users', 'user-cog', 'users.index', ['users.index', 'users.show', 'users.edit']) : null,
+                Qs::userIsTeamAdmin() ? self::item('Teachers', 'graduation-cap', 'teachers.index')
+                    : self::item('Teachers', 'user-cog', 'users.index', ['users.index', 'users.show', 'users.edit']),
                 self::item('Classes', 'school', 'classes.index', ['classes.index', 'classes.edit']),
                 self::item('Sections', 'layers', 'sections.index', ['sections.index', 'sections.edit']),
                 self::item('Subjects', 'book-open', 'subjects.index', ['subjects.index', 'subjects.edit']),

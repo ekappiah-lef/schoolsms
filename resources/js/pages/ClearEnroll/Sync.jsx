@@ -57,10 +57,6 @@ export default function ClearEnrollSync({ connection, debtors, history, canSync,
                     <Tile label="Not sent (details or consent missing)" value={notSent.length} tone={notSent.length ? 'warn' : ''} />
                 </div>
 
-                <InfoCallout>
-                    Every day at 11 pm every student who owes fees is sent to ClearEnroll with the amount. Each payment recorded here sends the student’s new balance straight away, and ClearEnroll clears the
-                    flag once nothing is owed. Only students whose parent accepted the admission agreement are sent.
-                </InfoCallout>
 
                 <Panel
                     title="Students owing"

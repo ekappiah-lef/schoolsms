@@ -85,7 +85,7 @@ export default function AuditTrail({ rows, actions, totals }) {
                             {pager}
                         </div>
                     ) : (
-                        <EmptyState compact title={rows.length ? 'Nothing matches' : 'Nothing recorded yet'} description="Reversed payments and changes to income or expenses will appear here." />
+                        <EmptyState compact title={rows.length ? 'Nothing matches' : 'Nothing recorded yet'} />
                     )}
                 </div>
             </div>

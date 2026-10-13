@@ -158,7 +158,7 @@ export default function Attendance({ sections, sectionId, date, saved, students,
                         )}
                     </>
                 ) : (
-                    <EmptyState title="No class assigned" description="You can take the register once you are made class teacher of a section." />
+                    <EmptyState title="No class assigned" />
                 )}
             </div>
             <ConfirmDialog

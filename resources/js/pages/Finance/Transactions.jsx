@@ -60,7 +60,6 @@ export default function FinanceTransactions({ session, categories, usedCategorie
                     <div className="flex flex-col gap-3">
                         <SetupCard
                             title={editing ? 'Edit entry' : 'Record income or expense'}
-                            description="Every entry updates the cash position on the finance dashboard."
                             icon={Wallet}
                             onSubmit={form.submit}
                             onReset={form.reset}
@@ -125,7 +124,6 @@ export default function FinanceTransactions({ session, categories, usedCategorie
                                 <input className={fieldInput} value={form.data.description} onChange={(e) => form.set('description', e.target.value)} placeholder="What it was for" />
                             </Field>
                         </SetupCard>
-                        <InfoCallout>Fee payments recorded under Student payments are already counted as income. Use this page for everything else.</InfoCallout>
                     </div>
                 ) : (
                     <>

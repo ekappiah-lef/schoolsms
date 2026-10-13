@@ -193,10 +193,7 @@ function TermTable({ rows, ledgerUrl, onPick }) {
                             <DropdownMenuLabel>Show these figures</DropdownMenuLabel>
                             {TERM_COLUMNS.map((c) => (
                                 <DropdownMenuCheckboxItem key={c.key} checked={cols.includes(c.key)} onCheckedChange={() => toggleCol(c.key)} onSelect={(e) => e.preventDefault()}>
-                                    <div className="flex flex-col">
-                                        <span>{c.label}</span>
-                                        <span className="text-xs text-fg-muted">{c.help}</span>
-                                    </div>
+                                    {c.label}
                                 </DropdownMenuCheckboxItem>
                             ))}
                         </DropdownMenuContent>
@@ -489,11 +486,6 @@ function ItemTable({ item, rows, label }) {
                         rows.length
                             ? "No students match these filters"
                             : "No fees billed for this period"
-                    }
-                    description={
-                        rows.length
-                            ? "Change or clear the filters."
-                            : "School fees are set up under Payments and billed per term."
                     }
                 />
             )}

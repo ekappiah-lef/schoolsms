@@ -103,7 +103,7 @@ export default function FinanceDashboard({ selection, fees, cashflow, invoiced, 
                                 </ResponsiveContainer>
                             </div>
                         ) : (
-                            <EmptyState compact title="No money recorded yet" description="Fee payments, income and expenses appear here month by month." />
+                            <EmptyState compact title="No money recorded yet" />
                         )}
                     </Card>
                     <Card className="xl:col-span-2" title="Expenses by category" eyebrow={periodLabel}>
@@ -153,7 +153,7 @@ export default function FinanceDashboard({ selection, fees, cashflow, invoiced, 
                                 ))}
                             </ul>
                         ) : (
-                            <EmptyState compact title="Nothing recorded yet" description="Record capital put into the school and the expenses paid from it." />
+                            <EmptyState compact title="Nothing recorded yet" />
                         )}
                     </Card>
                 </section>
@@ -425,7 +425,6 @@ function FeeStudents({ kind, scope, onClose, url, periodQuery, periodLabel }) {
                             </tbody>
                         </table>
                     </div>
-                    <p className="text-xs text-fg-muted">Click a student to see each bill; the name opens their invoice.</p>
                     {pager}
                 </div>
             )}
@@ -496,7 +495,6 @@ function FeesByType({ types, scope, onClose }) {
             <div className="flex items-center justify-between border-b border-border px-5 py-3">
                 <div>
                     <h3 className="font-semibold">{label} by class type</h3>
-                    <p className="text-xs text-fg-muted">Click a class type to see its classes.</p>
                 </div>
                 <Button size="sm" variant="ghost" onClick={onClose}>
                     Hide

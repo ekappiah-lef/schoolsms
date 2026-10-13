@@ -167,10 +167,9 @@ export function Field({ label, required, aside, error, hint, span = 1, children 
                 <span>
                     {label} {required && <span className="text-danger">*</span>}
                 </span>
-                {aside && <span className="text-xs font-normal text-fg-subtle">{aside}</span>}
             </label>
             {children}
-            {error ? <p className="text-xs text-danger">{error}</p> : hint ? <p className="text-xs text-fg-muted">{hint}</p> : null}
+            {error ? <p className="text-xs text-danger">{error}</p> : null}
         </div>
     );
 }

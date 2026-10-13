@@ -65,9 +65,9 @@ export function SchoolFeesInvoice({ records, onPaid, confirm, actions }) {
     const payable = records.some((r) => r.urls?.pay);
 
     return (
-        <Panel title="School fees" description="Tuition and termly charges, with their breakdown" flush actions={actions}>
+        <Panel title="School fees" flush actions={actions}>
             {!records.length ? (
-                <EmptyState compact icon={Receipt} title="No school fees billed" description="School fees are billed when they are set up for the student’s class." />
+                <EmptyState compact icon={Receipt} title="No school fees billed" />
             ) : (
                 <div className="scrollbar-thin overflow-x-auto">
                     <table className="w-full text-left">
@@ -165,9 +165,9 @@ export function OptionalFeesInvoice({ charges, onPaid, confirm }) {
     const groups = [...new Set(charges.map((c) => c.group_label))];
 
     return (
-        <Panel title="Optional fees" description="Feeding, bus, extra-curricular and books. Each service can be paid separately." flush>
+        <Panel title="Optional fees" flush>
             {!charges.length ? (
-                <EmptyState compact icon={Receipt} title="No optional services" description="Services chosen at admission or on the edit page appear here." />
+                <EmptyState compact icon={Receipt} title="No optional services" />
             ) : (
                 <div className="scrollbar-thin overflow-x-auto">
                     <table className="w-full text-left">
@@ -285,7 +285,7 @@ export function PaymentHistory({ school, optional }) {
     const { shown, pager } = usePaged(history, 10, 'payments');
 
     return (
-        <Panel title="Payment history" description="Receipt: Download the PDF or send it to the parent" flush>
+        <Panel title="Payment history" flush>
             {history.length ? (
                 <ul className="divide-y divide-border">
                     {shown.map((h) => (
@@ -559,10 +559,7 @@ export function MomoPay({ url, maxAmount, defaultPhone = '', test, onPaid, staff
                     <Button type="submit" variant="primary" disabled={busy}>
                         {busy ? 'Sending…' : staff ? 'Send prompt to phone' : 'Pay now'}
                     </Button>
-                    <p className="w-full text-xs text-fg-muted">
-                        {staff ? 'The parent approves the payment on their phone with their MoMo PIN.' : 'You will get a prompt on your phone. Approve it with your MoMo PIN.'}
-                        {test && ' Test mode: no real money moves; numbers ending in 0 are declined.'}
-                    </p>
+                    {test && <p className="w-full text-xs text-fg-muted">Test mode: no real money moves; numbers ending in 0 are declined.</p>}
                 </form>
             )}
             {state.step === 'waiting' && <p className="text-sm">Waiting for approval on {phone}… Check the phone and enter the MoMo PIN.</p>}

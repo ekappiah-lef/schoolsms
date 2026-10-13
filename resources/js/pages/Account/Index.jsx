@@ -49,7 +49,6 @@ export default function Account({ me, canEditProfile, urls }) {
                         <form onSubmit={saveProfile}>
                             <Panel
                                 title="Profile"
-                                description="Your contact details and photo."
                                 footer={
                                     <div className="flex justify-end">
                                         <Button type="submit" variant="primary" disabled={busy === 'profile'}>
@@ -92,7 +91,6 @@ export default function Account({ me, canEditProfile, urls }) {
                     <form onSubmit={savePassword}>
                         <Panel
                             title="Change password"
-                            description="Use at least 8 letters and numbers."
                             footer={
                                 <div className="flex justify-end">
                                     <Button type="submit" variant="primary" disabled={busy === 'password' || !pass.current_password || !pass.password || mismatch}>

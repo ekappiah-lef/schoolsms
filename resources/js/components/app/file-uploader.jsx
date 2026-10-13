@@ -68,7 +68,6 @@ export function PhotoUploader({ value, onChange, currentUrl, name, error, onErro
             )}
             <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{value ? value.name : hasPhoto ? 'Current photo' : 'No photo uploaded'}</p>
-                <p className="text-xs text-fg-muted">JPEG, PNG or GIF, up to 2 MB. Drag an image here, browse{camera ? ' or take a photo' : ''}.</p>
                 <div className="mt-2 flex gap-2">
                     <Button size="xs" onClick={() => inputRef.current?.click()}>
                         <ImageUp />
@@ -171,7 +170,6 @@ function CameraDialog({ onClose, onCapture, onError }) {
             open
             onOpenChange={(o) => !o && onClose()}
             title="Take photo"
-            description="Centre the face in the square, then capture."
             footer={
                 <>
                     <Button variant="ghost" className="mr-auto" onClick={() => setFacing((f) => (f === 'user' ? 'environment' : 'user'))}>

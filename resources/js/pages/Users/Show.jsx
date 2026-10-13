@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
-import { BookOpen, Mail, MapPin, Pencil, Phone } from 'lucide-react';
+import { BookOpen, KeyRound, Mail, MapPin, Pencil, Phone } from 'lucide-react';
+import { useResetPassword } from '@/components/app/reset-password';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { Breadcrumbs, DescriptionList, EmptyState, Panel } from '@/components/app/page';
 import { Avatar } from '@/components/ui/avatar';
@@ -9,6 +10,7 @@ import { formatDate } from '@/lib/utils';
 
 /** Profile of a staff member: administrator, teacher, accountant, librarian… */
 export default function UserShow({ user, subjects, urls }) {
+    const [resetPassword, resetDialog] = useResetPassword();
     return (
         <>
             <Head title={user.name} />
@@ -25,14 +27,23 @@ export default function UserShow({ user, subjects, urls }) {
                             <div className="mt-1 text-base text-fg-muted">{user.staff_code || user.username}</div>
                         </div>
                     </div>
-                    {urls.edit && (
-                        <Button variant="primary" asChild>
-                            <Link href={urls.edit}>
-                                <Pencil />
-                                Edit
-                            </Link>
-                        </Button>
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                        {urls.reset_pass && (
+                            <Button onClick={() => resetPassword({ name: user.name, url: urls.reset_pass })}>
+                                <KeyRound />
+                                Reset password
+                            </Button>
+                        )}
+                        {urls.edit && (
+                            <Button variant="primary" asChild>
+                                <Link href={urls.edit}>
+                                    <Pencil />
+                                    Edit
+                                </Link>
+                            </Button>
+                        )}
+                    </div>
+                    {resetDialog}
                 </div>
             </div>
 

@@ -466,67 +466,6 @@ class MarkController extends Controller
        return Qs::jsonUpdateOk();
     }
 
-    public function batch_fix()
-    {
-        $d['exams'] = $this->exam->getExam(['year' => $this->year]);
-        $d['my_classes'] = $this->my_class->all();
-        $d['sections'] = $this->my_class->getAllSections();
-        $d['selected'] = false;
-
-        return Ui::render('Marks/Tools', function () use ($d) { return $this->toolsProps('fix', $d); }, 'pages.support_team.marks.batch_fix', $d);
-    }
-
-    public function batch_update(Request $req): \Illuminate\Http\JsonResponse
-    {
-        $exam_id = $req->exam_id;
-        $class_id = $req->my_class_id;
-        $section_id = $req->section_id;
-
-        $w = ['exam_id' => $exam_id, 'my_class_id' => $class_id, 'section_id' => $section_id, 'year' => $this->year];
-
-        $exam = $this->exam->find($exam_id);
-        $exrs = $this->exam->getRecord($w);
-        $marks = $this->exam->getMark($w);
-
-        /** Marks Fix Begin **/
-
-        $class_type = $this->my_class->findTypeByClass($class_id);
-        $tex = 'tex'.$exam->term;
-
-        foreach($marks as $mk){
-
-            $total = $mk->$tex;
-            $d['grade_id'] = $this->mark->getGrade($total, $class_type->id);
-
-            /*      if($exam->term == 3){
-                      $d['cum'] = $this->mark->getSubCumTotal($total, $mk->student_id, $mk->subject_id, $class_id, $this->year);
-                      $d['cum_ave'] = $cav = $this->mark->getSubCumAvg($total, $mk->student_id, $mk->subject_id, $class_id, $this->year);
-                      $grade = $this->mark->getGrade(round($mk->cum_ave), $class_type->id);
-                  }*/
-
-            $this->exam->updateMark($mk->id, $d);
-        }
-
-        /* Marks Fix End*/
-
-        /** Exam Record Update  **/
-        foreach($exrs as $exr){
-
-            $st_id = $exr->student_id;
-
-            $d3['total'] = $this->mark->getExamTotalTerm($exam, $st_id, $class_id, $this->year);
-            $d3['ave'] = $this->mark->getExamAvgTerm($exam, $st_id, $class_id, $section_id, $this->year);
-            $d3['class_ave'] = $this->mark->getClassAvg($exam, $class_id, $this->year);
-            $d3['pos'] = $this->mark->getPos($st_id, $exam, $class_id, $section_id, $this->year);
-
-            $this->exam->updateRecord(['id' => $exr->id], $d3);
-        }
-
-        /** END Exam Record Update END **/
-
-        return Qs::jsonUpdateOk();
-    }
-
     public function comment_update(Request $req, $exr_id)
     {
         if (!$this->mayEditRecord($exr_id)) {
@@ -599,8 +538,6 @@ class MarkController extends Controller
             'urls' => [
                 'tabulation' => route('marks.tabulation'),
                 'sheets' => route('marks.bulk'),
-                'fix' => route('marks.batch_fix'),
-                'fixUpdate' => route('marks.batch_update'),
                 'entry' => route('marks.index'),
             ],
         ];

@@ -70,11 +70,11 @@ export default function PaymentForm({ mode, session, classes, categories, paymen
         <>
             <Head title={editing ? 'Edit fee' : 'New fee'} />
             <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
-                <ModuleHeader crumbs={['Finance', 'Fee setup']} title="Fees" description="Set up the fees charged to students for the year." session={session} />
+                <ModuleHeader crumbs={['Finance', 'Fee setup']} title="Fees" session={session} />
                 <ModuleTabs value="create" onChange={(t) => t === 'list' && router.visit(urls.index)} createLabel="Fee" listLabel="Show Fees" editing={editing} />
                 <SetupCard
                     title={editing ? 'Edit Fee' : 'New Fee Setup'}
-                    description={editing ? `Reference ${payment.ref_no}. The class is fixed after creation.` : `The fee is created for the ${session} year.`}
+                   
                     icon={Banknote}
                     onSubmit={submit}
                     onReset={() => setData(initial)}

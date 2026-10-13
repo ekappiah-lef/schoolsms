@@ -18,7 +18,7 @@ export default function MarksIndex({ session, exams, classes, urls }) {
                 {exams.length ? (
                     <MarkSelector exams={exams} classes={classes} urls={urls} />
                 ) : (
-                    <EmptyState compact icon={NotebookPen} title="No exams this year" description="An administrator needs to create the exams for this year first." />
+                    <EmptyState compact icon={NotebookPen} title="No exams this year" />
                 )}
             </Panel>
         </>

@@ -63,6 +63,7 @@ class GradeController extends Controller
         $data = $req->all();
 
         $this->exam->createGrade($data);
+        $this->regrade();
         return back()->with('flash_success', __('msg.store_ok'));
     }
 
@@ -91,12 +92,35 @@ class GradeController extends Controller
         $data = $req->all();
 
         $this->exam->updateGrade($id, $data);
+        $this->regrade();
         return back()->with('flash_success', __('msg.update_ok'));
     }
 
     public function destroy($id)
     {
         $this->exam->deleteGrade($id);
+        $this->regrade();
         return back()->with('flash_success', __('msg.del_ok'));
+    }
+
+    /**
+     * Apply the grading scale to every mark of the current year, so a change to the scale shows on
+     * results at once (totals, averages and positions do not depend on the scale and stay as they are).
+     */
+    protected function regrade(): void
+    {
+        $year = Qs::getCurrentSession();
+        $marks = app(\App\Repositories\MarkRepo::class);
+        $terms = \DB::table('exams')->where('year', $year)->pluck('term', 'id');
+        $types = \DB::table('my_classes')->pluck('class_type_id', 'id');
+
+        foreach (\DB::table('marks')->where('year', $year)->get() as $mk) {
+            $total = (int) ($mk->{'tex'.($terms[$mk->exam_id] ?? 1)} ?? 0);
+            $grade = $marks->getGrade($total, $types[$mk->my_class_id] ?? null);
+            $id = $grade ? $grade->id : null;
+            if ((int) $mk->grade_id !== (int) $id) {
+                \DB::table('marks')->where('id', $mk->id)->update(['grade_id' => $id]);
+            }
+        }
     }
 }

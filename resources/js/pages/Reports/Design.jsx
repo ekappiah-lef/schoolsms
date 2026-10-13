@@ -46,7 +46,7 @@ export default function ReportDesign({ types, type, template, standard, canEdit,
         return (
             <>
                 <Head title="Report cards" />
-                <EmptyState title="No report card to show" description="You are not the class teacher of any class." />
+                <EmptyState title="No report card to show" />
             </>
         );
     }
@@ -102,7 +102,6 @@ export default function ReportDesign({ types, type, template, standard, canEdit,
                     ))}
                 </div>
 
-                {ro && <InfoCallout>You can view the report card of your class. The academic admin changes the design.</InfoCallout>}
 
                 <div className="grid gap-6 xl:grid-cols-[minmax(0,440px)_1fr]">
                     <fieldset disabled={ro} className="flex min-w-0 flex-col gap-6">
@@ -117,7 +116,7 @@ export default function ReportDesign({ types, type, template, standard, canEdit,
                             </div>
                         </Panel>
 
-                        <Panel title="Subject table" description="Tick the columns to show and rename them.">
+                        <Panel title="Subject table">
                             <div className="grid gap-2">
                                 {t.columns.map((c) => (
                                     <div key={c.key} className="flex items-center gap-3">

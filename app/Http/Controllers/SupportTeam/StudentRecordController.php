@@ -46,12 +46,17 @@ class StudentRecordController extends Controller
         $this->student = $student;
    }
 
-    public function reset_pass($st_id)
+    /** Set a new password for a student (admins only; the person doing it types the password). */
+    public function reset_pass(Request $req, $st_id)
     {
-        $st_id = Qs::decodeHash($st_id);
-        $data['password'] = Hash::make('student');
-        $this->user->update($st_id, $data);
-        return back()->with('flash_success', __('msg.p_reset'));
+        $user = $this->user->find(Qs::decodeHash($st_id));
+        if (!UserController::canResetPassword($user)) {
+            return Qs::json(__('msg.denied'), false);
+        }
+        $d = $req->validate(['password' => 'required|string|min:6|max:50'], [], ['password' => 'Password']);
+        $this->user->update($user->id, ['password' => Hash::make($d['password']), 'remember_token' => null]);
+
+        return Qs::json('Password changed for '.$user->name.'.');
     }
 
     /** All students, filterable by class/section/gender, server-side paginated. */
@@ -519,7 +524,7 @@ class StudentRecordController extends Controller
                     'show' => route('students.show', $srHash),
                     'marksheet' => route('marks.year_selector', $userHash),
                     'edit' => $isSA ? route('students.edit', $srHash) : null,
-                    'reset_pass' => $isSA ? route('st.reset_pass', $userHash) : null,
+                    'reset_pass' => Qs::userIsTeamAdmin() ? route('st.reset_pass', $userHash) : null,
                     'not_graduated' => ($isSA && $grad) ? route('st.not_graduated', $srHash) : null,
                     'destroy' => $isSuper ? route('students.destroy', $userHash) : null,
                 ]),
@@ -635,7 +640,7 @@ class StudentRecordController extends Controller
                 'back' => Qs::userIsTeamSAT() ? route($sr->grad ? 'students.graduated' : 'students.index') : null,
                 'marksheet' => route('marks.year_selector', $userHash),
                 'edit' => Qs::userIsTeamSA() ? route('students.edit', $srHash) : null,
-                'reset_pass' => Qs::userIsTeamSA() ? route('st.reset_pass', $userHash) : null,
+                'reset_pass' => Qs::userIsTeamAdmin() ? route('st.reset_pass', $userHash) : null,
                 'invoice' => $canFees ? route('payments.invoice', $userHash) : null,
                 'send_invoice' => $canFees ? route('payments.send_invoice', $userHash) : null,
                 'notify' => Qs::userIsTeamSA() ? route('students.notify', $srHash) : null,

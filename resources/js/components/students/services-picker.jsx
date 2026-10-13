@@ -112,7 +112,6 @@ export function ServicesPicker({ catalogue, value, onChange, mode = 'create' }) 
             </ServiceGroup>
 
             {groups.filter((g) => g.key !== 'feeding').map(group)}
-            {mode !== 'create' && <p className="text-xs text-fg-muted">Uniforms, books and other shop items are sold under Finance → Sales &amp; inventory.</p>}
 
             <div className="flex items-center justify-between rounded-lg bg-muted/60 px-3 py-2.5 text-sm">
                 <span className="text-fg-muted">Optional fees per term</span>

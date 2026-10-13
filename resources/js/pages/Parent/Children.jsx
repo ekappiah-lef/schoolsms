@@ -14,7 +14,7 @@ export default function Children({ children }) {
         <>
             <Head title="My children" />
             <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-                <ModuleHeader crumbs={['Family', 'My children']} title="My children" description="Your children at the school, what is still owed, and their results." />
+                <ModuleHeader crumbs={['Family', 'My children']} title="My children" />
                 {children.length ? (
                     <div className="grid gap-4 md:grid-cols-2">
                         {children.map((c) => (
@@ -69,7 +69,7 @@ export default function Children({ children }) {
                         ))}
                     </div>
                 ) : (
-                    <EmptyState icon={Users} title="No children linked to your account" description="Ask the school office to link your children." />
+                    <EmptyState icon={Users} title="No children linked to your account" />
                 )}
             </div>
         </>

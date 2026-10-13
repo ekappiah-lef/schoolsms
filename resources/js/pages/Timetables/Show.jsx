@@ -44,7 +44,7 @@ export default function TimetableShow({ record, isExam, slots, rows, others = []
                     {rows.length && slots.length ? (
                         <TimetableGrid isExam={isExam} slots={slots} rows={rows} />
                     ) : (
-                        <EmptyState title="Nothing scheduled yet" description={urls.manage ? 'Add time slots and subjects under Edit timetable.' : undefined} />
+                        <EmptyState title="Nothing scheduled yet" />
                     )}
                 </Panel>
             </div>

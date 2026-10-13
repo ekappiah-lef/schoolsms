@@ -388,7 +388,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
 
     const studentSections = (
         <>
-            <FormSection id="personal" title="Personal details" description="As they should appear on official school records." columns={3}>
+            <FormSection id="personal" title="Personal details" columns={3}>
                 <FormField label="First name" required error={err('first_name')}>
                     {text('first_name', { autoComplete: 'off' })}
                 </FormField>
@@ -434,7 +434,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                 </FormField>
             </FormSection>
 
-            <FormSection id="contact" title="Contact & origin" description="Email is optional but must be unique.">
+            <FormSection id="contact" title="Contact & origin">
                 <FormField label="Email" error={err('email')}>
                     <Input id="field-email" type="email" value={data.email ?? ''} onChange={(e) => set('email', e.target.value)} placeholder="name@example.com" />
                 </FormField>
@@ -458,7 +458,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                 </FormField>
             </FormSection>
 
-            <FormSection id="background" title="Previous school" description="Leave blank for a first school placement.">
+            <FormSection id="background" title="Previous school">
                 <FormField label="Past school attended" error={err('past_school')}>
                     {text('past_school')}
                 </FormField>
@@ -470,7 +470,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                 </FormField>
             </FormSection>
 
-            <FormSection id="health" title="Health" description="For health and Medical Purposes.">
+            <FormSection id="health" title="Health">
                 <FormField label="Allergies" error={err('allergies')}>
                     <Textarea id="field-allergies" value={data.allergies ?? ''} onChange={(e) => set('allergies', e.target.value)} placeholder="None known" />
                 </FormField>
@@ -479,7 +479,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                 </FormField>
             </FormSection>
 
-            <FormSection id="insurance" title="Health insurance" description="As shown on the insurance card." columns={3}>
+            <FormSection id="insurance" title="Health insurance" columns={3}>
                 <FormField label="Card number" error={err('insurance_card_no')}>
                     {text('insurance_card_no')}
                 </FormField>
@@ -526,7 +526,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
             <FormSection
                 id="enrolment"
                 title="Class placement"
-                description={mode === 'edit' ? 'Changing the class of an existing student removes their marks for the old class this year.' : 'Numbers show students enrolled / class capacity.'}
+               
             >
                 <FormField label="Class" required error={err('my_class_id')}>
                     <Combobox id="field-my_class_id" value={data.my_class_id} onChange={(v) => set('my_class_id', v)} options={opt.classes} placeholder="Choose class" clearable={false} />
@@ -557,7 +557,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
             )}
 
             {mode === 'create' && (
-                <FormSection id="clearenroll" title="ClearEnroll check" description="Check the child on ClearEnroll before admitting; the result is recorded with the admission.">
+                <FormSection id="clearenroll" title="ClearEnroll check">
                     <div className="sm:col-span-2">
                         <ClearEnrollCheck searchUrl={options.clearEnroll} name={[data.first_name, data.last_name].filter(Boolean).join(' ')} onResult={(v) => set('clearenroll_status', v)} />
                     </div>
@@ -601,7 +601,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                 </div>
             </FormSection>
 
-            <FormSection id="boarding" title="Boarding & house" description="Leave blank for day students.">
+            <FormSection id="boarding" title="Boarding & house">
                 <FormField label="Dormitory" error={err('dorm_id')}>
                     <Select id="field-dorm_id" value={data.dorm_id} onChange={(v) => set('dorm_id', v)} options={opt.dorms} clearable clearLabel="Day student" placeholder="Day student" />
                 </FormField>
@@ -617,7 +617,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
 
     const parentSection =
         mode === 'edit' ? (
-            <FormSection id="guardian" title="Parent / guardian" description="Linked parent account. New parents can be added under Users.">
+            <FormSection id="guardian" title="Parent / guardian">
                 <FormField label="Parent account" error={err('my_parent_id')} className="sm:col-span-2">
                     <Combobox id="field-my_parent_id" value={data.my_parent_id} onChange={(v) => set('my_parent_id', v)} options={opt.parents} placeholder="No parent linked" searchPlaceholder="Search parents by name or email…" />
                 </FormField>
@@ -784,7 +784,7 @@ function ParentStep({ data, set, err, parents }) {
         <FormSection
             id={`parent-${p}`}
             title={title}
-            description={primary === p ? 'Main contact.' : 'Optional.'}
+           
         >
             {field(`${p}_name`, 'Full name', { required: primary === p })}
             {field(`${p}_phone`, 'Contact number', { type: 'tel' })}
@@ -826,7 +826,6 @@ function ParentStep({ data, set, err, parents }) {
                                         {Icon && <Icon className="size-3.5 text-fg-muted" />}
                                         {title}
                                     </span>
-                                    <span className="block text-xs text-fg-muted">{hint}</span>
                                 </span>
                             </button>
                         ))}
@@ -866,7 +865,7 @@ function ParentStep({ data, set, err, parents }) {
                     <FormSection
                         id="parent-guardian"
                         title="Guardian / nanny"
-                        description={primary === 'guardian' ? 'Main contact:' : 'Optional.'}
+                       
                     >
                         {field('guardian_name', 'Full name', { required: primary === 'guardian' })}
                         {field('guardian_phone', 'Contact number', { type: 'tel' })}

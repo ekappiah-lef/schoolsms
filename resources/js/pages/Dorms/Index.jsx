@@ -32,7 +32,6 @@ export default function DormsIndex({ session, canDelete, dorms, editing, urls })
                     <div className="flex flex-col gap-3">
                         <SetupCard
                             title={editing ? `Edit ${editing.name}` : 'New Dormitory Setup'}
-                            description="Dormitory names must be unique."
                             icon={BedDouble}
                             onSubmit={form.submit}
                             onReset={form.reset}
@@ -47,7 +46,6 @@ export default function DormsIndex({ session, canDelete, dorms, editing, urls })
                                 <input className={fieldInput} value={form.data.description ?? ''} onChange={(e) => form.set('description', e.target.value)} placeholder="e.g., Girls' boarding, block C" />
                             </Field>
                         </SetupCard>
-                        <InfoCallout>Students are placed in a dormitory (with a room number) from the student admission or edit form.</InfoCallout>
                     </div>
                 ) : (
                     <>

@@ -36,7 +36,6 @@ export default function SubjectsIndex({ session, canDelete, classes, teachers, s
                     <div className="flex flex-col gap-3">
                         <SetupCard
                             title={editing ? `Edit ${editing.name}` : 'New Subject Setup'}
-                            description="A subject belongs to one class. Create it again for each class that takes it."
                             icon={BookOpen}
                             onSubmit={form.submit}
                             onReset={form.reset}
@@ -75,7 +74,6 @@ export default function SubjectsIndex({ session, canDelete, classes, teachers, s
                                 </NativeSelect>
                             </Field>
                         </SetupCard>
-                        <InfoCallout>The subject teacher sees this subject under Marks entry. A class cannot have two subjects with the same name.</InfoCallout>
                     </div>
                 ) : (
                     <>

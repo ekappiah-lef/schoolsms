@@ -66,7 +66,6 @@ export default function PaymentsIndex({
                         </Badge>
                     )
                 }
-                description="Fees charged per year. A fee without a class applies to every class."
                 actions={
                     <>
                         <Button asChild>
@@ -287,7 +286,6 @@ export default function PaymentsIndex({
                     <EmptyState
                         icon={Banknote}
                         title="No fees set up"
-                        description="Create the fees for this year, then open a class under Student payments to generate each student's records."
                         action={
                             <Button size="sm" variant="primary" asChild>
                                 <Link href={urls.create}>New fee</Link>

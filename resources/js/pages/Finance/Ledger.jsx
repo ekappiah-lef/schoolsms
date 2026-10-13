@@ -321,26 +321,9 @@ export default function Ledger({
                     ) : (
                         <EmptyState
                             title="No entries"
-                            description={
-                                isFiltered
-                                    ? "No entries match these filters."
-                                    : "No money moved in the chosen terms."
-                            }
                         />
                     )}
                 </div>
-                <p className="text-xs text-fg-muted">
-                    “{balanceLabel}” is money received less expenses from the start of {selection.label} up to each entry (each term starts from zero),
-                    counting every entry (not only the filtered ones). Fee
-                    payments come from receipts; other income and expenses from{" "}
-                    <Link
-                        href={urls.transactions}
-                        className="text-primary hover:underline"
-                    >
-                        Income &amp; expenses
-                    </Link>
-                    .
-                </p>
             </div>
         </>
     );

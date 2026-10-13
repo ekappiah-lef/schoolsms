@@ -35,7 +35,7 @@ export default function ClassesIndex({ session, canDelete, types, classes, editi
                     <div className="flex flex-col gap-3">
                         <SetupCard
                             title={editing ? `Edit ${editing.name}` : 'New Class Setup'}
-                            description={editing ? 'Only the class name can be changed after creation.' : 'Name the class and choose its level so grading and report sheets use the right format.'}
+                           
                             icon={School}
                             onSubmit={form.submit}
                             onReset={form.reset}
@@ -65,7 +65,6 @@ export default function ClassesIndex({ session, canDelete, types, classes, editi
                                 )}
                             </Field>
                         </SetupCard>
-                        <InfoCallout>A default section “A” is created automatically. Add more sections and assign class teachers under Sections.</InfoCallout>
                     </div>
                 ) : (
                     <>

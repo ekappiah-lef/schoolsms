@@ -46,7 +46,6 @@ export default function StudentCreate({ options, urls }) {
                                 window.scrollTo({ top: 0 });
                             }}
                         />
-                        <InfoCallout>The student signs in with the generated admission number and the default student password, and should change it on first login.</InfoCallout>
                     </>
                 )}
             </div>

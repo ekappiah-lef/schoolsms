@@ -54,7 +54,7 @@ export default function ExamShow({ exam, classes, subjects, top, urls }) {
                     ))}
                 </div>
 
-                <Panel title="Results by class" description={exam.current ? 'Open the tabulation sheet or each student’s report sheet.' : 'Tabulation and report sheets are available for the current academic year.'} flush>
+                <Panel title="Results by class" flush>
                     {classes.length ? (
                         <div className="scrollbar-thin overflow-x-auto">
                             <table className="w-full text-left text-sm">
@@ -100,14 +100,14 @@ export default function ExamShow({ exam, classes, subjects, top, urls }) {
                 </Panel>
 
                 <div className="grid gap-6 xl:grid-cols-5">
-                    <Panel title="Performance by subject" description="Average score in each subject" className="xl:col-span-3">
+                    <Panel title="Performance by subject" className="xl:col-span-3">
                         {subjects.length ? (
                             <HorizontalBars data={subjects} labelKey="subject" valueKey="average" name="Average" suffix="%" labelWidth={170} />
                         ) : (
                             <EmptyState compact title="No subject scores yet" />
                         )}
                     </Panel>
-                    <Panel title="Top students" description="Highest average across all classes" className="xl:col-span-2" flush>
+                    <Panel title="Top students" className="xl:col-span-2" flush>
                         {top.length ? (
                             <ol className="divide-y divide-border">
                                 {top.map((t, i) => (

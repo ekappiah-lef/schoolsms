@@ -533,11 +533,6 @@ export default function ServiceRoster({
                                     ? "No students match these filters"
                                     : `No students on ${label.toLowerCase()} yet`
                             }
-                            description={
-                                rows.length
-                                    ? "Change or clear the filters."
-                                    : "Services are chosen when admitting a student, or on the student’s edit page."
-                            }
                             action={
                                 active ? (
                                     <Button size="sm" onClick={reset}>

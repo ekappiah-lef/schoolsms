@@ -158,7 +158,7 @@ export default function ClearEnrollVerify({ kind, connected, urls }) {
                             </Panel>
                         )}
 
-                        {res.status === 'NOT_FOUND' && <EmptyState compact title="No record on ClearEnroll" description="Check the spelling or try the parent’s phone number." />}
+                        {res.status === 'NOT_FOUND' && <EmptyState compact title="No record on ClearEnroll" />}
                     </>
                 )}
             </div>

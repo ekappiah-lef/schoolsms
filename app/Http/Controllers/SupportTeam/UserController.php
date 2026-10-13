@@ -25,18 +25,44 @@ class UserController extends Controller
     public function __construct(UserRepo $user, LocationRepo $loc, MyClassRepo $my_class)
     {
         // Admins manage every user; the academic admin manages teachers only (checked in each action).
-        $this->middleware('teamSA', ['only' => ['index', 'store', 'edit', 'update'] ]);
-        $this->middleware('super_admin', ['only' => ['reset_pass','destroy'] ]);
+        $this->middleware('teamSA', ['only' => ['index', 'teachers', 'store', 'edit', 'update', 'reset_pass'] ]);
+        $this->middleware('super_admin', ['only' => ['destroy'] ]);
 
         $this->user = $user;
         $this->loc = $loc;
         $this->my_class = $my_class;
     }
 
-    /** The academic admin may only add, see and edit teachers. */
+    /** The academic admin may only add, see and edit teachers; admins get the same view on the Teachers page. */
     protected static function teachersOnly(): bool
     {
-        return Qs::userIsAcademicAdmin();
+        return Qs::userIsAcademicAdmin() || request()->routeIs('teachers.index') || request()->query('view') === 'teachers';
+    }
+
+    /**
+     * Whose password the signed-in user may set:
+     * super admin: anyone (except the head super admin); admin: everyone below admin;
+     * academic admin: teachers and parents only.
+     */
+    public static function canResetPassword($target): bool
+    {
+        if (!$target || Qs::headSA($target->id)) {
+            return false;
+        }
+        if (Qs::userIsSuperAdmin()) {
+            return true;
+        }
+        if (Qs::userIsAdmin()) {
+            return !in_array($target->user_type, ['super_admin', 'admin'], true);
+        }
+
+        return Qs::userIsAcademicAdmin() && in_array($target->user_type, ['teacher', 'parent'], true);
+    }
+
+    /** Teachers only, with their classes and whether they are full or part time (admins and the academic admin). */
+    public function teachers()
+    {
+        return $this->index();
     }
 
     public function index()
@@ -58,18 +84,31 @@ class UserController extends Controller
     {
         $isSA = Qs::userIsSuperAdmin();
         $typeNames = $this->user->getAllTypes()->pluck('name', 'title');
+        $teachersView = self::teachersOnly();
+        $index = $teachersView && !Qs::userIsAcademicAdmin() ? route('teachers.index') : route('users.index');
+
+        // What each teacher is assigned to: the sections they are class teacher of, and their subjects per class.
+        $teacherIds = $users->where('user_type', 'teacher')->pluck('id');
+        $classTeacherOf = \DB::table('sections as s')->join('my_classes as c', 'c.id', '=', 's.my_class_id')->whereIn('s.teacher_id', $teacherIds)
+            ->orderBy('c.name')->get(['s.teacher_id', 's.name as section', 'c.name as class'])->groupBy('teacher_id');
+        $subjectsOf = \DB::table('subjects as sb')->join('my_classes as c', 'c.id', '=', 'sb.my_class_id')->whereIn('sb.teacher_id', $teacherIds)
+            ->orderBy('c.name')->orderBy('sb.name')->get(['sb.teacher_id', 'sb.name as subject', 'c.name as class'])->groupBy('teacher_id');
+        $staff = \DB::table('staff_records')->whereIn('user_id', $users->pluck('id'))->pluck('employment_type', 'user_id');
 
         return [
             'userTypes' => $types->map(function ($t) { return ['id' => Qs::hash($t->id), 'title' => $t->title, 'name' => $t->name]; })->values(),
-            'users' => $users->map(function ($u) use ($isSA, $typeNames) {
+            'users' => $users->map(function ($u) use ($isSA, $typeNames, $teachersView, $classTeacherOf, $subjectsOf, $staff) {
                 $h = Qs::hash($u->id);
                 return [
                     'id' => $h, 'name' => $u->name, 'photo' => $u->photo, 'username' => $u->username, 'phone' => $u->phone, 'email' => $u->email,
                     'type' => $u->user_type, 'type_name' => $typeNames[$u->user_type] ?? ucwords(str_replace('_', ' ', $u->user_type)),
+                    'employment' => $staff[$u->id] ?? null,
+                    'class_teacher' => collect($classTeacherOf[$u->id] ?? [])->map(function ($s) { return trim($s->class.' '.$s->section); })->values(),
+                    'subjects' => collect($subjectsOf[$u->id] ?? [])->groupBy('class')->map(function ($g, $class) { return $class.': '.$g->pluck('subject')->implode(', '); })->values(),
                     'urls' => array_filter([
                         'show' => route('users.show', $h),
-                        'edit' => route('users.edit', $h),
-                        'reset_pass' => $isSA && !Qs::headSA($u->id) ? route('users.reset_pass', $h) : null,
+                        'edit' => route('users.edit', $h).($teachersView && !Qs::userIsAcademicAdmin() ? '?view=teachers' : ''),
+                        'reset_pass' => self::canResetPassword($u) ? route('users.reset_pass', $h) : null,
                         'destroy' => $isSA && !Qs::headSA($u->id) ? route('users.destroy', $h) : null,
                     ]),
                 ];
@@ -80,7 +119,8 @@ class UserController extends Controller
                 'blood_groups' => $this->user->getBloodGroups()->map->only(['id', 'name'])->values(),
             ],
             'editing' => $editing,
-            'urls' => ['store' => route('users.store'), 'index' => route('users.index'), 'lgas' => route('get_lga', ':id')],
+            'teachersView' => $teachersView,
+            'urls' => ['store' => route('users.store'), 'index' => $index, 'lgas' => route('get_lga', ':id')],
         ];
     }
 
@@ -108,6 +148,7 @@ class UserController extends Controller
                 'address' => $u->address, 'email' => $u->email, 'phone' => $u->phone, 'phone2' => $u->phone2,
                 'gender' => $u->gender, 'nal_id' => $u->nal_id, 'state_id' => $u->state_id, 'lga_id' => $u->lga_id, 'bg_id' => $u->bg_id,
                 'emp_date' => optional($u->staff->first())->emp_date ? date('Y-m-d', strtotime($u->staff->first()->emp_date)) : '',
+                'employment_type' => optional($u->staff->first())->employment_type ?: '',
                 'photo' => $u->photo, 'username' => $u->username,
                 'is_staff' => in_array($u->user_type, Qs::getStaff()),
                 'lgas' => $u->state_id ? $this->loc->getLGAs($u->state_id)->map->only(['id', 'name'])->values() : [],
@@ -115,16 +156,19 @@ class UserController extends Controller
         }, 'pages.support_team.users.edit', $d);
     }
 
-    public function reset_pass($id)
+    /** Set a new password for a user (the person doing it types the password). */
+    public function reset_pass(\Illuminate\Http\Request $req, $id)
     {
-        // Redirect if Making Changes to Head of Super Admins
-        if(Qs::headSA($id)){
-            return back()->with('flash_danger', __('msg.denied'));
+        // The route already turns the hashed id in the address into the user's id.
+        $user = $this->user->find(is_numeric($id) ? (int) $id : Qs::decodeHash($id));
+        if (!self::canResetPassword($user)) {
+            return Qs::json(__('msg.denied'), false);
         }
+        $d = $req->validate(['password' => 'required|string|min:6|max:50'], [], ['password' => 'Password']);
 
-        $data['password'] = Hash::make('user');
-        $this->user->update($id, $data);
-        return back()->with('flash_success', __('msg.pu_reset'));
+        $this->user->update($user->id, ['password' => Hash::make($d['password']), 'remember_token' => null]);
+
+        return Qs::json('Password changed for '.$user->name.'.');
     }
 
     public function store(UserRequest $req)
@@ -253,6 +297,7 @@ class UserController extends Controller
                 'blood_group' => optional($u->blood_group)->name, 'nationality' => optional($u->nationality)->name,
                 'state' => optional($u->state)->name, 'lga' => optional($u->lga)->name,
                 'emp_date' => optional($u->staff->first())->emp_date,
+                'employment_type' => optional($u->staff->first())->employment_type,
                 'staff_code' => optional($u->staff->first())->code,
             ],
             'subjects' => $u->user_type === 'teacher' ? Qs::findTeacherSubjects($u->id)->map(function ($s) {
@@ -261,6 +306,7 @@ class UserController extends Controller
             'urls' => array_filter([
                 'back' => Qs::userIsTeamAdmin() ? route('users.index') : null,
                 'edit' => Qs::userIsTeamAdmin() ? route('users.edit', $h) : null,
+                'reset_pass' => self::canResetPassword($u) ? route('users.reset_pass', $h) : null,
             ]),
         ];
     }
@@ -294,6 +340,7 @@ class UserController extends Controller
             }, ['amount' => 0, 'paid' => 0, 'balance' => 0]),
             'urls' => array_filter([
                 'edit' => Qs::userIsTeamAdmin() ? route('users.edit', Qs::hash($p->id)) : null,
+                'reset_pass' => self::canResetPassword($p) ? route('users.reset_pass', Qs::hash($p->id)) : null,
                 'back' => Qs::userIsTeamSAT() ? route('users.index') : null,
             ]),
         ];

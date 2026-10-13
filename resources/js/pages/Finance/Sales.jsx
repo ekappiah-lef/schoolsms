@@ -111,7 +111,6 @@ export default function Sales({
                     <TabsContent value="sales">
                         <Panel
                             title="Recent sales"
-                            description="Unpaid sales can be returned: the item goes back into stock."
                             flush
                             actions={
                                 <Button size="sm" asChild>
@@ -221,7 +220,6 @@ export default function Sales({
                     <TabsContent value="history">
                         <Panel
                             title="Stock history"
-                            description="Every restock, sale, return and adjustment, newest first."
                             flush
                         >
                             {movements.length ? (
@@ -516,10 +514,6 @@ function SellForm({ items, students, url, onDone }) {
                                 label: s.name,
                             }))}
                         />
-                        <p className="text-xs text-fg-muted">
-                            Recorded on the student’s account at no charge, and
-                            no stock is used.
-                        </p>
                     </div>
                 )}
             </div>
@@ -553,10 +547,6 @@ function SellForm({ items, students, url, onDone }) {
                             Full
                         </button>
                     </div>
-                    <p className="text-xs text-fg-muted">
-                        Anything not paid now stays on the student’s optional
-                        fees.
-                    </p>
                 </div>
                 {error && <p className="text-sm text-danger-fg">{error}</p>}
                 <Button type="submit" variant="primary" loading={busy}>
@@ -578,7 +568,6 @@ function ItemsTab({ items, categories, urls, onSaved }) {
         <>
             <Panel
                 title="Items & stock"
-                description="Rows in red are at or below their reorder level."
                 flush
                 actions={
                     <Button
@@ -678,7 +667,6 @@ function ItemsTab({ items, categories, urls, onSaved }) {
                     <EmptyState
                         compact
                         title="No items yet"
-                        description="Add the uniforms, books and stationery the school sells."
                     />
                 )}
                 {pager}
@@ -801,12 +789,6 @@ function ItemDialog({ item, categories, urls, onClose, onSaved }) {
                     On sale
                 </label>
             </div>
-            {isNew && (
-                <p className="mt-3 text-xs text-fg-muted">
-                    New items start with no stock. Use Restock to add what you
-                    bought.
-                </p>
-            )}
         </Modal>
     );
 }

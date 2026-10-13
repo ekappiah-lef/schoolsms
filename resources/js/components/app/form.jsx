@@ -33,10 +33,6 @@ export function FormField({ label, required, hint, error, children, className, a
                     <CircleAlert className="size-3.5 shrink-0" />
                     {error}
                 </p>
-            ) : hint ? (
-                <p id={`${id}-desc`} className="text-xs text-fg-muted">
-                    {hint}
-                </p>
             ) : null}
         </div>
     );

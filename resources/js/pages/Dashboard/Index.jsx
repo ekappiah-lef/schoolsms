@@ -140,7 +140,7 @@ export default function Dashboard(props) {
                                 {performance?.classes?.length ? (
                                     <HorizontalBars data={performance.classes} labelKey="class" valueKey="average" name="Class average" suffix="%" />
                                 ) : (
-                                    <EmptyState compact icon={NotebookPen} title="No results recorded yet" description="Class averages appear once marks are entered this year." />
+                                    <EmptyState compact icon={NotebookPen} title="No results recorded yet" />
                                 )}
                             </Card>
                         )}
@@ -526,7 +526,6 @@ function FeeIntake({ fees }) {
     return (
         <Card
             title={<span className="text-2xl">Fee Collection Overview</span>}
-            description="Track school fee collections and outstanding balances across all class levels."
             action={
                 <select
                     value={view}
@@ -616,7 +615,6 @@ function CollectionTrend({ fees }) {
     return (
         <Card
             title={<span className="text-2xl">Collection Trends</span>}
-            description="Monthly payment activity based on issued receipts."
             action={<span className="font-mono text-[11px] text-fg-subtle">{range}</span>}
         >
             <div className="h-40 w-full">
@@ -826,7 +824,7 @@ function TeachingSection({ teaching }) {
                         ))}
                     </ul>
                 ) : (
-                    <EmptyState compact icon={School} title="No sections assigned" description="An administrator assigns class teachers under Sections." />
+                    <EmptyState compact icon={School} title="No sections assigned" />
                 )}
             </Card>
             <Card
@@ -918,7 +916,7 @@ function ChildrenSection({ items }) {
                     ))}
                 </ul>
             ) : (
-                <EmptyState compact icon={Users} title="No children linked to your account" description="Contact the school office to link your children." />
+                <EmptyState compact icon={Users} title="No children linked to your account" />
             )}
         </Card>
     );

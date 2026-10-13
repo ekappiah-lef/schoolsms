@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
-import { Mail, MapPin, Pencil, Phone, Users } from 'lucide-react';
+import { KeyRound, Mail, MapPin, Pencil, Phone, Users } from 'lucide-react';
+import { useResetPassword } from '@/components/app/reset-password';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { Breadcrumbs, EmptyState, Panel } from '@/components/app/page';
 import { Avatar } from '@/components/ui/avatar';
@@ -10,6 +11,7 @@ import { FamilyPanel } from '@/pages/Students/Show';
 
 /** A parent and all their children, with what each child still owes. */
 export default function ParentShow({ parent, children, totals, urls }) {
+    const [resetPassword, resetDialog] = useResetPassword();
     const showFees = children.some((c) => c.fees);
     const active = children.filter((c) => c.status === 'active').length;
 
@@ -29,14 +31,23 @@ export default function ParentShow({ parent, children, totals, urls }) {
                             </div>
                         </div>
                     </div>
-                    {urls.edit && (
-                        <Button variant="primary" asChild>
-                            <a href={urls.edit}>
-                                <Pencil />
-                                Edit
-                            </a>
-                        </Button>
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                        {urls.reset_pass && (
+                            <Button onClick={() => resetPassword({ name: parent.name, url: urls.reset_pass })}>
+                                <KeyRound />
+                                Reset password
+                            </Button>
+                        )}
+                        {urls.edit && (
+                            <Button variant="primary" asChild>
+                                <a href={urls.edit}>
+                                    <Pencil />
+                                    Edit
+                                </a>
+                            </Button>
+                        )}
+                    </div>
+                    {resetDialog}
                 </div>
             </div>
 
@@ -93,7 +104,7 @@ export default function ParentShow({ parent, children, totals, urls }) {
                                 ))}
                             </ul>
                         ) : (
-                            <EmptyState compact icon={Users} title="No children linked" description="Link this parent when admitting or editing a student." />
+                            <EmptyState compact icon={Users} title="No children linked" />
                         )}
                     </Panel>
                     {parent.details && <FamilyPanel d={parent.details} />}

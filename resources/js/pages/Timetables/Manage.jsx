@@ -132,13 +132,13 @@ export default function TimetableManage({ record, isExam, days, slots, entries, 
                                 ))}
                             </ul>
                         ) : (
-                            <EmptyState compact title="No time slots yet" description="Add the periods of the day first." />
+                            <EmptyState compact title="No time slots yet" />
                         )}
                     </Panel>
 
                     <Panel
                         title="Timetable"
-                        description={slots.length ? 'Click a cell to set or change its subject.' : undefined}
+                       
                         flush
                         actions={
                             isExam && slots.length ? (
@@ -193,7 +193,7 @@ export default function TimetableManage({ record, isExam, days, slots, entries, 
                                 </table>
                             </div>
                         ) : (
-                            <EmptyState compact title={slots.length ? 'No exam dates yet' : 'Add time slots first'} description={isExam && slots.length ? 'Use “Add exam” to schedule the first paper.' : undefined} />
+                            <EmptyState compact title={slots.length ? 'No exam dates yet' : 'Add time slots first'} />
                         )}
                     </Panel>
                 </div>

@@ -18,6 +18,7 @@ import { withAppLayout } from '@/layouts/AppLayout';
 import { DataTable, Pagination, SearchInput } from '@/components/app/data-table';
 import { EmptyState, PageHeader } from '@/components/app/page';
 import { useConfirmAction } from '@/components/app/confirm-action';
+import { useResetPassword } from '@/components/app/reset-password';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,7 @@ export default function StudentsIndex({ variant, students, summary, filters, cla
     const graduated = variant === 'graduated';
     const busy = useVisitState();
     const [confirm, confirmDialog] = useConfirmAction();
+    const [resetPassword, resetDialog] = useResetPassword();
 
     const apply = (changes) => {
         const next = { ...filters, ...changes };
@@ -128,7 +130,7 @@ export default function StudentsIndex({ variant, students, summary, filters, cla
                 header: () => <span className="sr-only">Actions</span>,
                 enableHiding: false,
                 meta: { className: 'w-12 text-right', headerClassName: 'w-12' },
-                cell: ({ row }) => <RowActions student={row.original} confirm={confirm} />,
+                cell: ({ row }) => <RowActions student={row.original} confirm={confirm} resetPassword={resetPassword} />,
             },
         ],
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -252,7 +254,7 @@ export default function StudentsIndex({ variant, students, summary, filters, cla
                     <EmptyState
                         icon={Users}
                         title={hasFilters ? 'No students match these filters' : graduated ? 'No graduated students yet' : 'No students enrolled yet'}
-                        description={hasFilters ? 'Try a different search or clear the filters.' : undefined}
+                       
                         action={
                             hasFilters ? (
                                 <Button size="sm" onClick={() => apply({ q: '', class: '', section: '', gender: '' })}>
@@ -276,6 +278,7 @@ export default function StudentsIndex({ variant, students, summary, filters, cla
                 }
             />
             {confirmDialog}
+            {resetDialog}
         </>
     );
 }
@@ -294,7 +297,7 @@ const CSV_COLUMNS = [
     { label: 'Year admitted', value: (r) => r.year_admitted },
 ];
 
-function RowActions({ student, confirm }) {
+function RowActions({ student, confirm, resetPassword }) {
     const u = student.urls;
     return (
         <DropdownMenu>
@@ -327,15 +330,7 @@ function RowActions({ student, confirm }) {
                 {(u.reset_pass || u.not_graduated) && <DropdownMenuSeparator />}
                 {u.reset_pass && (
                     <DropdownMenuItem
-                        onSelect={() =>
-                            confirm({
-                                title: 'Reset password?',
-                                description: `${student.name}'s password will be reset to the default student password. They should change it after signing in.`,
-                                confirmLabel: 'Reset password',
-                                tone: 'primary',
-                                url: u.reset_pass,
-                            })
-                        }
+                        onSelect={() => resetPassword({ name: student.name, url: u.reset_pass })}
                     >
                         <KeyRound />
                         Reset password

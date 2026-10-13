@@ -25,7 +25,7 @@ export default function PinEnter({ student, urls }) {
         <>
             <Head title="Enter exam pin" />
             <form onSubmit={submit} className="mx-auto flex w-full max-w-xl flex-col gap-6">
-                <ModuleHeader crumbs={['Results', 'Exam pin']} title="Enter exam pin" description={`A pin is needed to view ${student}'s results.`} />
+                <ModuleHeader crumbs={['Results', 'Exam pin']} title="Enter exam pin" />
                 <Panel
                     title={student}
                     footer={

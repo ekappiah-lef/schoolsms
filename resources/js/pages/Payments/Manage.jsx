@@ -107,7 +107,6 @@ export default function PaymentsManage({
                     <EmptyState
                         icon={Wallet}
                         title="Choose a class to begin"
-                        description="Payment records for the current year are prepared automatically when a class is opened."
                     />
                 </Panel>
             ) : (

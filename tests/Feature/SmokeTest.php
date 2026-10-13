@@ -40,7 +40,7 @@ class SmokeTest extends TestCase
     public function testAdminPagesOpen()
     {
         $admin = $this->user('admin');
-        foreach (['/dashboard', '/finance', '/finance/ledger', '/finance/audit-trail', '/exams', '/timetables', '/clearenroll/verify-student'] as $url) {
+        foreach (['/dashboard', '/finance', '/finance/ledger', '/finance/audit-trail', '/exams', '/timetables', '/clearenroll/verify-student', '/teachers', '/users', '/marks/remarks', '/reports/design'] as $url) {
             $this->actingAs($admin)->get($url)->assertOk();
         }
     }

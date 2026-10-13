@@ -19,6 +19,7 @@ import { DescriptionList, EmptyState, Panel } from '@/components/app/page';
 import { Breadcrumbs } from '@/components/app/page';
 import { Meter } from '@/components/app/charts';
 import { useConfirmAction } from '@/components/app/confirm-action';
+import { useResetPassword } from '@/components/app/reset-password';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,7 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
     const initialTab = new URLSearchParams(window.location.search).get('tab') || 'overview';
     const [tab, setTab] = useState(initialTab);
     const [confirm, confirmDialog] = useConfirmAction();
+    const [resetPassword, resetDialog] = useResetPassword();
 
     const changeTab = (value) => {
         setTab(value);
@@ -129,15 +131,7 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
                                     <DropdownMenuItem
-                                        onSelect={() =>
-                                            confirm({
-                                                title: 'Reset password?',
-                                                description: `${student.name}'s password will be reset to the default student password.`,
-                                                confirmLabel: 'Reset password',
-                                                tone: 'primary',
-                                                url: urls.reset_pass,
-                                            })
-                                        }
+                                        onSelect={() => resetPassword({ name: student.name, url: urls.reset_pass })}
                                     >
                                         <KeyRound />
                                         Reset password
@@ -267,6 +261,7 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                 </TabsContent>
             </Tabs>
             {confirmDialog}
+            {resetDialog}
         </>
     );
 }
@@ -334,7 +329,7 @@ function GuardianCard({ guardian, compact, onOpen, canEdit }) {
                     </ul>
                 </div>
             ) : (
-                <EmptyState compact icon={UserRound} title="No parent linked" description={canEdit ? 'Link a parent account from Edit details.' : undefined} className="py-4" />
+                <EmptyState compact icon={UserRound} title="No parent linked" className="py-4" />
             )}
         </Panel>
     );
@@ -415,7 +410,6 @@ function FeesTab({ fees, invoice, invoiceUrl, sendUrl }) {
                 <EmptyState
                     icon={Wallet}
                     title="No fees billed"
-                    description="School fees are billed once they are set up for the student’s class; optional services are chosen at admission or on the edit page."
                     action={
                         invoiceUrl && (
                             <Button size="sm" asChild>
@@ -549,7 +543,6 @@ function NoticesPanel({ notices, notifyUrl, hasParent }) {
     return (
         <Panel
             title="Admission notices"
-            description="Admission letter and fees link sent to the parent by email and SMS"
             actions={
                 notifyUrl && hasParent ? (
                     <Button size="sm" onClick={resend} loading={sending}>
@@ -578,7 +571,6 @@ function LockedResults({ marksheet, compact }) {
             compact={compact}
             icon={LockKeyhole}
             title="Results are locked"
-            description="Results are PIN-protected this term. Open the marksheet to enter a result PIN."
             action={
                 <Button size="sm" asChild>
                     <a href={marksheet}>Open marksheet</a>
@@ -608,7 +600,7 @@ function ResultsTab({ results, marksheet }) {
     if (!exams.length) {
         return (
             <Panel>
-                <EmptyState icon={BookOpenCheck} title="No exam results yet" description="Results appear here once teachers enter marks." />
+                <EmptyState icon={BookOpenCheck} title="No exam results yet" />
             </Panel>
         );
     }

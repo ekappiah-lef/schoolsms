@@ -37,13 +37,6 @@ export default function TimetablesIndex({ session, canCreate, viewer = 'staff', 
                 <ModuleHeader
                     crumbs={['Academics', 'Schedule']}
                     title="Timetables"
-                    description={
-                        isStaff
-                            ? 'Create and assign class or exam schedules for the active academic year.'
-                            : viewer === 'parent'
-                              ? 'The class and exam timetables of your children.'
-                              : 'Your class and exam timetables.'
-                    }
                     session={session}
                     aside={
                         isStaff && tab === 'list' && (
@@ -62,7 +55,7 @@ export default function TimetablesIndex({ session, canCreate, viewer = 'staff', 
                     <div className="flex flex-col gap-3">
                         <SetupCard
                             title={editing ? 'Edit Timetable' : 'New Timetable Setup'}
-                            description={editing ? 'Update the name, class or type of this timetable.' : 'Fill in the basic properties to generate an editable matrix grid.'}
+                           
                             icon={CalendarDays}
                             onSubmit={form.submit}
                             onReset={form.reset}
@@ -128,19 +121,6 @@ export default function TimetablesIndex({ session, canCreate, viewer = 'staff', 
                                 </NativeSelect>
                             </Field>
                         </SetupCard>
-                        <InfoCallout>
-                            {editing ? (
-                                <>
-                                    Period slots and subjects are edited in the{' '}
-                                    <a href={editing.manage} className="font-medium text-primary hover:underline">
-                                        matrix editor
-                                    </a>
-                                    .
-                                </>
-                            ) : (
-                                'Once created, you can instantly define specific period slots and subject allocations in the matrix editor (Manage).'
-                            )}
-                        </InfoCallout>
                     </div>
                 ) : (
                     <>

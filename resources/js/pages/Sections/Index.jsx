@@ -36,7 +36,7 @@ export default function SectionsIndex({ session, canDelete, classes, teachers, s
                     <div className="flex flex-col gap-3">
                         <SetupCard
                             title={editing ? `Edit ${editing.class} ${editing.name}` : 'New Section Setup'}
-                            description={editing ? 'Rename the section or change its class teacher.' : 'Add a section to a class and optionally assign its class teacher.'}
+                           
                             icon={Layers}
                             onSubmit={form.submit}
                             onReset={form.reset}
@@ -89,7 +89,6 @@ export default function SectionsIndex({ session, canDelete, classes, teachers, s
                                 </NativeSelect>
                             </Field>
                         </SetupCard>
-                        <InfoCallout>Class teachers can manage marks and timetables for their sections. The default section of a class cannot be deleted.</InfoCallout>
                     </div>
                 ) : (
                     <>

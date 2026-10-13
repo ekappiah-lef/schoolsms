@@ -79,7 +79,6 @@
     </table>
 
     <div style="margin-top: 16px;"><span class="stamp">{{ $r['balance'] > 0 ? 'PART PAYMENT' : 'PAID IN FULL' }}</span></div>
-    <p class="muted" style="margin-top: 18px; font-size: 10px;">Thank you. Fees paid are non-refundable unless the school states otherwise in writing. Keep this receipt for your records.</p>
 </div>
 </body>
 </html>

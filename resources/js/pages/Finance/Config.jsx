@@ -143,7 +143,7 @@ function OptionGroup({ group, rows, urls, confirm, onSaved }) {
                     {group.label}
                 </span>
             }
-            description={GROUP_HINTS[group.key]}
+           
             flush
         >
             <ul className="divide-y divide-border">
@@ -283,7 +283,7 @@ function BusRoutes({ rows, urls, confirm, onSaved }) {
 
     return (
         <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-            <Panel title="Bus routes" description="One price for both ways (in and out); one way is usually half." flush>
+            <Panel title="Bus routes" flush>
                 {rows.length ? (
                     <table className="w-full text-left">
                         <thead>
@@ -335,7 +335,7 @@ function BusRoutes({ rows, urls, confirm, onSaved }) {
                         </tbody>
                     </table>
                 ) : (
-                    <EmptyState compact icon={Bus} title="No bus routes yet" description="Add the locations the school bus serves and their prices." />
+                    <EmptyState compact icon={Bus} title="No bus routes yet" />
                 )}
             </Panel>
 
@@ -427,7 +427,7 @@ function Discounts({ rows, urls, confirm, onSaved }) {
 
     return (
         <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-            <Panel title="Tuition discounts" description="Taken off the tuition part of school fees (or the whole fee when it is not itemised). Optional services are never discounted." flush>
+            <Panel title="Tuition discounts" flush>
                 {rows.length ? (
                     <table className="w-full text-left">
                         <thead>
@@ -525,7 +525,6 @@ function Discounts({ rows, urls, confirm, onSaved }) {
                 <Button type="submit" variant="primary" className="mt-5 w-full" loading={busy}>
                     {editingId ? 'Save discount' : 'Add discount'}
                 </Button>
-                <p className="mt-3 text-xs text-fg-muted">Changing a percentage recalculates what students on this discount owe this year.</p>
             </form>
         </div>
     );
@@ -536,7 +535,7 @@ function Labeled({ label, error, hint, children }) {
         <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium">{label}</label>
             {children}
-            {error ? <p className="text-xs text-danger-fg">{error}</p> : hint ? <p className="text-xs text-fg-muted">{hint}</p> : null}
+            {error ? <p className="text-xs text-danger-fg">{error}</p> : null}
         </div>
     );
 }
@@ -547,7 +546,6 @@ function SchoolFees({ rows, session, urls }) {
     return (
         <Panel
             title={`School fees · ${session}`}
-            description="Each fee can be itemised (Tuition, Medicals, Maintenance, P.T.A …) and limited to new or continuing students. Parents see the breakdown on their invoice."
             flush
             actions={
                 <>
@@ -593,7 +591,7 @@ function SchoolFees({ rows, session, urls }) {
                     </tbody>
                 </table>
             ) : (
-                <EmptyState compact title="No school fees for this year" description="Create one fee for new students and one for continuing students, then add their items." />
+                <EmptyState compact title="No school fees for this year" />
             )}
         </Panel>
     );
@@ -630,7 +628,7 @@ function NoticeSettings({ notices, url, onSaved }) {
     return (
         <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
             <div className="space-y-6">
-                <Panel title="School policy" description="Attached to the admission email sent to parents.">
+                <Panel title="School policy">
                     <div className="flex flex-wrap items-center gap-3">
                         <FileText className="size-5 text-fg-subtle" />
                         {file ? (
@@ -672,10 +670,9 @@ function NoticeSettings({ notices, url, onSaved }) {
                             )}
                         </div>
                     </div>
-                    <p className="mt-3 text-xs text-fg-muted">PDF or Word, up to 10 MB.</p>
                 </Panel>
 
-                <Panel title="How to pay" description="Shown on the fees email and the parent’s fees statement.">
+                <Panel title="How to pay">
                     <Textarea
                         rows={6}
                         value={instructions}

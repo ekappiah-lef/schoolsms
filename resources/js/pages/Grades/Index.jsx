@@ -48,7 +48,6 @@ export default function GradesIndex({ session, canDelete, types, remarks, grades
                     <div className="flex flex-col gap-3">
                         <SetupCard
                             title={editing ? `Edit grade ${editing.name}` : 'New Grade Setup'}
-                            description="A total score between the lowest and highest mark receives this grade."
                             icon={Medal}
                             onSubmit={form.submit}
                             onReset={form.reset}
@@ -86,7 +85,6 @@ export default function GradesIndex({ session, canDelete, types, remarks, grades
                                 </NativeSelect>
                             </Field>
                         </SetupCard>
-                        <InfoCallout>After changing the grading scale, use Recalculate totals under Examinations to re-grade marks that were already entered.</InfoCallout>
                     </div>
                 ) : (
                     <GradeList grades={grades} types={types} canDelete={canDelete} confirm={confirm} />

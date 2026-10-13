@@ -36,7 +36,7 @@ export default function PinsIndex({ tab: initialTab, valid, used, max, urls }) {
         <>
             <Head title="Exam pins" />
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-                <ModuleHeader crumbs={['Examinations', 'Exam pins']} title="Exam pins" description="Parents and students enter a pin to view results. Each pin can be used up to six times for one student." />
+                <ModuleHeader crumbs={['Examinations', 'Exam pins']} title="Exam pins" />
                 <Segmented
                     value={tab}
                     onChange={setTab}
@@ -98,7 +98,7 @@ export default function PinsIndex({ tab: initialTab, valid, used, max, urls }) {
                     <div className="mx-auto flex w-full max-w-2xl flex-col gap-3">
                         <SetupCard
                             title="Generate pins"
-                            description={`Create between 10 and 500 pins at a time. ${valid.length} unused pins exist; up to ${max} can be kept.`}
+                           
                             icon={KeyRound}
                             onSubmit={generate}
                             onReset={() => setCount('')}
