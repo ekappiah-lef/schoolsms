@@ -62,7 +62,8 @@ export default function MarkSheet({ student, year, years, exams, skills, canComm
 MarkSheet.layout = withAppLayout;
 
 function ExamCard({ ex, skills, canComment, canHeadComment }) {
-    const [open, setOpen] = useState(false);
+    // Staff see the comment boxes straight away; parents and students open them if they want.
+    const [open, setOpen] = useState(!!canComment);
     const hasSkills = skills.af.length > 0 || skills.ps.length > 0;
     return (
         <Panel

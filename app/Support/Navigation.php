@@ -48,10 +48,10 @@ class Navigation
             }
             $exams[] = self::item('Marks entry', null, 'marks.index', ['marks.index', 'marks.manage']);
             $exams[] = self::item('Results by class', null, 'marks.bulk', ['marks.bulk', 'marks.show']);
-            // Class teachers write each student's remark; the academic admin / admins add the head's remark.
-            // Both design the report card (a class teacher for their own class type).
+            // Admins, the academic admin and class teachers (for their own class type) design the report card.
+            // Remarks are written on each student's results (Results by class): the class teacher's by the
+            // class teacher, the head teacher's by the academic admin or an admin.
             if (Qs::userIsTeamSA() || \App\Support\TeacherScope::ownSectionIds()) {
-                $exams[] = self::item('Report remarks', null, 'marks.remarks');
                 $exams[] = self::item('Report cards', null, 'reports.design');
             }
             $academics[] = self::group('Examinations', 'notebook-pen', $exams);

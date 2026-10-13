@@ -195,8 +195,6 @@ Route::group(['middleware' => 'auth'], function () {
                 Route::put('comment_update/{exr_id}', 'MarkController@comment_update')->name('marks.comment_update');
                 Route::put('skills_update/{skill}/{exr_id}', 'MarkController@skills_update')->name('marks.skills_update');
                 Route::post('selector', 'MarkController@selector')->name('marks.selector');
-                Route::get('remarks', 'ReportRemarkController@index')->name('marks.remarks');
-                Route::put('remarks/{exam}/{section}', 'ReportRemarkController@save')->name('marks.remarks.save');
                 Route::get('bulk/{class?}/{section?}', 'MarkController@bulk')->name('marks.bulk');
                 Route::post('bulk', 'MarkController@bulk_select')->name('marks.bulk_select');
             });
