@@ -43,7 +43,7 @@ class MoMo
 
         $p = MomoPayment::create([
             'reference' => (string) Str::uuid(), 'student_id' => $studentId, 'phone' => $msisdn, 'amount' => $amount,
-            'currency' => config('momo.currency'), 'status' => 'pending', 'initiated_by' => $initiatedBy,
+            'currency' => 'GHS', 'status' => 'pending', 'initiated_by' => $initiatedBy,
         ]);
 
         if (config('momo.driver') === 'fake') {
@@ -63,6 +63,7 @@ class MoMo
             $res = Http::withToken(self::token())->withHeaders($headers)->timeout(30)
                 ->post(rtrim(config('momo.base_url'), '/').'/collection/v1_0/requesttopay', [
                     'amount' => (string) $amount,
+                    // Fees are in GHS; MTN's sandbox only accepts EUR, production (mtnghana) uses GHS.
                     'currency' => config('momo.currency'),
                     'externalId' => (string) $p->id,
                     'payer' => ['partyIdType' => 'MSISDN', 'partyId' => $msisdn],
