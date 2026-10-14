@@ -66,7 +66,8 @@ Route::group(['middleware' => 'auth'], function () {
         Route::group(['prefix' => 'users'], function(){
             Route::put('reset_pass/{id}', 'UserController@reset_pass')->name('users.reset_pass');
         });
-        Route::get('teachers', 'UserController@teachers')->name('teachers.index');
+        Route::get('staff', 'UserController@staff')->name('staff.index');
+        Route::get('teachers', function () { return redirect()->route('staff.index', ['tab' => 'teaching']); })->name('teachers.index');
 
         /*************** TimeTables *****************/
         Route::group(['prefix' => 'timetables'], function(){
@@ -131,6 +132,7 @@ Route::group(['middleware' => 'auth'], function () {
         /*************** Finance: dashboard, income & expenses, service rosters *****************/
         Route::get('finance', 'FinanceDashboardController@index')->name('finance.dashboard');
         Route::get('finance/ledger', 'FinanceLedgerController@index')->name('finance.ledger');
+        Route::get('finance/trial-balance', 'FinanceLedgerController@trialBalance')->name('finance.trial_balance');
         Route::get('finance/payment-mode', 'FinanceDashboardController@paymentMode')->name('finance.payment_mode');
         Route::get('finance/fee-students', 'FinanceDashboardController@feeStudents')->name('finance.fee_students');
         Route::get('finance/audit-trail', 'FinanceAuditController@index')->name('finance.audit');
@@ -212,6 +214,10 @@ Route::group(['middleware' => 'auth'], function () {
         Route::get('attendance', 'AttendanceController@index')->name('attendance.index');
         Route::post('attendance', 'AttendanceController@store')->name('attendance.store');
         Route::post('attendance/alert', 'AttendanceController@alert')->name('attendance.alert');
+        Route::get('attendance/report', 'AttendanceReportController@index')->name('attendance.report');
+        Route::post('attendance/report/send-all', 'AttendanceReportController@sendAll')->name('attendance.report.send_all');
+        Route::get('attendance/report/{student}/pdf', 'AttendanceReportController@pdf')->name('attendance.report.pdf');
+        Route::post('attendance/report/{student}/send', 'AttendanceReportController@send')->name('attendance.report.send');
         Route::get('messages', 'MessageController@index')->name('messages.index');
         Route::get('clearenroll/verify-student', 'ClearEnrollController@student')->name('clearenroll.student');
         Route::get('clearenroll/verify-teacher', 'ClearEnrollController@teacher')->name('clearenroll.teacher');

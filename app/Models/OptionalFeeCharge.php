@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use AppSupportMoney;
 use Eloquent;
 
 class OptionalFeeCharge extends Eloquent
@@ -10,13 +11,16 @@ class OptionalFeeCharge extends Eloquent
 
     protected $fillable = ['student_id', 'year', 'term', 'group', 'label', 'fee_option_id', 'bus_route_id', 'bus_direction', 'inventory_item_id', 'qty', 'handed_down_from', 'amount', 'amt_paid'];
 
+    // Money: cedis with pesewas
+    protected $casts = ['amount' => 'float', 'amt_paid' => 'float'];
+
     public function receipts()
     {
         return $this->hasMany(OptionalFeeReceipt::class, 'charge_id');
     }
 
-    public function getBalanceAttribute(): int
+    public function getBalanceAttribute(): float
     {
-        return max((int) $this->amount - (int) $this->amt_paid, 0);
+        return \App\Support\Money::r(max($this->amount - $this->amt_paid, 0));
     }
 }

@@ -171,7 +171,7 @@ class ClearEnroll
      * Runs after the page has answered, so a slow connection never holds up the cashier. If it fails,
      * the next full sync puts it right.
      */
-    public static function studentChanged(int $studentId, ?int $amount = null, ?string $reference = null): void
+    public static function studentChanged(int $studentId, ?float $amount = null, ?string $reference = null): void
     {
         if (!self::enabled()) return;
         dispatch(function () use ($studentId, $amount, $reference) {

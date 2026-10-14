@@ -58,6 +58,18 @@ class LoginController extends Controller
         return $this->guard()->attempt($this->credentials($request), false);
     }
 
+    /** Non-teaching staff are on record for staff lists and messages; they do not sign in. */
+    protected function authenticated(\Illuminate\Http\Request $request, $user)
+    {
+        if ($user->user_type === 'non_teaching') {
+            $this->guard()->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            throw \Illuminate\Validation\ValidationException::withMessages([$this->username() => 'This staff account does not have access to the portal.']);
+        }
+    }
+
     /*
      *  Login with Username or Email
      * */

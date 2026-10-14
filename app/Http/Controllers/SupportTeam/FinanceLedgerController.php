@@ -14,6 +14,19 @@ class FinanceLedgerController extends Controller
     public function __construct()
     {
         $this->middleware('teamAccount');
+        $this->middleware('super_admin', ['only' => ['trialBalance']]);
+    }
+
+    /** Trial balance for the chosen terms (super admin). */
+    public function trialBalance(Request $req)
+    {
+        $sel = TermSelection::fromRequest($req);
+
+        return Inertia::render('Finance/TrialBalance', [
+            'selection' => $sel->toArray(),
+            'tb' => FinanceSummary::trialBalance($sel),
+            'urls' => ['self' => route('finance.trial_balance'), 'ledger' => route('finance.ledger')],
+        ]);
     }
 
     public function index(Request $req)

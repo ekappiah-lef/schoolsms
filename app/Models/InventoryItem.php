@@ -11,7 +11,7 @@ class InventoryItem extends Eloquent
 
     protected $fillable = ['name', 'category', 'price', 'stock', 'reorder_level', 'active'];
 
-    protected $casts = ['active' => 'boolean'];
+    protected $casts = ['active' => 'boolean', 'price' => 'float'];
 
     public function movements()
     {

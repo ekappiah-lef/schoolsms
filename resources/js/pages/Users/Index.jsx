@@ -15,22 +15,23 @@ import { useModuleForm } from '@/lib/use-module-form';
 import http from '@/lib/http';
 import { cn } from '@/lib/utils';
 
-const BLANK = { user_type: '', name: '', address: '', email: '', username: '', phone: '', phone2: '', emp_date: '', employment_type: '', password: '', gender: '', nal_id: '', state_id: '', lga_id: '', bg_id: '', photo: null };
+const BLANK = { user_type: '', name: '', address: '', email: '', username: '', phone: '', phone2: '', emp_date: '', employment_type: '', job_title: '', password: '', gender: '', nal_id: '', state_id: '', lga_id: '', bg_id: '', photo: null };
 // When editing, the type, username, password and photo are never sent unless changed
 // (an empty photo or password would overwrite the saved one).
-const EDIT_BLANK = { name: '', address: '', email: '', phone: '', phone2: '', emp_date: '', employment_type: '', gender: '', nal_id: '', state_id: '', lga_id: '', bg_id: '' };
+const EDIT_BLANK = { name: '', address: '', email: '', phone: '', phone2: '', emp_date: '', employment_type: '', job_title: '', gender: '', nal_id: '', state_id: '', lga_id: '', bg_id: '' };
 
 const EMPLOYMENT = { full_time: 'Full time', part_time: 'Part time' };
 
 /** Users — Create user / Show users (UserController; JSON store & update). Students are managed under Students. */
-export default function UsersIndex({ userTypes, users, options, editing, teachersView, urls }) {
+export default function UsersIndex({ userTypes, users, options, editing, staffView, urls }) {
     const [tab, setTab] = useModuleTab(editing ? 'create' : 'list');
-    const [type, setType] = useState('all');
+    const [type, setType] = useState(() => (staffView && ['teaching', 'non_teaching'].includes(new URLSearchParams(window.location.search).get('tab')) ? new URLSearchParams(window.location.search).get('tab') : 'all'));
     const [confirm, confirmDialog] = useConfirmAction();
     const [resetPassword, resetDialog] = useResetPassword();
     const [photoError, setPhotoError] = useState(null);
     const [showPassword, setShowPassword] = useState(true);
-    const what = teachersView ? 'Teacher' : 'User';
+    const what = staffView ? 'Staff member' : 'User';
+    const whats = staffView ? 'Staff' : 'Users';
 
     const form = useModuleForm({
         initial: editing ? EDIT_BLANK : BLANK,
@@ -59,15 +60,16 @@ export default function UsersIndex({ userTypes, users, options, editing, teacher
     const typeTitle = editing ? editing.type : userTypes.find((t) => t.id === form.data.user_type)?.title;
     const isAdminType = ['super_admin', 'admin'].includes(typeTitle);
     const counts = useMemo(() => Object.fromEntries(userTypes.map((t) => [t.title, users.filter((u) => u.type === t.title).length])), [userTypes, users]);
-    const rows = type === 'all' ? users : users.filter((u) => u.type === type);
+    const rows = type === 'all' ? users : users.filter((u) => (staffView ? u.category : u.type) === type);
+    const teaching = users.filter((u) => u.category === 'teaching').length;
     const opts = (list) => list.map((o) => ({ value: o.id, label: o.name }));
 
     return (
         <>
-            <Head title={`${what}s`} />
+            <Head title={whats} />
             <div className={cn('mx-auto flex w-full flex-col gap-6', tab === 'create' ? 'max-w-4xl' : 'max-w-7xl')}>
-                <ModuleHeader crumbs={['People', `${what}s`]} title={`${what}s`} />
-                <ModuleTabs value={tab} onChange={(t) => (editing && t === 'list' ? router.visit(urls.index) : setTab(t))} createLabel={what} listLabel={`Show ${what}s`} count={users.length} editing={!!editing} />
+                <ModuleHeader crumbs={['People', whats]} title={whats} />
+                <ModuleTabs value={tab} onChange={(t) => (editing && t === 'list' ? router.visit(urls.index) : setTab(t))} createLabel={what} listLabel={`Show ${whats}`} count={users.length} editing={!!editing} />
 
                 {tab === 'create' ? (
                     <div className="flex flex-col gap-3">
@@ -110,6 +112,11 @@ export default function UsersIndex({ userTypes, users, options, editing, teacher
                             <Field label="Date of employment" error={form.errors.emp_date}>
                                 <DatePicker value={form.data.emp_date} onChange={(v) => form.set('emp_date', v)} fromYear={1980} />
                             </Field>
+                            {typeTitle === 'non_teaching' && (
+                                <Field label="Job title" error={form.errors.job_title}>
+                                    <input className={fieldInput} value={form.data.job_title} onChange={(e) => form.set('job_title', e.target.value)} placeholder="e.g., Driver, Cook, Security" maxLength={60} />
+                                </Field>
+                            )}
                             {typeTitle !== 'parent' && (
                                 <Field label="Employment" error={form.errors.employment_type}>
                                     <NativeSelect value={form.data.employment_type} onChange={(v) => form.set('employment_type', v)}>
@@ -165,20 +172,28 @@ export default function UsersIndex({ userTypes, users, options, editing, teacher
                     </div>
                 ) : (
                     <>
-                        {!teachersView && <Segmented
+                        <Segmented
                             value={type}
                             onChange={setType}
-                            options={[
-                                { value: 'all', label: `All (${users.length})` },
-                                ...userTypes.filter((t) => counts[t.title]).map((t) => ({ value: t.title, label: `${t.name}s (${counts[t.title]})` })),
-                            ]}
-                        />}
+                            options={
+                                staffView
+                                    ? [
+                                          { value: 'all', label: `All staff (${users.length})` },
+                                          { value: 'teaching', label: `Teaching (${teaching})` },
+                                          { value: 'non_teaching', label: `Non-teaching (${users.length - teaching})` },
+                                      ]
+                                    : [
+                                          { value: 'all', label: `All (${users.length})` },
+                                          ...userTypes.filter((t) => counts[t.title]).map((t) => ({ value: t.title, label: `${t.name}s (${counts[t.title]})` })),
+                                      ]
+                            }
+                        />
                         <RegistryCard
                             key={type}
-                            title={`Manage ${what}s`}
+                            title={`Manage ${whats}`}
                             rows={rows}
-                            exportName={teachersView ? 'teachers' : 'users'}
-                            searchText={(r) => `${r.name} ${r.username ?? ''} ${r.email ?? ''} ${r.phone ?? ''} ${r.type_name} ${(r.class_teacher ?? []).join(' ')} ${(r.subjects ?? []).join(' ')}`}
+                            exportName={staffView ? 'staff' : 'users'}
+                            searchText={(r) => `${r.name} ${r.username ?? ''} ${r.email ?? ''} ${r.phone ?? ''} ${r.type_name} ${r.job_title ?? ''} ${(r.class_teacher ?? []).join(' ')} ${(r.subjects ?? []).join(' ')}`}
                             columns={[
                                 { key: 'sn', header: 'S/N', headerClassName: 'w-16' },
                                 {
@@ -196,8 +211,20 @@ export default function UsersIndex({ userTypes, users, options, editing, teacher
                                         </button>
                                     ),
                                 },
-                                ...(teachersView
+                                ...(staffView
                                     ? [
+                                          {
+                                              key: 'role',
+                                              header: 'Role',
+                                              sort: (r) => r.job_title || r.type_name,
+                                              exportValue: (r) => (r.job_title ? `${r.type_name} (${r.job_title})` : r.type_name),
+                                              cell: (r) => (
+                                                  <div className="min-w-0">
+                                                      <span className="rounded bg-subtle px-2 py-0.5 text-xs font-semibold">{r.category === 'teaching' ? 'Teaching' : 'Non-teaching'}</span>
+                                                      <div className="mt-1 text-xs text-fg-muted">{r.job_title || r.type_name}</div>
+                                                  </div>
+                                              ),
+                                          },
                                           {
                                               key: 'class_teacher',
                                               header: 'Class teacher of',
@@ -239,7 +266,7 @@ export default function UsersIndex({ userTypes, users, options, editing, teacher
                                     cell: (r) => (
                                         <div className="flex justify-end gap-0.5">
                                             <RowIconButton icon={Eye} title="View profile" onClick={() => router.visit(r.urls.show)} />
-                                            <RowIconButton icon={Pencil} title="Edit" onClick={() => router.visit(r.urls.edit)} />
+                                            {r.urls.edit && <RowIconButton icon={Pencil} title="Edit" onClick={() => router.visit(r.urls.edit)} />}
                                             {r.urls.reset_pass && (
                                                 <RowIconButton
                                                     icon={KeyRound}

@@ -224,9 +224,9 @@ function InlineFields({ values, onChange, errors, placeholder = 'Name' }) {
             <div>
                 <Input
                     className="tabular h-9 text-right"
-                    type="number"
+                    type="number" step="0.01"
                     min={0}
-                    inputMode="numeric"
+                    inputMode="decimal"
                     value={values.amount}
                     onChange={(e) => onChange({ ...values, amount: e.target.value })}
                     placeholder="Price"
@@ -247,7 +247,7 @@ function BusRoutes({ rows, urls, confirm, onSaved }) {
     const [editingId, setEditingId] = useState(null);
     const [errors, setErrors] = useState({});
     const [busy, setBusy] = useState(false);
-    const half = form.amount_both !== '' ? Math.round(Number(form.amount_both) / 2) : null;
+    const half = form.amount_both !== '' ? Math.round(Number(form.amount_both) * 50) / 100 : null;
 
     const startEdit = (r) => {
         setEditingId(r.id);
@@ -355,9 +355,9 @@ function BusRoutes({ rows, urls, confirm, onSaved }) {
                     <Labeled label="Both ways (in & out)" error={errors.amount_both}>
                         <Input
                             className="tabular"
-                            type="number"
+                            type="number" step="0.01"
                             min={0}
-                            inputMode="numeric"
+                            inputMode="decimal"
                             value={form.amount_both}
                             onChange={(e) => setForm({ ...form, amount_both: e.target.value })}
                             placeholder="e.g. 4000"
@@ -367,9 +367,9 @@ function BusRoutes({ rows, urls, confirm, onSaved }) {
                     <Labeled label="One way (in only or out only)" error={errors.amount_one_way} hint={half !== null ? `Leave blank to use half: ${formatMoney(half)}` : 'Leave blank to use half the both-ways price.'}>
                         <Input
                             className="tabular"
-                            type="number"
+                            type="number" step="0.01"
                             min={0}
-                            inputMode="numeric"
+                            inputMode="decimal"
                             value={form.amount_one_way}
                             onChange={(e) => setForm({ ...form, amount_one_way: e.target.value })}
                             placeholder={half !== null ? String(half) : 'Half'}

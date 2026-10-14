@@ -180,7 +180,7 @@ class Notices
             }
         }
 
-        $money = function ($n) { return 'GHS '.number_format((int) $n); };
+        $money = function ($n) { return 'GHS '.Money::fmt($n); };
         $sms = "{$school}: {$student}, {$invoice['label']} fees {$money($invoice['current']['balance'])}"
             .($invoice['forward']['total'] > 0 ? " + balance brought forward {$money($invoice['forward']['total'])}" : '')
             .". Total due: {$money($invoice['total'])}. Details: {$url}";
@@ -228,6 +228,46 @@ class Notices
         if ($emailed) {
             foreach ($to['phones'] as $phone) {
                 $log('sms', $phone, self::sms($phone, "{$school}: {$child}'s {$examLabel} report sheet has been sent to your email."));
+            }
+        }
+        if (!$to['emails']) {
+            $log('email', '(none)', 'No parent email address on record.');
+        }
+
+        return $results;
+    }
+
+    /** Email a child's attendance (PDF attached) to the parents, with an SMS saying it has been sent. */
+    public static function sendAttendance(StudentRecord $sr, string $period, string $pdf): array
+    {
+        $sr->loadMissing(['user', 'my_parent']);
+        $to = self::recipients($sr);
+        $school = Qs::getSystemName();
+        $child = $sr->user->name;
+        $file = 'Attendance-'.preg_replace('/[^A-Za-z0-9]+/', '-', $child.' '.$period).'.pdf';
+
+        $results = [];
+        $log = function ($channel, $recipient, $error = null) use (&$results, $sr) {
+            $status = $error ? 'failed' : 'sent';
+            NotificationLog::create(['student_id' => $sr->user_id, 'channel' => $channel, 'kind' => 'attendance', 'recipient' => $recipient, 'status' => $status, 'error' => $error ? mb_substr($error, 0, 1000) : null]);
+            $results[] = compact('channel', 'recipient', 'status', 'error');
+        };
+
+        $emailed = 0;
+        foreach ($to['emails'] as $email) {
+            if ($why = self::blocked($email)) { $log('email', $email, $why); continue; }
+            if (!self::mailConfigured()) { $log('email', $email, 'Email is not configured (set MAIL_HOST, MAIL_USERNAME and MAIL_PASSWORD in .env).'); continue; }
+            try {
+                Mail::to($email)->send(new \App\Mail\AttendanceReport($school, optional($sr->my_parent)->name, $child, $period, $pdf, $file));
+                $log('email', $email);
+                $emailed++;
+            } catch (Throwable $e) {
+                $log('email', $email, $e->getMessage());
+            }
+        }
+        if ($emailed) {
+            foreach ($to['phones'] as $phone) {
+                $log('sms', $phone, self::sms($phone, "{$school}: {$child}'s attendance for {$period} has been sent to your email."));
             }
         }
         if (!$to['emails']) {
@@ -358,7 +398,7 @@ class Notices
             }
         }
 
-        $money = function ($n) { return 'GHS '.number_format((int) $n); };
+        $money = function ($n) { return 'GHS '.Money::fmt($n); };
         $sms = "{$r['school']['name']}: payment of {$money($r['amount'])} received for {$r['student']['name']} ({$r['item']}). "
             .($r['balance'] > 0 ? "Balance: {$money($r['balance'])}." : 'Fully paid.')." Receipt {$r['number']}. Thank you.";
         foreach ($to['phones'] as $phone) {

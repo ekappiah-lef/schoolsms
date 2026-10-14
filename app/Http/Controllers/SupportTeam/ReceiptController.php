@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\SupportTeam;
 
+use AppSupportMoney;
 use App\Helpers\Qs;
 use App\Http\Controllers\Controller;
 use App\Models\OptionalFeeReceipt;
@@ -77,7 +78,7 @@ class ReceiptController extends Controller
             if (!$rc || !$rc->pr || !$rc->pr->payment || !$rc->pr->student) return null;
             $pr = $rc->pr;
             $item = $pr->payment->title;
-            $owed = max((int) $pr->payment->amount - (int) $pr->discount, 0);
+            $owed = max(\App\Support\Money::r($pr->payment->amount) - \App\Support\Money::r($pr->discount), 0);
             $studentId = $pr->student_id;
             $ref = $pr->ref_no;
             $number = 'SF-'.str_pad($rc->id, 6, '0', STR_PAD_LEFT);
@@ -86,7 +87,7 @@ class ReceiptController extends Controller
             $rc = OptionalFeeReceipt::with('charge')->find($id);
             if (!$rc || !$rc->charge) return null;
             $item = $rc->charge->label;
-            $owed = (int) $rc->charge->amount;
+            $owed = \App\Support\Money::r($rc->charge->amount);
             $studentId = $rc->charge->student_id;
             $ref = null;
             $number = 'OF-'.str_pad($rc->id, 6, '0', STR_PAD_LEFT);
@@ -111,9 +112,9 @@ class ReceiptController extends Controller
             'year' => $rc->year,
             'ref' => $ref,
             'owed' => $owed,
-            'amount' => (int) $rc->amt_paid,
-            'balance' => (int) $rc->balance,
-            'paid_to_date' => max($owed - (int) $rc->balance, 0),
+            'amount' => \App\Support\Money::r($rc->amt_paid),
+            'balance' => \App\Support\Money::r($rc->balance),
+            'paid_to_date' => max($owed - \App\Support\Money::r($rc->balance), 0),
             'student' => [
                 'id' => $sr->user_id,
                 'name' => $sr->user->name,

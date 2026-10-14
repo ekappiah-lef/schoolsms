@@ -1,5 +1,6 @@
 import {
     BedDouble,
+    Scale,
     ShieldCheck,
     BookOpen,
     CalendarClock,
@@ -34,6 +35,7 @@ const icons = {
     'notebook-pen': NotebookPen,
     'calendar-clock': CalendarClock,
     'scroll-text': ScrollText,
+    scale: Scale,
     wallet: Wallet,
     banknote: Banknote,
     plus: Plus,

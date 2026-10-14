@@ -96,9 +96,9 @@ export default function FinanceTransactions({ session, categories, usedCategorie
                             <Field label="Amount" required error={form.errors.amount}>
                                 <input
                                     className={`${fieldInput} tabular`}
-                                    type="number"
-                                    min={1}
-                                    inputMode="numeric"
+                                    type="number" step="0.01"
+                                    min={0.01}
+                                    inputMode="decimal"
                                     value={form.data.amount}
                                     onChange={(e) => form.set('amount', e.target.value)}
                                     placeholder="e.g. 1000000"

@@ -1,6 +1,6 @@
 @php
     // The PDF font has no cedi sign, so PDFs use the currency code.
-    $money = function ($n) use ($pdf) { return ($pdf ? 'GHS ' : 'GH₵ ').number_format((int) $n); };
+    $money = function ($n) use ($pdf) { return ($pdf ? 'GHS ' : 'GH₵ ').\App\Support\Money::fmt($n); };
 @endphp
 <!doctype html>
 <html>

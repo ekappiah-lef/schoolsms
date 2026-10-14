@@ -128,7 +128,7 @@ export function SchoolFeesInvoice({ records, onPaid, confirm, actions }) {
                                         {expanded && (
                                             <tr className="border-b border-border bg-muted/40">
                                                 <td colSpan={payable ? 6 : 5} className="px-4 pb-3 pl-10 pt-1">
-                                                    <ul className="grid max-w-xl gap-x-8 gap-y-1 py-1 text-sm sm:grid-cols-2">
+                                                    <ul className="max-w-sm py-1 text-sm">
                                                         {r.items.map((it, i) => (
                                                             <li key={i} className="flex justify-between gap-3 border-b border-dashed border-border py-1">
                                                                 <span className="text-fg-muted">{it.name}</span>
@@ -356,8 +356,8 @@ export function PayInline({ title, balance, url, onPaid }) {
     const [method, setMethod] = useState('Cash');
     const [processing, setProcessing] = useState(false);
     const amount = Number(value);
-    const invalid = value !== '' && (!Number.isFinite(amount) || amount < 1 || amount > balance);
-    const after = value !== '' && !invalid ? balance - amount : null;
+    const invalid = value !== '' && (!Number.isFinite(amount) || amount < 0.01 || amount > balance || Math.abs(Math.round(amount * 100) - amount * 100) > 1e-6);
+    const after = value !== '' && !invalid ? Math.round((balance - amount) * 100) / 100 : null;
 
     const pay = async (e) => {
         e.preventDefault();
@@ -396,9 +396,9 @@ export function PayInline({ title, balance, url, onPaid }) {
             <div className="flex-1">
                 <div className="relative">
                     <input
-                        type="number"
-                        inputMode="numeric"
-                        min={1}
+                        type="number" step="0.01"
+                        inputMode="decimal"
+                        min={0.01}
                         max={balance}
                         value={value}
                         onChange={(e) => setValue(e.target.value)}
@@ -416,7 +416,7 @@ export function PayInline({ title, balance, url, onPaid }) {
                     </button>
                 </div>
                 <div className={cn('mt-1 h-4 text-xs', invalid ? 'text-danger-fg' : 'text-fg-muted')}>
-                    {invalid ? `Enter 1 – ${formatMoney(balance)}` : after !== null ? (after === 0 ? 'Clears this item' : `Balance after: ${formatMoney(after)}`) : ''}
+                    {invalid ? `Enter 0.01 – ${formatMoney(balance)}` : after !== null ? (after === 0 ? 'Clears this item' : `Balance after: ${formatMoney(after)}`) : ''}
                 </div>
             </div>
             <Button type="submit" size="sm" variant="primary" loading={processing} disabled={!value || invalid}>
@@ -554,7 +554,7 @@ export function MomoPay({ url, maxAmount, defaultPhone = '', test, onPaid, staff
                     </label>
                     <label className="flex flex-col gap-1 text-xs text-fg-muted">
                         Amount (GHS)
-                        <input className="tabular h-9 w-32 rounded-md border border-border bg-surface px-2.5 text-sm text-fg" type="number" min={1} max={maxAmount} value={amount} onChange={(e) => setAmount(e.target.value)} required />
+                        <input className="tabular h-9 w-32 rounded-md border border-border bg-surface px-2.5 text-sm text-fg" type="number" step="0.01" min={0.01} max={maxAmount} value={amount} onChange={(e) => setAmount(e.target.value)} required />
                     </label>
                     <Button type="submit" variant="primary" disabled={busy}>
                         {busy ? 'Sending…' : staff ? 'Send prompt to phone' : 'Pay now'}

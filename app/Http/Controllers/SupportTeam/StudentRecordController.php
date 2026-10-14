@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\SupportTeam;
 
+use AppSupportMoney;
 use App\Helpers\Qs;
 use App\Helpers\Mk;
 use App\Helpers\Ui;
@@ -548,7 +549,7 @@ class StudentRecordController extends Controller
                 // For the Enrolled / Graduated tabs.
                 'enrolled' => (int) DB::table('student_records')->where('grad', 0)->count(),
                 'graduated' => (int) DB::table('student_records')->where('grad', 1)->count(),
-                'total' => (int) $genders->sum(),
+                'total' => \App\Support\Money::r($genders->sum()),
                 'male' => (int) ($genders['Male'] ?? 0),
                 'female' => (int) ($genders['Female'] ?? 0),
                 'unspecified' => (int) ($genders[''] ?? 0),
@@ -754,7 +755,7 @@ class StudentRecordController extends Controller
                     'class_id' => $p->my_class_id,
                     'category' => $p->student_category ?: 'all',
                     'title' => $p->title,
-                    'amount' => (int) $p->amount,
+                    'amount' => \App\Support\Money::r($p->amount),
                     'items' => $p->items->map(function ($i) { return ['name' => $i->name, 'amount' => (int) $i->amount]; })->values(),
                 ];
             })->values(),

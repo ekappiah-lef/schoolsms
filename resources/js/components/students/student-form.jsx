@@ -300,7 +300,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
     const discount = (options.discounts ?? []).find((d) => String(d.id) === String(data.fee_discount_id));
     // Tuition share of a fee: its "Tuition" items, or the whole fee when it is not itemised.
     const tuitionOf = (f) => (f.items.length ? f.items.filter((i) => /tuition/i.test(i.name)).reduce((t, i) => t + i.amount, 0) : f.amount);
-    const discountOn = (f) => (discount ? Math.round((tuitionOf(f) * discount.percent) / 100) : 0);
+    const discountOn = (f) => (discount ? Math.round(tuitionOf(f) * discount.percent) / 100 : 0);
 
     const schoolFees = useMemo(() => {
         if (!data.my_class_id) return [];

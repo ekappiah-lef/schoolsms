@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\SupportTeam;
 
+use App\Support\Money;
+use AppSupportMoney;
 use App\Helpers\Qs;
 use App\Http\Controllers\Controller;
 use App\Models\FinanceTransaction;
@@ -55,7 +57,7 @@ class SalesController extends Controller
             'categories' => InventoryItem::CATEGORIES,
             'items' => $items->map(function ($i) use ($soldThisYear) {
                 return [
-                    'id' => $i->id, 'name' => $i->name, 'category' => $i->category, 'price' => (int) $i->price,
+                    'id' => $i->id, 'name' => $i->name, 'category' => $i->category, 'price' => Money::r($i->price),
                     'stock' => (int) $i->stock, 'reorder_level' => (int) $i->reorder_level, 'active' => $i->active,
                     'sold' => (int) ($soldThisYear[$i->id] ?? 0),
                 ];
@@ -70,22 +72,22 @@ class SalesController extends Controller
             'sales' => $sales->map(function ($c) {
                 return [
                     'id' => Qs::hash($c->id), 'date' => optional($c->created_at)->toDateString(), 'student' => $c->student_name,
-                    'label' => $c->label, 'qty' => (int) $c->qty, 'amount' => (int) $c->amount, 'paid' => (int) $c->amt_paid,
+                    'label' => $c->label, 'qty' => (int) $c->qty, 'amount' => \App\Support\Money::r($c->amount), 'paid' => \App\Support\Money::r($c->amt_paid),
                     'balance' => $c->balance, 'handed_down' => (bool) $c->handed_down_from,
                     'invoice_url' => route('payments.invoice', Qs::hash($c->student_id)),
-                    'return_url' => (int) $c->amt_paid === 0 ? route('finance.sales.return', Qs::hash($c->id)) : null,
+                    'return_url' => \App\Support\Money::r($c->amt_paid) <= 0 ? route('finance.sales.return', Qs::hash($c->id)) : null,
                 ];
             })->values(),
             'movements' => StockMovement::with(['item', 'user'])->orderByDesc('date')->orderByDesc('id')->limit(100)->get()->map(function ($m) {
                 return [
                     'date' => $m->date->toDateString(), 'item' => optional($m->item)->name, 'type' => StockMovement::TYPES[$m->type] ?? $m->type,
-                    'qty' => (int) $m->qty, 'unit_cost' => $m->unit_cost !== null ? (int) $m->unit_cost : null, 'note' => $m->note, 'by' => optional($m->user)->name,
+                    'qty' => (int) $m->qty, 'unit_cost' => $m->unit_cost !== null ? \App\Support\Money::r($m->unit_cost) : null, 'note' => $m->note, 'by' => optional($m->user)->name,
                 ];
             })->values(),
             'totals' => [
-                'sales' => (int) OptionalFeeCharge::where(['group' => 'sales', 'year' => $year])->sum('amount'),
-                'paid' => (int) OptionalFeeCharge::where(['group' => 'sales', 'year' => $year])->sum('amt_paid'),
-                'stockValue' => (int) $items->sum(function ($i) { return $i->price * max($i->stock, 0); }),
+                'sales' => Money::r(OptionalFeeCharge::where(['group' => 'sales', 'year' => $year])->sum('amount')),
+                'paid' => Money::r(OptionalFeeCharge::where(['group' => 'sales', 'year' => $year])->sum('amt_paid')),
+                'stockValue' => Money::r($items->sum(function ($i) { return $i->price * max($i->stock, 0); })),
                 'lowStock' => $items->filter(function ($i) { return $i->active && $i->stock <= $i->reorder_level; })->count(),
             ],
             'urls' => [
@@ -119,7 +121,7 @@ class SalesController extends Controller
         $item = InventoryItem::findOrFail($item);
         $d = $req->validate([
             'qty' => 'required|integer|min:1|max:100000',
-            'unit_cost' => 'nullable|integer|min:0',
+            'unit_cost' => 'nullable|'.Money::rule().'|min:0',
             'date' => 'required|date_format:Y-m-d|before_or_equal:today',
             'note' => 'nullable|string|max:255',
             'record_expense' => 'nullable|boolean',
@@ -130,7 +132,7 @@ class SalesController extends Controller
             StockMovement::create(['item_id' => $item->id, 'qty' => (int) $d['qty'], 'type' => 'restock', 'unit_cost' => $d['unit_cost'] ?? null,
                 'note' => $d['note'] ?? null, 'user_id' => Auth::id(), 'date' => $d['date']]);
             if ($req->boolean('record_expense') && !empty($d['unit_cost'])) {
-                FinanceTransaction::create(['type' => 'expense', 'category' => 'Inventory purchases', 'amount' => (int) $d['unit_cost'] * (int) $d['qty'],
+                FinanceTransaction::create(['type' => 'expense', 'category' => 'Inventory purchases', 'amount' => Money::r($d['unit_cost'] * (int) $d['qty']),
                     'date' => $d['date'], 'method' => 'Cash', 'description' => 'Restock: '.$item->name.' × '.$d['qty'], 'recorded_by' => Auth::id()]);
             }
         });
@@ -145,7 +147,7 @@ class SalesController extends Controller
             'student_id' => 'required|string',
             'lines' => 'required|json',
             'handed_down_from' => 'nullable|string',
-            'pay_now' => 'nullable|integer|min:0',
+            'pay_now' => 'nullable|'.Money::rule().'|min:0',
         ], [], ['student_id' => 'Student', 'lines' => 'Items']);
 
         $studentId = (int) Qs::decodeHash($req->student_id);
@@ -171,28 +173,28 @@ class SalesController extends Controller
                 $charges[] = Fees::sell($studentId, $year, InventoryItem::find($l['item_id']), (int) $l['qty'], !empty($l['handed_down']) ? $fromId : null);
             }
             // Payment taken at the counter, applied to the items in order.
-            $left = (int) $req->pay_now;
+            $left = \App\Support\Money::r($req->pay_now);
             foreach ($charges as $c) {
                 if ($left <= 0 || $c->amount <= 0) continue;
-                $a = min($left, (int) $c->amount);
+                $a = min($left, \App\Support\Money::r($c->amount));
                 $c->update(['amt_paid' => $a]);
-                OptionalFeeReceipt::create(['charge_id' => $c->id, 'amt_paid' => $a, 'balance' => $c->amount - $a, 'year' => $year]);
-                $left -= $a;
+                OptionalFeeReceipt::create(['charge_id' => $c->id, 'amt_paid' => $a, 'balance' => Money::r($c->amount - $a), 'year' => $year]);
+                $left = Money::r($left - $a);
             }
             return $charges;
         });
 
-        $total = collect($charges)->sum('amount');
+        $total = Money::r(collect($charges)->sum('amount'));
         // A sale changes what the student owes; ClearEnroll gets the new balance.
-        \App\Support\ClearEnroll::studentChanged((int) $charges[0]->student_id, (int) $req->pay_now ? min((int) $req->pay_now, (int) $total) : null, 'Shop sale');
-        return response()->json(['ok' => true, 'msg' => 'Sale recorded: '.number_format($total).' charged'.((int) $req->pay_now ? ', '.number_format(min((int) $req->pay_now, $total)).' paid now.' : ' to the student\'s account.')]);
+        \App\Support\ClearEnroll::studentChanged((int) $charges[0]->student_id, \App\Support\Money::r($req->pay_now) ? min(\App\Support\Money::r($req->pay_now), \App\Support\Money::r($total)) : null, 'Shop sale');
+        return response()->json(['ok' => true, 'msg' => 'Sale recorded: '.Money::fmt($total).' charged'.(\App\Support\Money::r($req->pay_now) ? ', '.Money::fmt(min(\App\Support\Money::r($req->pay_now), $total)).' paid now.' : ' to the student\'s account.')]);
     }
 
     /** Undo an unpaid sale: the item goes back into stock. */
     public function returnSale($id)
     {
         $c = OptionalFeeCharge::where('group', 'sales')->findOrFail($id);
-        if ((int) $c->amt_paid > 0) {
+        if (\App\Support\Money::r($c->amt_paid) > 0) {
             return back()->with('flash_danger', 'This sale has payments. Reset the payment on the student\'s payments page first.');
         }
         DB::transaction(function () use ($c) {
@@ -213,7 +215,7 @@ class SalesController extends Controller
         $d = $req->validate([
             'name' => 'required|string|max:100',
             'category' => 'required|in:'.implode(',', InventoryItem::CATEGORIES),
-            'price' => 'required|integer|min:0',
+            'price' => 'required|'.Money::rule().'|min:0',
             'reorder_level' => 'nullable|integer|min:0',
             'active' => 'nullable|boolean',
         ], [], ['reorder_level' => 'Reorder level']);

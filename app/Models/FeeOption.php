@@ -10,5 +10,5 @@ class FeeOption extends Eloquent
 
     protected $fillable = ['group', 'name', 'amount', 'active', 'sort'];
 
-    protected $casts = ['active' => 'boolean'];
+    protected $casts = ['active' => 'boolean', 'amount' => 'float'];
 }

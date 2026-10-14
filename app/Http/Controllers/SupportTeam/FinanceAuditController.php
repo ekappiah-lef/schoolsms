@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\SupportTeam;
 
+use AppSupportMoney;
 use App\Helpers\Qs;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
@@ -33,7 +34,7 @@ class FinanceAuditController extends Controller
                     'by' => $l->by_name,
                     'student' => $l->student_name,
                     'student_url' => $l->student_id ? route('payments.invoice', Qs::hash($l->student_id)) : null,
-                    'amount' => $l->amount !== null ? (int) $l->amount : null,
+                    'amount' => $l->amount !== null ? \App\Support\Money::r($l->amount) : null,
                     'reason' => $l->reason,
                     'before' => $l->before ? json_decode($l->before, true) : null,
                     'after' => $l->after ? json_decode($l->after, true) : null,
@@ -43,7 +44,7 @@ class FinanceAuditController extends Controller
         return Inertia::render('Finance/AuditTrail', [
             'rows' => $rows,
             'actions' => collect(self::ACTIONS)->map(function ($label, $value) { return ['value' => $value, 'label' => $label]; })->values(),
-            'totals' => ['reversed' => (int) $rows->where('action', 'void_receipt')->sum('amount'), 'reversedCount' => $rows->where('action', 'void_receipt')->count()],
+            'totals' => ['reversed' => \App\Support\Money::r($rows->where('action', 'void_receipt')->sum('amount')), 'reversedCount' => $rows->where('action', 'void_receipt')->count()],
         ]);
     }
 }

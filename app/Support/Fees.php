@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use AppSupportMoney;
 use App\Helpers\Qs;
 use App\Models\BusRoute;
 use App\Models\FeeDiscount;
@@ -132,14 +133,14 @@ class Fees
      * -----------------------------------------------------------------*/
 
     /** The part of a fee a tuition discount applies to: its "Tuition" items, or the whole fee if it is not itemised. */
-    public static function tuitionBase(Payment $p): int
+    public static function tuitionBase(Payment $p): float
     {
         $p->loadMissing('items');
         if ($p->items->isEmpty()) {
-            return (int) $p->amount;
+            return Money::r($p->amount);
         }
 
-        return (int) $p->items->filter(function ($i) { return stripos($i->name, 'tuition') !== false; })->sum('amount');
+        return Money::r($p->items->filter(function ($i) { return stripos($i->name, 'tuition') !== false; })->sum('amount'));
     }
 
     /** Recalculate the discount on a student's school-fee records for a session. */
@@ -173,9 +174,9 @@ class Fees
         if (!$pr->payment) {
             return;
         }
-        $discount = (int) round(self::tuitionBase($pr->payment) * $percent / 100);
-        $owed = max((int) $pr->payment->amount - $discount, 0);
-        $paid = (int) $pr->amt_paid;
+        $discount = Money::r(self::tuitionBase($pr->payment) * $percent / 100);
+        $owed = max(Money::r($pr->payment->amount) - $discount, 0);
+        $paid = Money::r($pr->amt_paid);
         $pr->update(['discount' => $discount, 'balance' => max($owed - $paid, 0), 'paid' => $paid >= $owed ? 1 : 0]);
     }
 
@@ -194,11 +195,11 @@ class Fees
         })->values();
 
         foreach ($clean as $n => $i) {
-            $payment->items()->create(['name' => trim($i['name']), 'amount' => (int) $i['amount'], 'sort' => $n]);
+            $payment->items()->create(['name' => trim($i['name']), 'amount' => Money::r($i['amount']), 'sort' => $n]);
         }
 
         if ($clean->count()) {
-            $payment->update(['amount' => (int) $clean->sum('amount')]);
+            $payment->update(['amount' => Money::r($clean->sum('amount'))]);
         }
         self::refreshPaymentDiscounts($payment);
     }
@@ -220,7 +221,7 @@ class Fees
 
         $rows = FeeOption::whereIn('id', $ids)->where('active', true)->orderBy('sort')->orderBy('id')->get()
             ->map(function (FeeOption $o) {
-                return ['group' => $o->group, 'label' => $o->name, 'amount' => (int) $o->amount, 'fee_option_id' => $o->id, 'bus_route_id' => null, 'bus_direction' => null];
+                return ['group' => $o->group, 'label' => $o->name, 'amount' => Money::r($o->amount), 'fee_option_id' => $o->id, 'bus_route_id' => null, 'bus_direction' => null];
             })->all();
 
         $routeId = (int) ($sel['bus_route_id'] ?? 0);
@@ -259,7 +260,7 @@ class Fees
             if ($wanted->contains(function ($w) use ($key, $k) { return $key($w) === $k; })) {
                 continue;
             }
-            if ((int) $c->amt_paid > 0) {
+            if (Money::r($c->amt_paid) > 0) {
                 $kept[] = $c->label;
                 continue;
             }
@@ -298,7 +299,7 @@ class Fees
         $charge = OptionalFeeCharge::create([
             'student_id' => $studentId, 'year' => $year, 'group' => 'sales', 'label' => $label,
             'inventory_item_id' => $item->id, 'qty' => $qty, 'handed_down_from' => $handedDownFrom,
-            'amount' => $handDown ? 0 : (int) $item->price * $qty, 'amt_paid' => 0,
+            'amount' => $handDown ? 0 : Money::r($item->price * $qty), 'amt_paid' => 0,
         ]);
         if (!$handDown) {
             $item->decrement('stock', $qty);
@@ -347,7 +348,7 @@ class Fees
                 'key' => $g,
                 'label' => $label,
                 'options' => $options->where('group', $g)->map(function ($o) {
-                    return ['id' => $o->id, 'name' => $o->name, 'amount' => (int) $o->amount];
+                    return ['id' => $o->id, 'name' => $o->name, 'amount' => Money::r($o->amount)];
                 })->values(),
             ];
         })->values();
@@ -355,14 +356,14 @@ class Fees
             'key' => 'sales',
             'label' => 'Shop items',
             'options' => InventoryItem::where('active', true)->where('stock', '>', 0)->orderBy('category')->orderBy('name')->get()->map(function ($i) {
-                return ['id' => $i->id, 'name' => $i->name, 'amount' => (int) $i->price, 'stock' => (int) $i->stock];
+                return ['id' => $i->id, 'name' => $i->name, 'amount' => Money::r($i->price), 'stock' => (int) $i->stock];
             })->values(),
         ]);
 
         return [
             'groups' => $groups->values(),
             'routes' => BusRoute::where('active', true)->orderBy('name')->get()->map(function ($r) {
-                return ['id' => $r->id, 'name' => $r->name, 'both' => (int) $r->amount_both, 'one_way' => (int) $r->amount_one_way];
+                return ['id' => $r->id, 'name' => $r->name, 'both' => Money::r($r->amount_both), 'one_way' => Money::r($r->amount_one_way)];
             })->values(),
             'directions' => collect(BusRoute::DIRECTIONS)->map(function ($label, $k) { return ['value' => $k, 'label' => $label]; })->values(),
         ];
@@ -380,10 +381,10 @@ class Fees
             ->filter(function ($pr) { return $pr->payment; });
 
         $school = $records->map(function ($pr) use ($withUrls) {
-            $gross = (int) $pr->payment->amount;
-            $discount = (int) $pr->discount;
+            $gross = Money::r($pr->payment->amount);
+            $discount = Money::r($pr->discount);
             $amount = max($gross - $discount, 0);
-            $paid = (int) $pr->amt_paid;
+            $paid = Money::r($pr->amt_paid);
 
             return [
                 'id' => Qs::hash($pr->id),
@@ -398,10 +399,10 @@ class Fees
                 'balance' => max($amount - $paid, 0),
                 'cleared' => (bool) $pr->paid,
                 'items' => $pr->payment->items->map(function ($i) {
-                    return ['name' => $i->name, 'amount' => (int) $i->amount];
+                    return ['name' => $i->name, 'amount' => Money::r($i->amount)];
                 })->values(),
                 'receipts' => $pr->receipt->sortByDesc('id')->map(function ($r) use ($withUrls) {
-                    return ['id' => 's'.$r->id, 'number' => 'SF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'amount' => (int) $r->amt_paid, 'balance' => (int) $r->balance, 'date' => optional($r->created_at)->toIso8601String(),
+                    return ['id' => 's'.$r->id, 'number' => 'SF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'amount' => Money::r($r->amt_paid), 'balance' => Money::r($r->balance), 'date' => optional($r->created_at)->toIso8601String(),
                         'urls' => $withUrls ? \App\Http\Controllers\SupportTeam\ReceiptController::urls('school', $r->id) : null];
                 })->values(),
                 'urls' => $withUrls ? [
@@ -424,12 +425,12 @@ class Fees
                 'label' => $c->label.($c->group !== 'sales' && $c->term ? ' · Term '.$c->term : ''),
                 'term' => self::chargeTerm($c),
                 'year' => $c->year,
-                'amount' => (int) $c->amount,
-                'paid' => (int) $c->amt_paid,
+                'amount' => Money::r($c->amount),
+                'paid' => Money::r($c->amt_paid),
                 'balance' => $c->balance,
-                'cleared' => $c->balance < 1,
+                'cleared' => $c->balance <= 0,
                 'receipts' => $c->receipts->sortByDesc('id')->map(function ($r) use ($withUrls) {
-                    return ['id' => 'o'.$r->id, 'number' => 'OF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'amount' => (int) $r->amt_paid, 'balance' => (int) $r->balance, 'date' => optional($r->created_at)->toIso8601String(),
+                    return ['id' => 'o'.$r->id, 'number' => 'OF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'amount' => Money::r($r->amt_paid), 'balance' => Money::r($r->balance), 'date' => optional($r->created_at)->toIso8601String(),
                         'urls' => $withUrls ? \App\Http\Controllers\SupportTeam\ReceiptController::urls('optional', $r->id) : null];
                 })->values(),
                 'urls' => $withUrls ? [
@@ -440,7 +441,7 @@ class Fees
         })->values();
 
         $sum = function (Collection $rows) {
-            return ['amount' => (int) $rows->sum('amount'), 'paid' => (int) $rows->sum('paid'), 'balance' => (int) $rows->sum('balance')];
+            return ['amount' => Money::r($rows->sum('amount')), 'paid' => Money::r($rows->sum('paid')), 'balance' => Money::r($rows->sum('balance'))];
         };
         $t1 = $sum($school);
         $t2 = $sum($optional);
@@ -479,13 +480,13 @@ class Fees
         };
         $records = $records->reject($isLater);
         $line = function ($label, $amount, $paid) {
-            $amount = max((int) $amount, 0);
-            return ['label' => $label, 'amount' => $amount, 'paid' => (int) $paid, 'balance' => max($amount - (int) $paid, 0)];
+            $amount = max(Money::r($amount), 0);
+            return ['label' => $label, 'amount' => $amount, 'paid' => Money::r($paid), 'balance' => max($amount - Money::r($paid), 0)];
         };
         $termName = function ($pr) { return ($pr->payment->term ? 'Term '.$pr->payment->term.' · ' : '').str_replace('-', ' – ', $pr->year); };
 
         $current = $records->filter($isCurrent)->map(function ($pr) use ($line) {
-            return $line($pr->payment->title, (int) $pr->payment->amount - (int) $pr->discount, $pr->amt_paid);
+            return $line($pr->payment->title, Money::r($pr->payment->amount) - Money::r($pr->discount), $pr->amt_paid);
         })->values();
         // Services of this term and shop sales made this term are current; earlier ones unpaid are brought forward.
         $charges = OptionalFeeCharge::where('student_id', $studentId)->get();
@@ -502,7 +503,7 @@ class Fees
 
         $forward = $records->reject($isCurrent)
             ->sortBy(function ($pr) { return $pr->year.'-'.(int) $pr->payment->term; })
-            ->map(function ($pr) use ($line, $termName) { return $line($pr->payment->title.' · '.$termName($pr), (int) $pr->payment->amount - (int) $pr->discount, $pr->amt_paid); })
+            ->map(function ($pr) use ($line, $termName) { return $line($pr->payment->title.' · '.$termName($pr), Money::r($pr->payment->amount) - Money::r($pr->discount), $pr->amt_paid); })
             ->filter(function ($l) { return $l['balance'] > 0; })->values();
         foreach ($charges->reject($chargeNow)->sortBy(function ($c) { return $c->year.'-'.self::chargeTerm($c); }) as $c) {
             $group = OptionalFeeCharge::GROUPS[$c->group] ?? ucfirst($c->group);
@@ -511,7 +512,7 @@ class Fees
             if ($l['balance'] > 0) $forward->push($l);
         }
 
-        $sum = function ($rows, $k) { return (int) collect($rows)->sum($k); };
+        $sum = function ($rows, $k) { return Money::r(collect($rows)->sum($k)); };
         $currentDue = $sum($current, 'balance');
         $forwardDue = $sum($forward, 'balance');
 
@@ -520,15 +521,15 @@ class Fees
         $schoolNow = $records->filter($isCurrent);
         $table = [];
         if ($schoolNow->isNotEmpty()) {
-            $amt = (int) $schoolNow->sum(function ($pr) { return max((int) $pr->payment->amount - (int) $pr->discount, 0); });
-            $paid = (int) $schoolNow->sum('amt_paid');
+            $amt = Money::r($schoolNow->sum(function ($pr) { return max(Money::r($pr->payment->amount) - Money::r($pr->discount), 0); }));
+            $paid = Money::r($schoolNow->sum('amt_paid'));
             $table[] = ['label' => 'School fees'.($term ? ' · Term '.$term : ''), 'amount' => $amt, 'paid' => $paid, 'balance' => max($amt - $paid, 0)];
         }
         foreach (OptionalFeeCharge::GROUPS as $g => $label) {
             $cs = $charges->filter($chargeNow)->where('group', $g);
             if ($cs->isEmpty()) continue;
-            $amt = (int) $cs->sum('amount');
-            $paid = (int) $cs->sum('amt_paid');
+            $amt = Money::r($cs->sum('amount'));
+            $paid = Money::r($cs->sum('amt_paid'));
             $table[] = ['label' => $label, 'amount' => $amt, 'paid' => $paid, 'balance' => max($amt - $paid, 0)];
         }
         // Unpaid bills from earlier terms and years, one line each: the item, its term and year.
@@ -566,18 +567,18 @@ class Fees
         $records = PaymentRecord::where('student_id', $sr->user_id)->with('payment.items')->get()->filter(function ($pr) { return $pr->payment; });
         $billedNext = $records->filter(function ($pr) use ($nKey) { return $pr->year.':'.$pr->payment->term === $nKey; });
         if ($billedNext->isNotEmpty()) {
-            $school = (int) $billedNext->sum(function ($pr) { return max((int) $pr->payment->amount - (int) $pr->discount - (int) $pr->amt_paid, 0); });
+            $school = Money::r($billedNext->sum(function ($pr) { return max(Money::r($pr->payment->amount) - Money::r($pr->discount) - Money::r($pr->amt_paid), 0); }));
             $set = true;
         } else {
             $percent = $sr->fee_discount_id ? (int) optional(FeeDiscount::find($sr->fee_discount_id))->percent : 0;
             $fees = self::paymentsFor($sr, $nYear)->where('term', $nTerm);
-            $school = (int) $fees->sum(function ($p) use ($percent) { return (int) $p->amount - (int) round(self::tuitionBase($p) * $percent / 100); });
+            $school = Money::r($fees->sum(function ($p) use ($percent) { return Money::r($p->amount) - Money::r(self::tuitionBase($p) * $percent / 100); }));
             $set = $fees->isNotEmpty();
         }
 
         // Unpaid school fees up to this term.
-        $owed = (int) $records->filter(function ($pr) use ($upTo) { return $pr->year.':'.$pr->payment->term <= $upTo; })
-            ->sum(function ($pr) { return max((int) $pr->payment->amount - (int) $pr->discount - (int) $pr->amt_paid, 0); });
+        $owed = Money::r($records->filter(function ($pr) use ($upTo) { return $pr->year.':'.$pr->payment->term <= $upTo; })
+            ->sum(function ($pr) { return max(Money::r($pr->payment->amount) - Money::r($pr->discount) - Money::r($pr->amt_paid), 0); }));
 
         // Services and sales: unpaid up to this term are owed; next term's services are billed when it
         // starts, so they are what the student takes now at the prices in Fee setup (or already billed).
@@ -585,7 +586,7 @@ class Fees
         $billedNextServices = false;
         foreach (OptionalFeeCharge::where('student_id', $sr->user_id)->get() as $c) {
             $k = $c->year.':'.self::chargeTerm($c);
-            $due = max((int) $c->amount - (int) $c->amt_paid, 0);
+            $due = max(Money::r($c->amount) - Money::r($c->amt_paid), 0);
             if ($k <= $upTo) $owed += $due;
             elseif ($k === $nKey && $c->group !== 'sales') {
                 $services += $due;
@@ -593,7 +594,7 @@ class Fees
             }
         }
         if (!$billedNextServices) {
-            $services = (int) collect(self::chargesFromSelection(self::selectionFor($sr->user_id, $year)))->sum('amount');
+            $services = Money::r(collect(self::chargesFromSelection(self::selectionFor($sr->user_id, $year)))->sum('amount'));
         }
 
         return [
@@ -608,9 +609,9 @@ class Fees
      * then this term's school fees, then optional services. Creates a receipt for each bill paid
      * and returns [['kind' => 'school'|'optional', 'id' => receipt id, 'label', 'amount']].
      */
-    public static function applyPayment(int $studentId, int $amount, string $method, ?string $reference = null): array
+    public static function applyPayment(int $studentId, float $amount, string $method, ?string $reference = null): array
     {
-        $left = $amount;
+        $left = Money::r($amount);
         $applied = [];
 
         $records = PaymentRecord::where('student_id', $studentId)->with('payment')->get()
@@ -632,27 +633,27 @@ class Fees
         foreach ($queue as [$kind, , , $bill]) {
             if ($left <= 0) break;
             if ($kind === 'school') {
-                $owed = max((int) $bill->payment->amount - (int) $bill->discount - (int) $bill->amt_paid, 0);
-                if (!$owed) continue;
+                $owed = Money::r(max($bill->payment->amount - $bill->discount - $bill->amt_paid, 0));
+                if ($owed <= 0) continue;
                 $pay = min($owed, $left);
-                $paid = (int) $bill->amt_paid + $pay;
-                $balance = (int) $bill->payment->amount - (int) $bill->discount - $paid;
-                $bill->update(['amt_paid' => $paid, 'balance' => max($balance, 0), 'paid' => $balance < 1 ? 1 : 0]);
+                $paid = Money::r($bill->amt_paid + $pay);
+                $balance = Money::r($bill->payment->amount - $bill->discount - $paid);
+                $bill->update(['amt_paid' => $paid, 'balance' => max($balance, 0), 'paid' => $balance <= 0 ? 1 : 0]);
                 $r = \App\Models\Receipt::create(['pr_id' => $bill->id, 'amt_paid' => $pay, 'balance' => max($balance, 0), 'year' => $bill->year, 'method' => $method, 'reference' => $reference]);
                 $applied[] = ['kind' => 'school', 'id' => $r->id, 'label' => $bill->payment->title.' ('.$bill->year.')', 'amount' => $pay];
             } else {
-                $owed = max((int) $bill->amount - (int) $bill->amt_paid, 0);
-                if (!$owed) continue;
+                $owed = Money::r(max($bill->amount - $bill->amt_paid, 0));
+                if ($owed <= 0) continue;
                 $pay = min($owed, $left);
-                $bill->update(['amt_paid' => (int) $bill->amt_paid + $pay]);
+                $bill->update(['amt_paid' => Money::r($bill->amt_paid + $pay)]);
                 $r = \App\Models\OptionalFeeReceipt::create(['charge_id' => $bill->id, 'amt_paid' => $pay, 'balance' => $bill->fresh()->balance, 'year' => $bill->year, 'method' => $method, 'reference' => $reference]);
                 $applied[] = ['kind' => 'optional', 'id' => $r->id, 'label' => $bill->label.' ('.$bill->year.')', 'amount' => $pay];
             }
-            $left -= $pay;
+            $left = Money::r($left - $pay);
         }
 
         if ($applied) {
-            ClearEnroll::studentChanged($studentId, $amount - $left, $reference ?: $method);
+            ClearEnroll::studentChanged($studentId, Money::r($amount - $left), $reference ?: $method);
         }
 
         return $applied;

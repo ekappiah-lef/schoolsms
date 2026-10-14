@@ -81,6 +81,8 @@ export default function UserShow({ user, subjects, urls }) {
                                 { label: 'Gender', value: user.gender },
                                 { label: 'Date of birth', value: user.dob ? formatDate(user.dob, 'dd/MM/yyyy') : null },
                                 { label: 'Date of employment', value: user.emp_date ? formatDate(user.emp_date, 'dd/MM/yyyy') : null },
+                                { label: 'Job title', value: user.job_title },
+                                { label: 'Employment', value: { full_time: 'Full time', part_time: 'Part time' }[user.employment_type] ?? null },
                                 { label: 'Login ID', value: user.username },
                                 { label: 'Blood group', value: user.blood_group },
                                 { label: 'Nationality', value: user.nationality },

@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use AppSupportMoney;
 use App\Models\OptionalFeeCharge;
 use App\Models\PaymentRecord;
 use Illuminate\Support\Facades\Auth;
@@ -39,14 +40,14 @@ class FinanceLog
             $total = 0;
             foreach (DB::table('receipts')->where('pr_id', $pr->id)->lockForUpdate()->get() as $r) {
                 self::add('void_receipt', 'school_receipt', $r->id, [
-                    'student_id' => $pr->student_id, 'amount' => (int) $r->amt_paid, 'reason' => $reason,
+                    'student_id' => $pr->student_id, 'amount' => \App\Support\Money::r($r->amt_paid), 'reason' => $reason,
                     'before' => ['number' => 'SF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'bill' => optional($pr->payment)->title.' · '.$pr->year.(optional($pr->payment)->term ? ' · Term '.$pr->payment->term : ''),
-                        'amount' => (int) $r->amt_paid, 'method' => $r->method, 'reference' => $r->reference, 'paid_on' => (string) $r->created_at],
+                        'amount' => \App\Support\Money::r($r->amt_paid), 'method' => $r->method, 'reference' => $r->reference, 'paid_on' => (string) $r->created_at],
                 ]);
-                $total += (int) $r->amt_paid;
+                $total += \App\Support\Money::r($r->amt_paid);
             }
             DB::table('receipts')->where('pr_id', $pr->id)->delete();
-            $owed = max((int) optional($pr->payment)->amount - (int) $pr->discount, 0);
+            $owed = max(\App\Support\Money::r(optional($pr->payment)->amount) - \App\Support\Money::r($pr->discount), 0);
             $pr->update(['amt_paid' => 0, 'paid' => 0, 'balance' => $owed]);
             ClearEnroll::studentChanged((int) $pr->student_id);
 
@@ -61,11 +62,11 @@ class FinanceLog
             $total = 0;
             foreach (DB::table('optional_fee_receipts')->where('charge_id', $c->id)->lockForUpdate()->get() as $r) {
                 self::add('void_receipt', 'optional_receipt', $r->id, [
-                    'student_id' => $c->student_id, 'amount' => (int) $r->amt_paid, 'reason' => $reason,
+                    'student_id' => $c->student_id, 'amount' => \App\Support\Money::r($r->amt_paid), 'reason' => $reason,
                     'before' => ['number' => 'OF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'bill' => $c->label.' · '.$c->year,
-                        'amount' => (int) $r->amt_paid, 'method' => $r->method, 'reference' => $r->reference, 'paid_on' => (string) $r->created_at],
+                        'amount' => \App\Support\Money::r($r->amt_paid), 'method' => $r->method, 'reference' => $r->reference, 'paid_on' => (string) $r->created_at],
                 ]);
-                $total += (int) $r->amt_paid;
+                $total += \App\Support\Money::r($r->amt_paid);
             }
             DB::table('optional_fee_receipts')->where('charge_id', $c->id)->delete();
             $c->update(['amt_paid' => 0]);

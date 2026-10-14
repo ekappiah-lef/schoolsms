@@ -11,8 +11,8 @@
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;border:1px solid #eceaf4;border-radius:6px;">
             <tr><td style="padding:10px 14px;">Receipt</td><td align="right" style="padding:10px 14px;">{{ $r['number'] }}</td></tr>
             <tr><td style="padding:10px 14px;border-top:1px solid #eceaf4;">Payment for</td><td align="right" style="padding:10px 14px;border-top:1px solid #eceaf4;">{{ $r['item'] }}</td></tr>
-            <tr><td style="padding:10px 14px;border-top:1px solid #eceaf4;">Amount paid</td><td align="right" style="padding:10px 14px;border-top:1px solid #eceaf4;font-weight:bold;color:#006e4b;">GH₵ {{ number_format($r['amount']) }}</td></tr>
-            <tr><td style="padding:10px 14px;border-top:1px solid #eceaf4;font-weight:bold;color:#131b2e;">Balance</td><td align="right" style="padding:10px 14px;border-top:1px solid #eceaf4;font-weight:bold;color:{{ $r['balance'] > 0 ? '#ba1a1a' : '#006e4b' }};">{{ $r['balance'] > 0 ? 'GH₵ '.number_format($r['balance']) : 'Fully paid' }}</td></tr>
+            <tr><td style="padding:10px 14px;border-top:1px solid #eceaf4;">Amount paid</td><td align="right" style="padding:10px 14px;border-top:1px solid #eceaf4;font-weight:bold;color:#006e4b;">GH₵ {{ \App\Support\Money::fmt($r['amount']) }}</td></tr>
+            <tr><td style="padding:10px 14px;border-top:1px solid #eceaf4;font-weight:bold;color:#131b2e;">Balance</td><td align="right" style="padding:10px 14px;border-top:1px solid #eceaf4;font-weight:bold;color:{{ $r['balance'] > 0 ? '#ba1a1a' : '#006e4b' }};">{{ $r['balance'] > 0 ? 'GH₵ '.\App\Support\Money::fmt($r['balance']) : 'Fully paid' }}</td></tr>
         </table>
         <p style="margin:16px 0 0;">The receipt is attached as a PDF.</p>
     </td></tr>

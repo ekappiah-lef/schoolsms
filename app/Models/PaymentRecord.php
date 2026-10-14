@@ -9,6 +9,9 @@ class PaymentRecord extends Eloquent
 {
     protected $fillable =['student_id', 'payment_id', 'amt_paid', 'discount', 'year', 'paid', 'balance', 'ref_no'];
 
+    // Money: cedis with pesewas
+    protected $casts = ['amt_paid' => 'float', 'balance' => 'float', 'discount' => 'float'];
+
     public function payment()
     {
         return $this->belongsTo(Payment::class);

@@ -58,7 +58,11 @@ class Navigation
         }
 
         if (Qs::userIsTeamSAT()) {
-            $academics[] = self::item('Attendance', 'clipboard-check', 'attendance.index');
+            // The register, and the report of who was absent or late (admins and the academic admin: every class).
+            $academics[] = self::group('Attendance', 'clipboard-check', [
+                self::item('Register', null, 'attendance.index'),
+                self::item('Attendance report', null, 'attendance.report'),
+            ]);
         }
 
         if (Qs::userIsAcademic()) {
@@ -102,12 +106,13 @@ class Navigation
                 $item['active'] = Route::currentRouteName() === 'finance.services' && request()->route('group') === $group;
                 return $item;
             };
-            $sections[] = self::section('Finance', [
+            $sections[] = self::section('Finance', array_values(array_filter([
                 self::item('Finance dashboard', 'chart', 'finance.dashboard'),
                 self::item('Student payments', 'wallet', 'payments.manage', ['payments.manage', 'payments.invoice', 'payments.receipts']),
                 self::item('Fee setup', 'banknote', 'payments.index', ['payments.index', 'payments.edit', 'payments.show', 'payments.create']),
                 self::item('Income & expenses', 'receipt', 'finance.transactions', ['finance.transactions', 'finance.transactions.edit']),
                 self::item('Ledger', 'scroll-text', 'finance.ledger'),
+                Qs::userIsSuperAdmin() ? self::item('Trial balance', 'scale', 'finance.trial_balance') : null,
                 self::item('Audit trail', 'shield-check', 'finance.audit'),
                 self::item('Fee breakdown', 'layers', 'finance.fee_breakdown'),
                 self::item('Sales & inventory', 'shopping-bag', 'finance.sales'),
@@ -117,15 +122,15 @@ class Navigation
                     $service('Extra-curricular', 'extracurricular'),
                 ]),
                 self::item('Finance configuration', 'sliders', 'finance.config'),
-            ]);
+            ])));
         }
 
         /* Administration */
         if (Qs::userIsTeamSA()) {
             $admin = array_filter([
                 Qs::userIsTeamAdmin() ? self::item('Users', 'user-cog', 'users.index', ['users.index', 'users.show', 'users.edit']) : null,
-                Qs::userIsTeamAdmin() ? self::item('Teachers', 'graduation-cap', 'teachers.index')
-                    : self::item('Teachers', 'user-cog', 'users.index', ['users.index', 'users.show', 'users.edit']),
+                // Teaching and non-teaching staff (admins: every staff role; the academic admin: teachers and non-teaching staff).
+                self::item('Staff', 'graduation-cap', 'staff.index', Qs::userIsTeamAdmin() ? ['staff.index'] : ['staff.index', 'users.index', 'users.show', 'users.edit']),
                 self::item('Classes', 'school', 'classes.index', ['classes.index', 'classes.edit']),
                 self::item('Sections', 'layers', 'sections.index', ['sections.index', 'sections.edit']),
                 self::item('Subjects', 'book-open', 'subjects.index', ['subjects.index', 'subjects.edit']),

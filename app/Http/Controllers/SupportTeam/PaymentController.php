@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\SupportTeam;
 
+use App\Support\Money;
+use AppSupportMoney;
 use App\Helpers\Qs;
 use App\Helpers\Pay;
 use App\Helpers\Ui;
@@ -77,11 +79,23 @@ class PaymentController extends Controller
         return Qs::goToRoute(['payments.show', $req->year]);
     }
 
-    public function create()
+    public function create(Request $req)
     {
-        return Ui::render('Payments/Form', function () {
+        // Duplicate: the new fee starts as a copy of another (choose the class, adjust the amounts).
+        $from = $req->filled('from') ? $this->pay->find(Qs::decodeHash($req->query('from'))) : null;
+
+        return Ui::render('Payments/Form', function () use ($from) {
             return [
                 'mode' => 'create',
+                'copy' => $from ? [
+                    'title' => $from->title,
+                    'student_category' => $from->student_category ?: 'all',
+                    'term' => $from->term,
+                    'description' => $from->description,
+                    'amount' => Money::r($from->amount),
+                    'items' => $from->items->map(function ($i) { return ['name' => $i->name, 'amount' => Money::r($i->amount)]; })->values(),
+                    'class' => optional($from->my_class)->name,
+                ] : null,
                 'session' => $this->year,
                 'classes' => ClassOrder::sort($this->my_class->all())->map(function ($c) {
                     return ['id' => $c->id, 'name' => $c->name];
@@ -219,24 +233,24 @@ class PaymentController extends Controller
     {
         $pr = $this->pay->findRecord($pr_id);
         $payment = $this->pay->find($pr->payment_id);
-        // A payment must be a whole amount, at least 1 and no more than what is still owed on the bill.
-        $owed = max((int) $payment->amount - (int) $pr->discount - (int) $pr->amt_paid, 0);
+        // A payment is at least 0.01 (cedis and pesewas) and no more than what is still owed on the bill.
+        $owed = Money::r(max($payment->amount - $pr->discount - $pr->amt_paid, 0));
         $this->validate($req, [
-            'amt_paid' => 'required|integer|min:1|max:'.max($owed, 1),
+            'amt_paid' => 'required|'.Money::rule().'|min:0.01|max:'.max($owed, 0.01),
             'method' => 'nullable|in:'.implode(',', Fees::METHODS),
             'reference' => 'nullable|string|max:100',
-        ], ['amt_paid.max' => 'Only '.number_format($owed).' is owed on this bill.'], ['amt_paid' => 'Amount Paid']);
-        if ($owed < 1) {
+        ], ['amt_paid.max' => 'Only '.Money::fmt($owed).' is owed on this bill.', 'amt_paid.regex' => 'Enter the amount with at most 2 decimals, e.g. 100.50.'], ['amt_paid' => 'Amount Paid']);
+        if ($owed <= 0) {
             return response()->json(['message' => 'This bill is already fully paid.', 'errors' => ['amt_paid' => ['This bill is already fully paid.']]], 422);
         }
-        $d['amt_paid'] = $amt_p = $pr->amt_paid + $req->amt_paid;
+        $d['amt_paid'] = $amt_p = Money::r($pr->amt_paid + $req->amt_paid);
         // Amount owed is the fee less the student's tuition discount.
-        $d['balance'] = $bal = $payment->amount - (int) $pr->discount - $amt_p;
-        $d['paid'] = $bal < 1 ? 1 : 0;
+        $d['balance'] = $bal = Money::r($payment->amount - $pr->discount - $amt_p);
+        $d['paid'] = $bal <= 0 ? 1 : 0;
 
         $this->pay->updateRecord($pr_id, $d);
 
-        $d2['amt_paid'] = $req->amt_paid;
+        $d2['amt_paid'] = Money::r($req->amt_paid);
         $d2['balance'] = $bal;
         $d2['pr_id'] = $pr_id;
         $d2['year'] = $pr->year;
@@ -245,7 +259,7 @@ class PaymentController extends Controller
 
         $receipt = $this->pay->createReceipt($d2);
         // ClearEnroll gets the student's new balance (after the page has answered).
-        \App\Support\ClearEnroll::studentChanged((int) $pr->student_id, (int) $req->amt_paid, 'SF-'.str_pad($receipt->id, 6, '0', STR_PAD_LEFT));
+        \App\Support\ClearEnroll::studentChanged((int) $pr->student_id, \App\Support\Money::r($req->amt_paid), 'SF-'.str_pad($receipt->id, 6, '0', STR_PAD_LEFT));
         return response()->json(['ok' => true, 'msg' => __('msg.update_ok'), 'receipt' => ReceiptController::urls('school', $receipt->id)]);
     }
 
@@ -282,11 +296,11 @@ class PaymentController extends Controller
 
                 $students = $d['students']->map(function ($s) use ($totals, $optional) {
                     $t = $totals[$s->user_id] ?? null;
-                    $amount = $t ? (int) $t->amount : 0;
-                    $paid = $t ? (int) $t->paid : 0;
+                    $amount = $t ? \App\Support\Money::r($t->amount) : 0;
+                    $paid = $t ? Money::r($t->paid) : 0;
                     $o = $optional[$s->user_id] ?? null;
-                    $oAmount = $o ? (int) $o->amount : 0;
-                    $oPaid = $o ? (int) $o->paid : 0;
+                    $oAmount = $o ? \App\Support\Money::r($o->amount) : 0;
+                    $oPaid = $o ? Money::r($o->paid) : 0;
 
                     return [
                         'id' => Qs::hash($s->user_id),
@@ -336,19 +350,20 @@ class PaymentController extends Controller
                 return [
                     'id' => $p->id,
                     'title' => $p->title,
-                    'amount' => (int) $p->amount,
+                    'amount' => \App\Support\Money::r($p->amount),
                     'ref_no' => $p->ref_no,
                     'class' => optional($p->my_class)->name,
                     'class_id' => $p->my_class_id,
                     'category' => $p->student_category ?: 'all',
-                    'items' => $p->items->map(function ($i) { return ['name' => $i->name, 'amount' => (int) $i->amount]; })->values(),
+                    'items' => $p->items->map(function ($i) { return ['name' => $i->name, 'amount' => Money::r($i->amount)]; })->values(),
                     'method' => ucwords($p->method),
                     'description' => $p->description,
                     'records' => $u ? (int) $u->records : 0,
-                    'collected' => $u ? (int) $u->collected : 0,
-                    'expected' => $u ? (int) $p->amount * (int) $u->records - (int) $u->discount : 0,
+                    'collected' => $u ? Money::r($u->collected) : 0,
+                    'expected' => $u ? \App\Support\Money::r($p->amount) * (int) $u->records - \App\Support\Money::r($u->discount) : 0,
                     'urls' => [
                         'edit' => route('payments.edit', $p->id),
+                        'duplicate' => route('payments.create', ['from' => Qs::hash($p->id)]),
                         'destroy' => route('payments.destroy', $p->id),
                     ],
                 ];
@@ -435,10 +450,10 @@ class PaymentController extends Controller
                 'categories' => $this->categoryOptions(),
                 'payment' => [
                     'title' => $pay->title,
-                    'amount' => (int) $pay->amount,
+                    'amount' => \App\Support\Money::r($pay->amount),
                     'student_category' => $pay->student_category ?: 'all',
                     'term' => $pay->term,
-                    'items' => $pay->items->map(function ($i) { return ['name' => $i->name, 'amount' => (int) $i->amount]; })->values(),
+                    'items' => $pay->items->map(function ($i) { return ['name' => $i->name, 'amount' => Money::r($i->amount)]; })->values(),
                     'class' => optional($pay->my_class)->name,
                     'method' => ucwords($pay->method),
                     'description' => $pay->description,
@@ -489,6 +504,6 @@ class PaymentController extends Controller
         }
         $total = \App\Support\FinanceLog::voidSchoolBill(\App\Models\PaymentRecord::findOrFail($id), $reason);
 
-        return Qs::json(number_format($total).' reversed. The receipts are kept in the audit trail.');
+        return Qs::json(AppSupportMoney::fmt($total).' reversed. The receipts are kept in the audit trail.');
     }
 }

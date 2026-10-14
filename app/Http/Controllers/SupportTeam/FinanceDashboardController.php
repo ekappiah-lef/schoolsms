@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\SupportTeam;
 
+use AppSupportMoney;
 use App\Helpers\Qs;
 use App\Http\Controllers\Controller;
 use App\Models\FinanceTransaction;
@@ -34,7 +35,7 @@ class FinanceDashboardController extends Controller
                 return [
                     'type' => $t->type,
                     'category' => $t->category,
-                    'amount' => (int) $t->amount,
+                    'amount' => \App\Support\Money::r($t->amount),
                     'date' => $t->date->toDateString(),
                     'description' => $t->description,
                 ];

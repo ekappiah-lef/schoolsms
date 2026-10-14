@@ -40,8 +40,10 @@ class FinanceRulesTest extends TestCase
 
     public function testOwedIsBilledLessPaidAndNeverNegative()
     {
-        $this->assertSame(['expected' => 24515, 'paid' => 13915, 'due' => 10600], FinanceSummary::triple(24515, 13915));
-        $this->assertSame(0, FinanceSummary::triple(500, 700)['due']);
+        $this->assertSame(['expected' => 24515.0, 'paid' => 13915.0, 'due' => 10600.0], FinanceSummary::triple(24515, 13915));
+        $this->assertSame(0.0, FinanceSummary::triple(500, 700)['due']);
+        // Cedis and pesewas: no float noise in the balance.
+        $this->assertSame(['expected' => 1000.1, 'paid' => 600.33, 'due' => 399.77], FinanceSummary::triple(1000.10, 600.33));
     }
 
     public function testPaymentModesAreTheFourAgreed()

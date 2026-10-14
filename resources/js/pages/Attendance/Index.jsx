@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Select } from '@/components/ui/select';
-import { Segmented } from '@/components/ui/tabs';
 import { submitForm } from '@/lib/http';
 import { cn, formatDate } from '@/lib/utils';
 
@@ -19,6 +18,11 @@ const STATUS = [
     { value: 'present', label: 'Present' },
     { value: 'late', label: 'Late' },
     { value: 'absent', label: 'Absent' },
+];
+// Only late and absent are marked; everyone else is present.
+const MARKS = [
+    { value: 'late', label: 'Late', on: 'bg-warning text-white border-warning' },
+    { value: 'absent', label: 'Absent', on: 'bg-danger text-white border-danger' },
 ];
 
 /**
@@ -95,7 +99,7 @@ export default function Attendance({ sections, sectionId, date, saved, students,
                             actions={
                                 students.length ? (
                                     <Button size="sm" variant="ghost" onClick={() => setMarks(Object.fromEntries(students.map((s) => [s.id, { ...marks[s.id], status: 'present' }])))}>
-                                        Mark all present
+                                        Clear marks
                                     </Button>
                                 ) : null
                             }
@@ -122,7 +126,22 @@ export default function Attendance({ sections, sectionId, date, saved, students,
                                                         onChange={(e) => set(s.id, 'note', e.target.value)}
                                                     />
                                                 )}
-                                                <Segmented size="sm" value={m.status} onChange={(v) => set(s.id, 'status', v)} options={STATUS} />
+                                                <div className="flex gap-1.5">
+                                                    {MARKS.map((o) => (
+                                                        <button
+                                                            key={o.value}
+                                                            type="button"
+                                                            aria-pressed={m.status === o.value}
+                                                            onClick={() => set(s.id, 'status', m.status === o.value ? 'present' : o.value)}
+                                                            className={cn(
+                                                                'h-8 rounded-md border px-3 text-sm font-medium transition-colors',
+                                                                m.status === o.value ? o.on : 'border-border bg-surface text-fg-muted hover:bg-muted',
+                                                            )}
+                                                        >
+                                                            {o.label}
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </li>
                                         );
                                     })}

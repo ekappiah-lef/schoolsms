@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use AppSupportMoney;
 use Eloquent;
 
 class BusRoute extends Eloquent
@@ -10,10 +11,10 @@ class BusRoute extends Eloquent
 
     protected $fillable = ['name', 'amount_both', 'amount_one_way', 'active'];
 
-    protected $casts = ['active' => 'boolean'];
+    protected $casts = ['active' => 'boolean', 'amount_both' => 'float', 'amount_one_way' => 'float'];
 
     public function priceFor(string $direction): int
     {
-        return (int) ($direction === 'both' ? $this->amount_both : $this->amount_one_way);
+        return \App\Support\Money::r(($direction === 'both' ? $this->amount_both : $this->amount_one_way));
     }
 }

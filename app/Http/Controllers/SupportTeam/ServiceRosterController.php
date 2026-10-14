@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\SupportTeam;
 
+use AppSupportMoney;
 use App\Helpers\Qs;
 use App\Http\Controllers\Controller;
 use App\Models\BusRoute;
@@ -49,8 +50,8 @@ class ServiceRosterController extends Controller
         $rows = $charges->groupBy('student_id')->map(function ($g) use ($classOf, $classNames, $isCurrent) {
             $f = $g->first();
             $classId = $classOf[$f->student_id] ?? $f->my_class_id;
-            $amount = (int) $g->sum('amount');
-            $paid = (int) $g->sum('amt_paid');
+            $amount = \App\Support\Money::r($g->sum('amount'));
+            $paid = \App\Support\Money::r($g->sum('amt_paid'));
             $bus = $g->firstWhere('bus_route_id', '!=', null);
 
             return [
@@ -66,7 +67,7 @@ class ServiceRosterController extends Controller
                 'route' => $bus ? $bus->route_name : null,
                 'direction' => $bus ? $bus->bus_direction : null,
                 'lines' => $g->map(function ($c) {
-                    return ['label' => $c->label, 'amount' => (int) $c->amount, 'paid' => (int) $c->amt_paid, 'balance' => max((int) $c->amount - (int) $c->amt_paid, 0)];
+                    return ['label' => $c->label, 'amount' => \App\Support\Money::r($c->amount), 'paid' => \App\Support\Money::r($c->amt_paid), 'balance' => max(\App\Support\Money::r($c->amount) - \App\Support\Money::r($c->amt_paid), 0)];
                 })->values(),
                 'amount' => $amount,
                 'paid' => $paid,
@@ -85,7 +86,7 @@ class ServiceRosterController extends Controller
         }
         $options = $catalogue->union($optionNames)->map(function ($name, $id) { return ['value' => (int) $id, 'label' => $name]; })->values();
 
-        $routes = BusRoute::orderBy('name')->get()->map(function ($r) { return ['value' => $r->id, 'label' => $r->name, 'both' => (int) $r->amount_both, 'one_way' => (int) $r->amount_one_way]; })->values();
+        $routes = BusRoute::orderBy('name')->get()->map(function ($r) { return ['value' => $r->id, 'label' => $r->name, 'both' => \App\Support\Money::r($r->amount_both), 'one_way' => \App\Support\Money::r($r->amount_one_way)]; })->values();
 
         return Inertia::render('Finance/Services', [
             'group' => $group,

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\SupportTeam;
 
+use App\Support\Money;
+use AppSupportMoney;
 use App\Helpers\Qs;
 use App\Helpers\Ui;
 use App\Http\Controllers\Controller;
@@ -62,7 +64,7 @@ class FinanceTransactionController extends Controller
         $t->update($this->validated($req));
         $after = self::snapshot($t->fresh(), $fields);
         if ($before != $after) {
-            FinanceLog::add('update_entry', 'finance_transaction', $t->id, ['amount' => (int) $t->amount, 'before' => $before, 'after' => $after]);
+            FinanceLog::add('update_entry', 'finance_transaction', $t->id, ['amount' => \App\Support\Money::r($t->amount), 'before' => $before, 'after' => $after]);
         }
 
         return Qs::jsonUpdateOk();
@@ -75,7 +77,7 @@ class FinanceTransactionController extends Controller
             return back()->with('flash_danger', 'Only an administrator can delete income or expense entries.');
         }
         $t = FinanceTransaction::findOrFail($id);
-        FinanceLog::add('delete_entry', 'finance_transaction', $t->id, ['amount' => (int) $t->amount,
+        FinanceLog::add('delete_entry', 'finance_transaction', $t->id, ['amount' => \App\Support\Money::r($t->amount),
             'before' => self::snapshot($t, ['type', 'category', 'amount', 'date', 'method', 'reference', 'description', 'recorded_by'])]);
         $t->delete();
 
@@ -87,7 +89,7 @@ class FinanceTransactionController extends Controller
         return $req->validate([
             'type' => 'required|in:income,expense',
             'category' => 'required|string|max:60',
-            'amount' => 'required|integer|min:1',
+            'amount' => 'required|'.Money::rule().'|min:0.01',
             'date' => 'required|date_format:Y-m-d|before_or_equal:today',
             'method' => 'nullable|string|max:30',
             'reference' => 'nullable|string|max:100',
@@ -122,7 +124,7 @@ class FinanceTransactionController extends Controller
                     'id' => $hash,
                     'type' => $t->type,
                     'category' => $t->category,
-                    'amount' => (int) $t->amount,
+                    'amount' => \App\Support\Money::r($t->amount),
                     'date' => $t->date->toDateString(),
                     'method' => $t->method,
                     'reference' => $t->reference,

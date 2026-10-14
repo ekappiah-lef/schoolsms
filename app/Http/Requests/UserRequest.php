@@ -34,6 +34,7 @@ class UserRequest extends FormRequest
             'lga_id' => 'required',
             'nal_id' => 'required',
             'employment_type' => 'sometimes|nullable|in:full_time,part_time',
+            'job_title' => 'sometimes|nullable|string|max:60',
         ];
         $update =  [
             'name' => 'required|string|min:6|max:150',
@@ -47,6 +48,7 @@ class UserRequest extends FormRequest
             'lga_id' => 'required',
             'nal_id' => 'required',
             'employment_type' => 'sometimes|nullable|in:full_time,part_time',
+            'job_title' => 'sometimes|nullable|string|max:60',
         ];
         return ($this->method() === 'POST') ? $store : $update;
     }

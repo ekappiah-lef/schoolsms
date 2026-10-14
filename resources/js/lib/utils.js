@@ -6,14 +6,21 @@ export function cn(...inputs) {
     return twMerge(clsx(inputs));
 }
 
-const numberFormat = new Intl.NumberFormat('en-GB');
+const numberFormat = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 2 });
+const moneyFormat = new Intl.NumberFormat('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const compactFormat = new Intl.NumberFormat('en-GB', { notation: 'compact', maximumFractionDigits: 1 });
 
 export const formatNumber = (n) => (n === null || n === undefined || n === '' ? '—' : numberFormat.format(Number(n)));
 export const formatCompact = (n) => compactFormat.format(Number(n || 0));
 
-/** Amounts are stored as plain integers with no currency in the database. */
-export const formatMoney = (n) => formatNumber(n);
+/** Amounts are cedis with pesewas (2 decimals), shown without a currency sign: 1,250.50 */
+export const formatMoney = (n) => (n === null || n === undefined || n === '' ? '—' : moneyFormat.format(Number(n)));
+
+/** Sum amounts without float noise (0.1 + 0.2), rounded to the pesewa. */
+export const addMoney = (...values) => Math.round(values.reduce((t, v) => t + (Number(v) || 0) * 100, 0)) / 100;
+
+/** Props for an amount input: cedis and pesewas. */
+export const moneyInput = { type: 'number', step: '0.01', min: 0, inputMode: 'decimal' };
 
 export function parseDate(value) {
     if (!value) return null;

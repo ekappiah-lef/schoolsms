@@ -6,7 +6,7 @@ import { withAppLayout } from '@/layouts/AppLayout';
 import { Field, InfoCallout, ModuleHeader, ModuleTabs, NativeSelect, SetupCard, fieldInput } from '@/components/app/module';
 import { Button } from '@/components/ui/button';
 import { submitForm } from '@/lib/http';
-import { cn, formatMoney } from '@/lib/utils';
+import { addMoney, cn, formatMoney } from '@/lib/utils';
 
 /** Starting points for the breakdown; amounts are filled in by the school. */
 const TEMPLATES = {
@@ -19,12 +19,15 @@ const TEMPLATES = {
  * A fee can be itemised (Tuition, Medicals, P.T.A …); its amount is then the
  * sum of the items, and parents see the breakdown on their invoice.
  */
-export default function PaymentForm({ mode, session, classes, categories, payment, currentTerm, urls }) {
+export default function PaymentForm({ mode, session, classes, categories, payment, copy, currentTerm, urls }) {
     const editing = mode === 'edit';
     const blank = { title: '', my_class_id: '', method: 'Cash', amount: '', description: '', student_category: 'all', term: String(currentTerm ?? ''), items: [] };
     const initial = editing
         ? { ...blank, title: payment.title, description: payment.description ?? '', student_category: payment.student_category, term: String(payment.term ?? ''), items: payment.items.map((i) => ({ ...i })) }
-        : blank;
+        : copy
+          ? { ...blank, title: copy.title, description: copy.description ?? '', student_category: copy.student_category, term: String(copy.term ?? ''),
+              amount: copy.items.length ? '' : String(copy.amount), items: copy.items.map((i) => ({ ...i })) }
+          : blank;
     const [data, setData] = useState(initial);
     const [errors, setErrors] = useState({});
     const [processing, setProcessing] = useState(false);
@@ -34,7 +37,7 @@ export default function PaymentForm({ mode, session, classes, categories, paymen
     };
 
     const itemised = data.items.length > 0;
-    const itemsTotal = data.items.reduce((t, i) => t + (Number(i.amount) || 0), 0);
+    const itemsTotal = addMoney(...data.items.map((i) => i.amount));
     const setItem = (idx, k, v) => set('items', data.items.map((it, i) => (i === idx ? { ...it, [k]: v } : it)));
     const addItem = (name = '') => set('items', [...data.items, { name, amount: '' }]);
     const removeItem = (idx) => set('items', data.items.filter((_, i) => i !== idx));
@@ -68,12 +71,12 @@ export default function PaymentForm({ mode, session, classes, categories, paymen
 
     return (
         <>
-            <Head title={editing ? 'Edit fee' : 'New fee'} />
+            <Head title={editing ? 'Edit fee' : copy ? 'Duplicate fee' : 'New fee'} />
             <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
                 <ModuleHeader crumbs={['Finance', 'Fee setup']} title="Fees" session={session} />
                 <ModuleTabs value="create" onChange={(t) => t === 'list' && router.visit(urls.index)} createLabel="Fee" listLabel="Show Fees" editing={editing} />
                 <SetupCard
-                    title={editing ? 'Edit Fee' : 'New Fee Setup'}
+                    title={editing ? 'Edit Fee' : copy ? `Duplicate of ${copy.title}${copy.class ? ` (${copy.class})` : ''}` : 'New Fee Setup'}
                    
                     icon={Banknote}
                     onSubmit={submit}
@@ -145,9 +148,9 @@ export default function PaymentForm({ mode, session, classes, categories, paymen
                                     />
                                     <input
                                         className="tabular h-9 w-32 rounded-md border-0 bg-transparent px-2 text-right text-sm focus:bg-muted focus:outline-none"
-                                        type="number"
+                                        type="number" step="0.01"
                                         min={0}
-                                        inputMode="numeric"
+                                        inputMode="decimal"
                                         value={it.amount}
                                         onChange={(e) => setItem(i, 'amount', e.target.value)}
                                         placeholder="Amount"
@@ -182,7 +185,7 @@ export default function PaymentForm({ mode, session, classes, categories, paymen
                         {itemised || editing ? (
                             <input className={`${fieldInput} tabular`} value={formatMoney(itemised ? itemsTotal : payment.amount)} disabled readOnly />
                         ) : (
-                            <input className={`${fieldInput} tabular`} type="number" min={1} inputMode="numeric" value={data.amount} onChange={(e) => set('amount', e.target.value)} placeholder="e.g., 2500" aria-invalid={!!errors.amount || undefined} />
+                            <input className={`${fieldInput} tabular`} type="number" step="0.01" min={0.01} inputMode="decimal" value={data.amount} onChange={(e) => set('amount', e.target.value)} placeholder="e.g., 2500" aria-invalid={!!errors.amount || undefined} />
                         )}
                     </Field>
                     <Field label="Academic Year">

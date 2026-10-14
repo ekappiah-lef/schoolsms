@@ -532,7 +532,7 @@ function SellForm({ items, students, url, onDone }) {
                     <div className="relative">
                         <Input
                             className="tabular pr-14"
-                            type="number"
+                            type="number" step="0.01"
                             min={0}
                             max={total}
                             value={payNow}
@@ -762,7 +762,7 @@ function ItemDialog({ item, categories, urls, onClose, onSaved }) {
                 <Labeled label="Price" error={errors.price}>
                     <Input
                         className="tabular"
-                        type="number"
+                        type="number" step="0.01"
                         min={0}
                         value={d.price}
                         onChange={(e) => setD({ ...d, price: e.target.value })}
@@ -849,7 +849,7 @@ function RestockDialog({ item, url, onClose, onSaved }) {
                 <Labeled label="Cost per item" error={errors.unit_cost}>
                     <Input
                         className="tabular"
-                        type="number"
+                        type="number" step="0.01"
                         min={0}
                         value={d.unit_cost}
                         onChange={(e) =>

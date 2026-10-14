@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\Money;
+use AppSupportMoney;
 use App\Helpers\Qs;
 use App\Models\MomoPayment;
 use App\Models\StudentRecord;
@@ -40,7 +42,7 @@ class MomoController extends Controller
 
         return response()->json([
             'status' => $p->status,
-            'amount' => (int) $p->amount,
+            'amount' => \App\Support\Money::r($p->amount),
             'reason' => $p->status === 'failed' ? ($p->reason ?: 'The payment was not completed.') : null,
             'transaction' => $p->financial_transaction_id,
         ]);
@@ -70,11 +72,11 @@ class MomoController extends Controller
         $due = Fees::termInvoice($studentId)['total'];
         $req->validate([
             'phone' => 'required|string|max:20',
-            'amount' => 'required|integer|min:1|max:'.max($due, 1),
-        ], ['amount.max' => 'The amount cannot be more than what is owed ('.number_format($due).').'], ['phone' => 'MoMo number']);
+            'amount' => 'required|'.Money::rule().'|min:0.01|max:'.max($due, 0.01),
+        ], ['amount.max' => 'The amount cannot be more than what is owed ('.AppSupportMoney::fmt($due).').'], ['phone' => 'MoMo number']);
 
         try {
-            $p = MoMo::requestToPay($studentId, $req->phone, (int) $req->amount, $by, Qs::getSystemName().' fees: '.$sr->user->name);
+            $p = MoMo::requestToPay($studentId, $req->phone, \App\Support\Money::r($req->amount), $by, Qs::getSystemName().' fees: '.$sr->user->name);
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage(), 'errors' => ['phone' => [$e->getMessage()]]], 422);
         }

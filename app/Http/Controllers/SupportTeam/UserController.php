@@ -25,7 +25,7 @@ class UserController extends Controller
     public function __construct(UserRepo $user, LocationRepo $loc, MyClassRepo $my_class)
     {
         // Admins manage every user; the academic admin manages teachers only (checked in each action).
-        $this->middleware('teamSA', ['only' => ['index', 'teachers', 'store', 'edit', 'update', 'reset_pass'] ]);
+        $this->middleware('teamSA', ['only' => ['index', 'staff', 'store', 'edit', 'update', 'reset_pass'] ]);
         $this->middleware('super_admin', ['only' => ['destroy'] ]);
 
         $this->user = $user;
@@ -33,10 +33,32 @@ class UserController extends Controller
         $this->my_class = $my_class;
     }
 
-    /** The academic admin may only add, see and edit teachers; admins get the same view on the Teachers page. */
-    protected static function teachersOnly(): bool
+    /** Who counts as staff of the school (super admins run the system and are not listed). */
+    const STAFF_TYPES = ['teacher', 'non_teaching', 'accountant', 'academic_admin', 'admin', 'librarian'];
+
+    /** The Staff page: teaching and non-teaching staff. The academic admin always works from it. */
+    protected static function staffView(): bool
     {
-        return Qs::userIsAcademicAdmin() || request()->routeIs('teachers.index') || request()->query('view') === 'teachers';
+        return Qs::userIsAcademicAdmin() || request()->routeIs('staff.index') || request()->query('view') === 'staff';
+    }
+
+    /** User types the signed-in user may add and edit: the academic admin, teachers and non-teaching staff only. */
+    protected static function limitedTo(): ?array
+    {
+        return Qs::userIsAcademicAdmin() ? ['teacher', 'non_teaching'] : null;
+    }
+
+    /** User types offered when adding a user. */
+    protected function typesFor($ut)
+    {
+        if ($allowed = self::limitedTo()) {
+            return $ut->whereIn('title', $allowed);
+        }
+        if (self::staffView()) {
+            return $ut->whereIn('title', self::STAFF_TYPES)->when(!Qs::userIsSuperAdmin(), function ($c) { return $c->where('level', '>', 2); });
+        }
+
+        return Qs::userIsAdmin() ? $ut->where('level', '>', 2) : $ut;
     }
 
     /**
@@ -59,8 +81,8 @@ class UserController extends Controller
         return Qs::userIsAcademicAdmin() && in_array($target->user_type, ['teacher', 'parent'], true);
     }
 
-    /** Teachers only, with their classes and whether they are full or part time (admins and the academic admin). */
-    public function teachers()
+    /** Teaching and non-teaching staff, with teachers' classes, job titles and full / part time. */
+    public function staff()
     {
         return $this->index();
     }
@@ -68,11 +90,10 @@ class UserController extends Controller
     public function index()
     {
         $ut = $this->user->getAllTypes();
-        $ut2 = $ut->where('level', '>', 2);
 
-        $d['user_types'] = self::teachersOnly() ? $ut->where('title', 'teacher') : (Qs::userIsAdmin() ? $ut2 : $ut);
+        $d['user_types'] = $this->typesFor($ut);
         $d['states'] = $this->loc->getStates();
-        $d['users'] = self::teachersOnly() ? $this->user->getPTAUsers()->where('user_type', 'teacher')->values() : $this->user->getPTAUsers();
+        $d['users'] = self::staffView() ? $this->user->getPTAUsers()->whereIn('user_type', self::STAFF_TYPES)->values() : $this->user->getPTAUsers();
         $d['nationals'] = $this->loc->getAllNationals();
         $d['blood_groups'] = $this->user->getBloodGroups();
 
@@ -84,8 +105,9 @@ class UserController extends Controller
     {
         $isSA = Qs::userIsSuperAdmin();
         $typeNames = $this->user->getAllTypes()->pluck('name', 'title');
-        $teachersView = self::teachersOnly();
-        $index = $teachersView && !Qs::userIsAcademicAdmin() ? route('teachers.index') : route('users.index');
+        $staffView = self::staffView();
+        $allowed = self::limitedTo();
+        $index = $staffView ? route('staff.index') : route('users.index');
 
         // What each teacher is assigned to: the sections they are class teacher of, and their subjects per class.
         $teacherIds = $users->where('user_type', 'teacher')->pluck('id');
@@ -93,21 +115,23 @@ class UserController extends Controller
             ->orderBy('c.name')->get(['s.teacher_id', 's.name as section', 'c.name as class'])->groupBy('teacher_id');
         $subjectsOf = \DB::table('subjects as sb')->join('my_classes as c', 'c.id', '=', 'sb.my_class_id')->whereIn('sb.teacher_id', $teacherIds)
             ->orderBy('c.name')->orderBy('sb.name')->get(['sb.teacher_id', 'sb.name as subject', 'c.name as class'])->groupBy('teacher_id');
-        $staff = \DB::table('staff_records')->whereIn('user_id', $users->pluck('id'))->pluck('employment_type', 'user_id');
+        $staff = \DB::table('staff_records')->whereIn('user_id', $users->pluck('id'))->get(['user_id', 'employment_type', 'job_title'])->keyBy('user_id');
 
         return [
             'userTypes' => $types->map(function ($t) { return ['id' => Qs::hash($t->id), 'title' => $t->title, 'name' => $t->name]; })->values(),
-            'users' => $users->map(function ($u) use ($isSA, $typeNames, $teachersView, $classTeacherOf, $subjectsOf, $staff) {
+            'users' => $users->map(function ($u) use ($isSA, $typeNames, $staffView, $allowed, $classTeacherOf, $subjectsOf, $staff) {
                 $h = Qs::hash($u->id);
                 return [
                     'id' => $h, 'name' => $u->name, 'photo' => $u->photo, 'username' => $u->username, 'phone' => $u->phone, 'email' => $u->email,
                     'type' => $u->user_type, 'type_name' => $typeNames[$u->user_type] ?? ucwords(str_replace('_', ' ', $u->user_type)),
-                    'employment' => $staff[$u->id] ?? null,
+                    'employment' => optional($staff[$u->id] ?? null)->employment_type,
+                    'job_title' => optional($staff[$u->id] ?? null)->job_title,
+                    'category' => $u->user_type === 'teacher' ? 'teaching' : 'non_teaching',
                     'class_teacher' => collect($classTeacherOf[$u->id] ?? [])->map(function ($s) { return trim($s->class.' '.$s->section); })->values(),
                     'subjects' => collect($subjectsOf[$u->id] ?? [])->groupBy('class')->map(function ($g, $class) { return $class.': '.$g->pluck('subject')->implode(', '); })->values(),
                     'urls' => array_filter([
                         'show' => route('users.show', $h),
-                        'edit' => route('users.edit', $h).($teachersView && !Qs::userIsAcademicAdmin() ? '?view=teachers' : ''),
+                        'edit' => !$allowed || in_array($u->user_type, $allowed, true) ? route('users.edit', $h).($staffView && !Qs::userIsAcademicAdmin() ? '?view=staff' : '') : null,
                         'reset_pass' => self::canResetPassword($u) ? route('users.reset_pass', $h) : null,
                         'destroy' => $isSA && !Qs::headSA($u->id) ? route('users.destroy', $h) : null,
                     ]),
@@ -119,7 +143,7 @@ class UserController extends Controller
                 'blood_groups' => $this->user->getBloodGroups()->map->only(['id', 'name'])->values(),
             ],
             'editing' => $editing,
-            'teachersView' => $teachersView,
+            'staffView' => $staffView,
             'urls' => ['store' => route('users.store'), 'index' => $index, 'lgas' => route('get_lga', ':id')],
         ];
     }
@@ -132,23 +156,25 @@ class UserController extends Controller
         $d['users'] = $this->user->getPTAUsers();
         $d['blood_groups'] = $this->user->getBloodGroups();
         $d['nationals'] = $this->loc->getAllNationals();
-        if (!$d['user'] || (self::teachersOnly() && $d['user']->user_type !== 'teacher')) {
+        $allowed = self::limitedTo();
+        if (!$d['user'] || ($allowed && !in_array($d['user']->user_type, $allowed, true))) {
             return Qs::goWithDanger('users.index');
         }
-        if (self::teachersOnly()) {
-            $d['users'] = $d['users']->where('user_type', 'teacher')->values();
+        if (self::staffView()) {
+            $d['users'] = $d['users']->whereIn('user_type', self::STAFF_TYPES)->values();
         }
 
         return Ui::render('Users/Index', function () use ($d) {
             $u = $d['user'];
             $ut = $this->user->getAllTypes();
-            return $this->indexProps(self::teachersOnly() ? $ut->where('title', 'teacher') : (Qs::userIsAdmin() ? $ut->where('level', '>', 2) : $ut), $d['users'], [
+            return $this->indexProps($this->typesFor($ut), $d['users'], [
                 'url' => route('users.update', Qs::hash($u->id)),
                 'name' => $u->name, 'type' => $u->user_type, 'type_name' => optional($ut->firstWhere('title', $u->user_type))->name,
                 'address' => $u->address, 'email' => $u->email, 'phone' => $u->phone, 'phone2' => $u->phone2,
                 'gender' => $u->gender, 'nal_id' => $u->nal_id, 'state_id' => $u->state_id, 'lga_id' => $u->lga_id, 'bg_id' => $u->bg_id,
                 'emp_date' => optional($u->staff->first())->emp_date ? date('Y-m-d', strtotime($u->staff->first()->emp_date)) : '',
                 'employment_type' => optional($u->staff->first())->employment_type ?: '',
+                'job_title' => optional($u->staff->first())->job_title ?: '',
                 'photo' => $u->photo, 'username' => $u->username,
                 'is_staff' => in_array($u->user_type, Qs::getStaff()),
                 'lgas' => $u->state_id ? $this->loc->getLGAs($u->state_id)->map->only(['id', 'name'])->values() : [],
@@ -174,8 +200,8 @@ class UserController extends Controller
     public function store(UserRequest $req)
     {
         $user_type = $this->user->findType($req->user_type)->title;
-        if (self::teachersOnly() && $user_type !== 'teacher') {
-            return Qs::json('You can only add teachers.', false);
+        if (($allowed = self::limitedTo()) && !in_array($user_type, $allowed, true)) {
+            return Qs::json('You can only add teachers and non-teaching staff.', false);
         }
 
         $data = $req->except(Qs::getStaffRecord());
@@ -229,8 +255,8 @@ class UserController extends Controller
         }
 
         $user = $this->user->find($id);
-        if (self::teachersOnly() && optional($user)->user_type !== 'teacher') {
-            return Qs::json('You can only edit teachers.', false);
+        if (($allowed = self::limitedTo()) && !in_array(optional($user)->user_type, $allowed, true)) {
+            return Qs::json('You can only edit teachers and non-teaching staff.', false);
         }
 
         $user_type = $user->user_type;
@@ -298,6 +324,7 @@ class UserController extends Controller
                 'state' => optional($u->state)->name, 'lga' => optional($u->lga)->name,
                 'emp_date' => optional($u->staff->first())->emp_date,
                 'employment_type' => optional($u->staff->first())->employment_type,
+                'job_title' => optional($u->staff->first())->job_title,
                 'staff_code' => optional($u->staff->first())->code,
             ],
             'subjects' => $u->user_type === 'teacher' ? Qs::findTeacherSubjects($u->id)->map(function ($s) {

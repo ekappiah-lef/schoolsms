@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Head, Link, router } from "@inertiajs/react";
-import { Banknote, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { Banknote, Copy, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { usePaged } from "@/components/app/data-table";
 import { withAppLayout } from "@/layouts/AppLayout";
 import { EmptyState, PageHeader, Panel } from "@/components/app/page";
@@ -249,6 +249,12 @@ export default function PaymentsIndex({
                                                             >
                                                                 <Pencil />
                                                                 Edit
+                                                            </Link>
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem asChild>
+                                                            <Link href={p.urls.duplicate}>
+                                                                <Copy />
+                                                                Duplicate
                                                             </Link>
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />

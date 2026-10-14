@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use AppSupportMoney;
 use App\Models\OptionalFeeCharge;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -22,21 +23,21 @@ class FinanceSummary
     /* ------------------------------------------------------------------ bills */
 
     /** Part of a year-long service charge that belongs to each term: a third each, the remainder in term 1. */
-    public static function termShares(int $amount): array
+    public static function termShares(float $amount): array
     {
-        $third = intdiv($amount, 3);
+        $third = floor(Money::r($amount) * 100 / 3) / 100;
 
-        return [1 => $third + $amount % 3, 2 => $third, 3 => $third];
+        return [1 => Money::r($amount - 2 * $third), 2 => $third, 3 => $third];
     }
 
     /** Money paid on a year-long service charge, applied to its terms oldest first. */
-    public static function paidByTerm(int $amount, int $paid): array
+    public static function paidByTerm(float $amount, float $paid): array
     {
         $out = [];
         $lo = 0;
         foreach (self::termShares($amount) as $t => $share) {
             $hi = $t === 3 ? PHP_INT_MAX : $lo + $share;
-            $out[$t] = max(0, min($paid, $hi) - $lo);
+            $out[$t] = Money::r(max(0, min($paid, $hi) - $lo));
             $lo += $share;
         }
 
@@ -64,12 +65,12 @@ class FinanceSummary
             // (a charge without a term, from before, is spread a third per term).
             if ($c->group === 'sales' || $c->term) {
                 if (!in_array($c->term ? (int) $c->term : self::saleTerm($c->created_at, $session), $terms, true)) continue;
-                $amt = (int) $c->amount;
-                $paid = (int) $c->amt_paid;
+                $amt = \App\Support\Money::r($c->amount);
+                $paid = \App\Support\Money::r($c->amt_paid);
             } else {
                 $pick = array_flip($terms);
-                $amt = array_sum(array_intersect_key(self::termShares((int) $c->amount), $pick));
-                $paid = array_sum(array_intersect_key(self::paidByTerm((int) $c->amount, (int) $c->amt_paid), $pick));
+                $amt = array_sum(array_intersect_key(self::termShares(\App\Support\Money::r($c->amount)), $pick));
+                $paid = array_sum(array_intersect_key(self::paidByTerm(\App\Support\Money::r($c->amount), \App\Support\Money::r($c->amt_paid)), $pick));
             }
             if (!$amt && !$paid) continue;
             $out[] = (object) ['student_id' => $c->student_id, 'group' => $c->group, 'label' => $c->label, 'amount' => $amt, 'paid' => $paid];
@@ -95,10 +96,10 @@ class FinanceSummary
         $out = ['gross' => 0, 'discount' => 0, 'school' => 0, 'services' => 0, 'sales' => 0, 'paid' => 0, 'students' => []];
         foreach ($sel->periods() as $session => $terms) {
             foreach (self::schoolLines($session, $terms) as $r) {
-                $out['gross'] += (int) $r->amount;
-                $out['discount'] += (int) $r->discount;
-                $out['school'] += (int) $r->amount - (int) $r->discount;
-                $out['paid'] += (int) $r->paid;
+                $out['gross'] += \App\Support\Money::r($r->amount);
+                $out['discount'] += \App\Support\Money::r($r->discount);
+                $out['school'] += \App\Support\Money::r($r->amount) - \App\Support\Money::r($r->discount);
+                $out['paid'] += Money::r($r->paid);
                 $out['students'][$r->student_id] = true;
             }
             foreach (self::chargeLines($session, $terms) as $c) {
@@ -130,9 +131,9 @@ class FinanceSummary
             $classOf = self::classesInYear($session);
             foreach (self::schoolLines($session, $terms) as $r) {
                 $cls = $r->my_class_id ?: ($classOf[$r->student_id] ?? 0);
-                $add($cls, 'gross', (int) $r->amount);
-                $add($cls, 'discount', (int) $r->discount);
-                $add($cls, 'sPaid', (int) $r->paid);
+                $add($cls, 'gross', \App\Support\Money::r($r->amount));
+                $add($cls, 'discount', \App\Support\Money::r($r->discount));
+                $add($cls, 'sPaid', Money::r($r->paid));
                 $byClass[$cls]['students'][$r->student_id] = true;
             }
             foreach (self::chargeLines($session, $terms) as $c) {
@@ -229,8 +230,8 @@ class FinanceSummary
                 ->get();
             foreach ($records as $pr) {
                 $p = $pr->payment;
-                $items = $p->items->count() ? $p->items->map(function ($i) { return [$i->name, (int) $i->amount]; })->all() : [[$p->title, (int) $p->amount]];
-                foreach (self::splitBill($items, (int) $pr->discount, (int) $pr->amt_paid) as [$name, $amt, $paid]) {
+                $items = $p->items->count() ? $p->items->map(function ($i) { return [$i->name, Money::r($i->amount)]; })->all() : [[$p->title, \App\Support\Money::r($p->amount)]];
+                foreach (self::splitBill($items, \App\Support\Money::r($pr->discount), \App\Support\Money::r($pr->amt_paid)) as [$name, $amt, $paid]) {
                     $lines[] = ['kind' => 'school', 'item' => $name, 'student_id' => $pr->student_id, 'class' => optional($p->my_class)->name ?? ($classNames[$classOf[$pr->student_id] ?? 0] ?? null), 'fee' => $p->title.' · '.$p->year, 'amount' => $amt, 'paid' => $paid];
                 }
             }
@@ -277,8 +278,12 @@ class FinanceSummary
      * tuition first (then the other items); the payment is shared in proportion to the amounts, with the
      * rounding left-over given out a cedi at a time, so the items always add up to the bill exactly.
      */
-    public static function splitBill(array $items, int $discount, int $paid): array
+    public static function splitBill(array $items, float $discount, float $paid): array
     {
+        // Worked in pesewas so the shares add up exactly.
+        $items = array_map(function ($i) { return [$i[0], (int) round($i[1] * 100)]; }, $items);
+        $discount = (int) round($discount * 100);
+        $paid = (int) round($paid * 100);
         $order = array_keys($items);
         usort($order, function ($a, $b) use ($items) { return (stripos($items[$b][0], 'tuition') !== false) <=> (stripos($items[$a][0], 'tuition') !== false); });
         $net = array_map(function ($i) { return $i[1]; }, $items);
@@ -303,7 +308,7 @@ class FinanceSummary
 
         $out = [];
         foreach ($items as $k => $i) {
-            $out[] = [$i[0], $net[$k], $share[$k]];
+            $out[] = [$i[0], $net[$k] / 100, $share[$k] / 100];
         }
 
         return $out;
@@ -318,24 +323,24 @@ class FinanceSummary
     public static function cashflow(TermSelection $sel): array
     {
         $schoolQ = $sel->apply(DB::table('receipts'), 'created_at');
-        $schoolFees = (int) (clone $schoolQ)->sum('amt_paid');
+        $schoolFees = Money::r((clone $schoolQ)->sum('amt_paid'));
 
         $optional = $sel->apply(DB::table('optional_fee_receipts as r')->join('optional_fee_charges as c', 'c.id', '=', 'r.charge_id'), 'r.created_at')
             ->groupBy('c.group')->select('c.group', DB::raw('sum(r.amt_paid) as total'), DB::raw('count(*) as n'))->get()->keyBy('group');
         $optionalLines = collect(OptionalFeeCharge::GROUPS)->map(function ($label, $g) use ($optional) {
-            return ['key' => $g, 'label' => $label, 'total' => (int) optional($optional[$g] ?? null)->total, 'count' => (int) optional($optional[$g] ?? null)->n];
+            return ['key' => $g, 'label' => $label, 'total' => \App\Support\Money::r(optional($optional[$g] ?? null)->total), 'count' => (int) optional($optional[$g] ?? null)->n];
         })->values();
-        $optionalFees = (int) $optionalLines->sum('total');
+        $optionalFees = \App\Support\Money::r($optionalLines->sum('total'));
 
         $tx = $sel->apply(DB::table('finance_transactions'), 'date', true)
             ->groupBy('type', 'category')->select('type', 'category', DB::raw('sum(amount) as total'), DB::raw('count(*) as n'))->get();
         $byCat = function ($rows) {
-            return $rows->sortByDesc('total')->map(function ($r) { return ['category' => $r->category, 'total' => (int) $r->total, 'count' => (int) $r->n]; })->values();
+            return $rows->sortByDesc('total')->map(function ($r) { return ['category' => $r->category, 'total' => \App\Support\Money::r($r->total), 'count' => (int) $r->n]; })->values();
         };
         $income = $byCat($tx->where('type', 'income'));
         $expenses = $byCat($tx->where('type', 'expense'));
-        $otherIncome = (int) $income->sum('total');
-        $out = (int) $expenses->sum('total');
+        $otherIncome = \App\Support\Money::r($income->sum('total'));
+        $out = \App\Support\Money::r($expenses->sum('total'));
         $in = $schoolFees + $optionalFees + $otherIncome;
 
         return [
@@ -389,7 +394,7 @@ class FinanceSummary
         $order = array_flip(Fees::METHODS);
 
         return $rows->groupBy(function ($r) { return $r->method ?: 'Cash'; })->map(function ($g, $m) {
-            return ['method' => $m, 'total' => (int) $g->sum('total'), 'count' => (int) $g->sum('n')];
+            return ['method' => $m, 'total' => \App\Support\Money::r($g->sum('total')), 'count' => \App\Support\Money::r($g->sum('n'))];
         })->sortBy(function ($r) use ($order) { return $order[$r['method']] ?? 99; })->values()->all();
     }
 
@@ -414,9 +419,9 @@ class FinanceSummary
                     ->where('pr.year', $session)->whereIn('p.term', $terms)
                     ->select('pr.student_id', 'p.title', 'p.term', 'p.amount', 'pr.discount', DB::raw('coalesce(pr.amt_paid,0) as paid'))->get();
                 foreach ($rows as $r) {
-                    $billed = (int) $r->amount - (int) $r->discount;
-                    $add($r->student_id, ['label' => $r->title.' · Term '.$r->term.' · '.$year, 'billed' => $billed, 'discount' => (int) $r->discount,
-                        'paid' => (int) $r->paid, 'owed' => max($billed - (int) $r->paid, 0)]);
+                    $billed = \App\Support\Money::r($r->amount) - \App\Support\Money::r($r->discount);
+                    $add($r->student_id, ['label' => $r->title.' · Term '.$r->term.' · '.$year, 'billed' => $billed, 'discount' => \App\Support\Money::r($r->discount),
+                        'paid' => Money::r($r->paid), 'owed' => max($billed - Money::r($r->paid), 0)]);
                 }
             }
             if ($scope !== 'school') {
@@ -444,7 +449,7 @@ class FinanceSummary
                 'lines' => $lines, 'url' => route('payments.invoice', \App\Helpers\Qs::hash($id))];
         })->sortByDesc('amount')->values();
 
-        return ['kind' => $kind, 'scope' => $scope, 'total' => (int) $rows->sum('amount'), 'students' => $rows->count(), 'rows' => $rows];
+        return ['kind' => $kind, 'scope' => $scope, 'total' => \App\Support\Money::r($rows->sum('amount')), 'students' => $rows->count(), 'rows' => $rows];
     }
 
     public static function methodPayments(string $method, TermSelection $sel): array
@@ -457,7 +462,7 @@ class FinanceSummary
             ->select('r.id', 'r.created_at', 'r.amt_paid', 'r.reference', 'p.title', 'p.term', 'p.year', 'u.id as student_id', 'u.name', 'c.name as class_name')->get()
             ->map(function ($r) {
                 return ['key' => 's'.$r->id, 'at' => (string) $r->created_at, 'student' => $r->name, 'class' => $r->class_name, 'for' => $r->title.' · '.$r->year,
-                    'reference' => $r->reference, 'amount' => (int) $r->amt_paid, 'url' => route('payments.invoice', \App\Helpers\Qs::hash($r->student_id))];
+                    'reference' => $r->reference, 'amount' => \App\Support\Money::r($r->amt_paid), 'url' => route('payments.invoice', \App\Helpers\Qs::hash($r->student_id))];
             });
         $optional = $sel->apply(DB::table('optional_fee_receipts as r')->join('optional_fee_charges as ch', 'ch.id', '=', 'r.charge_id')
             ->join('users as u', 'u.id', '=', 'ch.student_id')
@@ -465,27 +470,99 @@ class FinanceSummary
             ->select('r.id', 'r.created_at', 'r.amt_paid', 'r.reference', 'ch.label', 'ch.year', 'u.id as student_id', 'u.name', 'c.name as class_name')->get()
             ->map(function ($r) {
                 return ['key' => 'o'.$r->id, 'at' => (string) $r->created_at, 'student' => $r->name, 'class' => $r->class_name, 'for' => $r->label.' · '.$r->year,
-                    'reference' => $r->reference, 'amount' => (int) $r->amt_paid, 'url' => route('payments.invoice', \App\Helpers\Qs::hash($r->student_id))];
+                    'reference' => $r->reference, 'amount' => \App\Support\Money::r($r->amt_paid), 'url' => route('payments.invoice', \App\Helpers\Qs::hash($r->student_id))];
             });
 
         $rows = $school->concat($optional)->sortByDesc(function ($r) { return $r['at'].'|'.$r['key']; })->values();
 
-        return ['method' => $method, 'total' => (int) $rows->sum('amount'), 'count' => $rows->count(), 'students' => $rows->pluck('student')->unique()->count(), 'rows' => $rows];
+        return ['method' => $method, 'total' => \App\Support\Money::r($rows->sum('amount')), 'count' => $rows->count(), 'students' => $rows->pluck('student')->unique()->count(), 'rows' => $rows];
     }
 
     /** Cash at a moment: everything received up to then minus everything spent up to then. */
-    public static function balanceAt(Carbon $at): int
+    public static function balanceAt(Carbon $at): float
     {
-        $in = (int) DB::table('receipts')->where('created_at', '<=', $at)->sum('amt_paid')
-            + (int) DB::table('optional_fee_receipts')->where('created_at', '<=', $at)->sum('amt_paid')
-            + (int) DB::table('finance_transactions')->where('type', 'income')->where('date', '<=', $at->toDateString())->sum('amount');
-        $out = (int) DB::table('finance_transactions')->where('type', 'expense')->where('date', '<=', $at->toDateString())->sum('amount');
+        $in = \App\Support\Money::r(DB::table('receipts')->where('created_at', '<=', $at)->sum('amt_paid'))
+            + \App\Support\Money::r(DB::table('optional_fee_receipts')->where('created_at', '<=', $at)->sum('amt_paid'))
+            + \App\Support\Money::r(DB::table('finance_transactions')->where('type', 'income')->where('date', '<=', $at->toDateString())->sum('amount'));
+        $out = \App\Support\Money::r(DB::table('finance_transactions')->where('type', 'expense')->where('date', '<=', $at->toDateString())->sum('amount'));
 
         return $in - $out;
     }
 
+    /**
+     * Trial balance for the selection (cash basis, the same money as the ledger):
+     *   debit  — each money account (Cash, Mobile payment, Bank transfer, Cheque) at the end of the selection, and expenses by category;
+     *   credit — the balance brought forward from before the selection, and income by kind (school fees, services, shop, other income).
+     * Debits equal credits because each account = brought forward + money in − money out.
+     * What students still owe on the selection's bills is given as a note (it is not cash yet).
+     */
+    public static function trialBalance(TermSelection $sel): array
+    {
+        $ranges = $sel->ranges();
+        if (!$ranges) {
+            return ['rows' => [], 'debit' => 0, 'credit' => 0, 'from' => null, 'to' => null, 'receivable' => 0];
+        }
+        $start = $ranges[0][0];
+        $method = function ($m) { return $m ?: 'Cash'; };
+
+        // Money per account before the selection (brought forward) and within it.
+        $byMethod = function ($query, string $col, bool $date, $sum) use ($sel, $start) {
+            $before = (clone $query)->where($col, '<', $date ? $start->toDateString() : $start)->groupBy('method')->select('method', DB::raw("sum($sum) as t"))->pluck('t', 'method');
+            $within = $sel->apply(clone $query, $col, $date)->groupBy('method')->select('method', DB::raw("sum($sum) as t"))->pluck('t', 'method');
+            return [$before, $within];
+        };
+        [$sfB, $sfW] = $byMethod(DB::table('receipts'), 'created_at', false, 'amt_paid');
+        [$ofB, $ofW] = $byMethod(DB::table('optional_fee_receipts'), 'created_at', false, 'amt_paid');
+        [$inB, $inW] = $byMethod(DB::table('finance_transactions')->where('type', 'income'), 'date', true, 'amount');
+        [$exB, $exW] = $byMethod(DB::table('finance_transactions')->where('type', 'expense'), 'date', true, 'amount');
+
+        $accounts = [];
+        $add = function ($list, int $sign) use (&$accounts, $method) {
+            foreach ($list as $m => $t) $accounts[$method($m)] = Money::r(($accounts[$method($m)] ?? 0) + $sign * $t);
+        };
+        $opening = [];
+        foreach ([[$sfB, 1], [$ofB, 1], [$inB, 1], [$exB, -1]] as [$l, $s]) {
+            foreach ($l as $m => $t) $opening[$method($m)] = Money::r(($opening[$method($m)] ?? 0) + $s * $t);
+        }
+        $accounts = $opening;
+        foreach ([[$sfW, 1], [$ofW, 1], [$inW, 1], [$exW, -1]] as [$l, $s]) $add($l, $s);
+        $order = array_flip(Fees::METHODS);
+        uksort($accounts, function ($a, $b) use ($order) { return [($order[$a] ?? 99), $a] <=> [($order[$b] ?? 99), $b]; });
+
+        $rows = [];
+        $line = function (string $group, string $name, float $amount, string $side) use (&$rows) {
+            if (abs($amount) < 0.005) return;
+            // A negative balance belongs on the other side.
+            if ($amount < 0) { $amount = -$amount; $side = $side === 'debit' ? 'credit' : 'debit'; }
+            $rows[] = ['group' => $group, 'name' => $name, 'debit' => $side === 'debit' ? Money::r($amount) : 0.0, 'credit' => $side === 'credit' ? Money::r($amount) : 0.0];
+        };
+
+        foreach ($accounts as $m => $t) $line('Money accounts', $m, $t, 'debit');
+        $expenses = $sel->apply(DB::table('finance_transactions')->where('type', 'expense'), 'date', true)->groupBy('category')
+            ->select('category', DB::raw('sum(amount) as t'))->orderBy('category')->pluck('t', 'category');
+        foreach ($expenses as $c => $t) $line('Expenses', $c, (float) $t, 'debit');
+
+        $line('Brought forward', 'Balance brought forward', array_sum($opening), 'credit');
+        $line('Income', 'School fees', (float) $sfW->sum(), 'credit');
+        $groups = $sel->apply(DB::table('optional_fee_receipts as r')->join('optional_fee_charges as c', 'c.id', '=', 'r.charge_id'), 'r.created_at')
+            ->groupBy('c.group')->select('c.group', DB::raw('sum(r.amt_paid) as t'))->pluck('t', 'group');
+        foreach (OptionalFeeCharge::GROUPS as $g => $label) $line('Income', $label, (float) ($groups[$g] ?? 0), 'credit');
+        $other = $sel->apply(DB::table('finance_transactions')->where('type', 'income'), 'date', true)->groupBy('category')
+            ->select('category', DB::raw('sum(amount) as t'))->orderBy('category')->pluck('t', 'category');
+        foreach ($other as $c => $t) $line('Other income', $c, (float) $t, 'credit');
+
+        return [
+            'rows' => $rows,
+            'debit' => Money::r(array_sum(array_column($rows, 'debit'))),
+            'credit' => Money::r(array_sum(array_column($rows, 'credit'))),
+            'from' => $start->toDateString(),
+            'to' => end($ranges)[1]->toDateString(),
+            'receivable' => Money::r(self::invoiced($sel)['outstanding'] ?? 0),
+        ];
+    }
+
     /** Cash now: all money received minus all expenses, ever recorded. */
-    public static function cashBalance(): int
+    public static function cashBalance(): float
     {
         return self::balanceAt(now()->endOfDay());
     }
@@ -506,8 +583,8 @@ class FinanceSummary
             ->map(function ($r) {
                 return [
                     'key' => 's'.$r->id, 'at' => (string) $r->created_at, 'dir' => 'in', 'source' => 'School fees', 'category' => $r->title.' · '.$r->year,
-                    'party' => $r->name, 'detail' => trim(implode(' · ', array_filter([$r->class_name, $r->method, 'balance left '.number_format($r->balance)]))),
-                    'ref' => 'SF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'amount' => (int) $r->amt_paid,
+                    'party' => $r->name, 'detail' => trim(implode(' · ', array_filter([$r->class_name, $r->method, 'balance left '.Money::fmt($r->balance)]))),
+                    'ref' => 'SF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'amount' => \App\Support\Money::r($r->amt_paid),
                     'url' => route('receipts.show', ['school', \App\Helpers\Qs::hash($r->id)]),
                     'party_url' => route('payments.invoice', \App\Helpers\Qs::hash($r->student_id)),
                 ];
@@ -523,8 +600,8 @@ class FinanceSummary
                 return [
                     'key' => 'o'.$r->id, 'at' => (string) $r->created_at, 'dir' => 'in',
                     'source' => OptionalFeeCharge::GROUPS[$r->group] ?? ucfirst($r->group), 'category' => $r->label.' · '.$r->year,
-                    'party' => $r->name, 'detail' => trim(implode(' · ', array_filter([$r->class_name, $r->method, 'balance left '.number_format($r->balance)]))),
-                    'ref' => 'OF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'amount' => (int) $r->amt_paid,
+                    'party' => $r->name, 'detail' => trim(implode(' · ', array_filter([$r->class_name, $r->method, 'balance left '.Money::fmt($r->balance)]))),
+                    'ref' => 'OF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'amount' => \App\Support\Money::r($r->amt_paid),
                     'url' => route('receipts.show', ['optional', \App\Helpers\Qs::hash($r->id)]),
                     'party_url' => route('payments.invoice', \App\Helpers\Qs::hash($r->student_id)),
                 ];
@@ -537,7 +614,7 @@ class FinanceSummary
                     'key' => 't'.$t->id, 'at' => $t->date.' 12:00:00', 'dir' => $t->type === 'income' ? 'in' : 'out',
                     'source' => $t->type === 'income' ? 'Other income' : 'Expense', 'category' => $t->category,
                     'party' => $t->description ?: '—', 'detail' => trim(implode(' · ', array_filter([$t->method, $t->recorder ? 'recorded by '.$t->recorder : null]))),
-                    'ref' => $t->reference ?: 'TX-'.str_pad($t->id, 5, '0', STR_PAD_LEFT), 'amount' => (int) $t->amount,
+                    'ref' => $t->reference ?: 'TX-'.str_pad($t->id, 5, '0', STR_PAD_LEFT), 'amount' => \App\Support\Money::r($t->amount),
                     'url' => route('finance.transactions.edit', \App\Helpers\Qs::hash($t->id)), 'party_url' => null,
                 ];
             });
@@ -574,23 +651,23 @@ class FinanceSummary
             $inSel = false;
             foreach ($ranges as [$rf, $rt]) $inSel = $inSel || ($m->copy()->endOfMonth()->gte($rf) && $m->lte($rt));
             if (!$inSel) continue; // a month between two chosen terms that are not next to each other
-            $fees = (int) ($school[$k] ?? 0) + (int) ($optional[$k] ?? 0);
-            $other = (int) $tx->where('ym', $k)->where('type', 'income')->sum('t');
-            $exp = (int) $tx->where('ym', $k)->where('type', 'expense')->sum('t');
+            $fees = Money::r(($school[$k] ?? 0)) + Money::r(($optional[$k] ?? 0));
+            $other = Money::r($tx->where('ym', $k)->where('type', 'income')->sum('t'));
+            $exp = Money::r($tx->where('ym', $k)->where('type', 'expense')->sum('t'));
             $out[] = ['month' => $m->format($multiYear ? 'M y' : 'M'), 'label' => $m->format('M Y'), 'fees' => $fees, 'other' => $other, 'income' => $fees + $other, 'expenses' => $exp];
         }
 
         return $out;
     }
 
-    public static function triple(int $expected, int $paid): array
+    public static function triple(float $expected, float $paid): array
     {
-        return ['expected' => $expected, 'paid' => $paid, 'due' => max($expected - $paid, 0)];
+        return ['expected' => Money::r($expected), 'paid' => Money::r($paid), 'due' => Money::r(max($expected - $paid, 0))];
     }
 
     protected static function sumTriples($list): array
     {
         $list = collect($list);
-        return ['expected' => (int) $list->sum('expected'), 'paid' => (int) $list->sum('paid'), 'due' => (int) $list->sum('due')];
+        return ['expected' => \App\Support\Money::r($list->sum('expected')), 'paid' => \App\Support\Money::r($list->sum('paid')), 'due' => \App\Support\Money::r($list->sum('due'))];
     }
 }

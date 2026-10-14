@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\Money;
+use AppSupportMoney;
 use App\Helpers\Qs;
 use App\Helpers\Ui;
 use App\Models\Exam;
@@ -98,12 +100,17 @@ class HomeController extends Controller
                 'linkedParents' => StudentRecord::where('grad', 0)->whereNotNull('my_parent_id')->distinct()->count('my_parent_id'),
                 'classes' => MyClass::count(),
                 'sections' => Section::count(),
+                // Staff who do not teach (same as the Staff page's "Non-teaching" tab).
+                'nonTeaching' => (int) collect(['non_teaching', 'accountant', 'admin', 'academic_admin', 'librarian'])->sum(function ($t) use ($counts) { return $counts[$t] ?? 0; }),
+                'attendance' => $this->attendanceToday(),
             ];
             $d['links'] = [
                 'students' => route('students.index'),
                 'admit' => route('students.create'),
                 'users' => Qs::userIsTeamAdmin() ? route('users.index') : null,
                 'classes' => route('classes.index'),
+                'staff' => route('staff.index'),
+                'attendance' => route('attendance.report', ['from' => today()->toDateString(), 'to' => today()->toDateString()]),
             ];
         }
 
@@ -185,9 +192,9 @@ class HomeController extends Controller
             ->get();
 
         return ClassOrder::sort($rows->groupBy('id')->map(function ($g) {
-            $male = (int) $g->where('gender', 'Male')->sum('total');
-            $female = (int) $g->where('gender', 'Female')->sum('total');
-            $all = (int) $g->sum('total');
+            $male = \App\Support\Money::r($g->where('gender', 'Male')->sum('total'));
+            $female = \App\Support\Money::r($g->where('gender', 'Female')->sum('total'));
+            $all = \App\Support\Money::r($g->sum('total'));
 
             return [
                 'class' => $g->first()->name,
@@ -297,7 +304,7 @@ class HomeController extends Controller
     protected function feeIntakeGroups(string $session): array
     {
         $row = function ($label, $expected, $collected) {
-            return ['label' => $label, 'expected' => (int) $expected, 'collected' => (int) $collected];
+            return ['label' => $label, 'expected' => \App\Support\Money::r($expected), 'collected' => Money::r($collected)];
         };
         $fees = \App\Support\FinanceSummary::fees(\App\Support\TermSelection::year($session));
 
@@ -334,8 +341,8 @@ class HomeController extends Controller
             )
             ->get();
 
-        $expected = (int) $items->sum('expected');
-        $collected = (int) $items->sum('collected');
+        $expected = \App\Support\Money::r($items->sum('expected'));
+        $collected = \App\Support\Money::r($items->sum('collected'));
 
         $recent = Receipt::where('year', $session)
             ->with(['pr.payment', 'pr.student'])
@@ -349,8 +356,8 @@ class HomeController extends Controller
                     'student' => $r->pr->student->name,
                     'photo' => $r->pr->student->photo,
                     'fee' => optional($r->pr->payment)->title,
-                    'amount' => (int) $r->amt_paid,
-                    'balance' => (int) $r->balance,
+                    'amount' => \App\Support\Money::r($r->amt_paid),
+                    'balance' => \App\Support\Money::r($r->balance),
                     'date' => optional($r->created_at)->toIso8601String(),
                     'url' => route('payments.invoice', Qs::hash($r->pr->student_id)),
                 ];
@@ -364,23 +371,41 @@ class HomeController extends Controller
         $trend = [];
         for ($i = 0; $i < 6; $i++) {
             $m = $from->copy()->addMonths($i);
-            $trend[] = ['month' => $m->format('M'), 'label' => $m->format('M Y'), 'total' => (int) ($monthly[$m->format('Y-m')] ?? 0)];
+            $trend[] = ['month' => $m->format('M'), 'label' => $m->format('M Y'), 'total' => Money::r(($monthly[$m->format('Y-m')] ?? 0))];
         }
         $students = (int) DB::table('payment_records')->where('year', $session)->distinct()->count('student_id');
 
         return [
             'trend' => $trend,
-            'perStudent' => $students ? (int) round($expected / $students) : 0,
+            'perStudent' => $students ? \App\Support\Money::r(round($expected / $students)) : 0,
             'students' => $students,
             'expected' => $expected,
             'collected' => $collected,
             'outstanding' => max($expected - $collected, 0),
-            'records' => (int) $items->sum('records'),
-            'cleared' => (int) $items->sum('cleared'),
+            'records' => \App\Support\Money::r($items->sum('records')),
+            'cleared' => \App\Support\Money::r($items->sum('cleared')),
             // Collected vs billed, grouped three ways for the "Fee intake" chart.
             'groups' => $this->feeIntakeGroups($session),
             'recent' => $recent,
             'links' => ['manage' => route('payments.manage'), 'setup' => route('payments.index')],
         ];
+    }
+
+    /**
+     * Today's attendance across the school: a student is present unless marked absent (as on the register).
+     * Sections that have not taken the register today are counted separately.
+     */
+    protected function attendanceToday(): array
+    {
+        $active = StudentRecord::where('grad', 0);
+        $total = (clone $active)->count();
+        $marks = \App\Models\Attendance::whereDate('date', today())->whereIn('student_id', (clone $active)->pluck('user_id'));
+        $absent = (clone $marks)->where('status', 'absent')->count();
+        $late = (clone $marks)->where('status', 'late')->count();
+        $marked = (clone $marks)->distinct()->pluck('section_id');
+        $sections = (clone $active)->whereNotNull('section_id')->distinct()->pluck('section_id');
+
+        return ['total' => $total, 'present' => $total - $absent, 'absent' => $absent, 'late' => $late,
+            'unmarked' => $sections->diff($marked)->count(), 'sections' => $sections->count()];
     }
 }

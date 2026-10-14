@@ -12,7 +12,7 @@ class StockMovement extends Eloquent
 
     protected $fillable = ['item_id', 'qty', 'type', 'unit_cost', 'charge_id', 'note', 'user_id', 'date'];
 
-    protected $casts = ['date' => 'date'];
+    protected $casts = ['date' => 'date', 'unit_cost' => 'float'];
 
     public function item()
     {

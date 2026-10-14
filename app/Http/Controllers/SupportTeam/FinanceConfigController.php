@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\SupportTeam;
 
+use App\Support\Money;
+use AppSupportMoney;
 use App\Helpers\Qs;
 use App\Http\Controllers\Controller;
 use App\Models\BusRoute;
@@ -51,7 +53,7 @@ class FinanceConfigController extends Controller
                     'id' => $o->id,
                     'group' => $o->group,
                     'name' => $o->name,
-                    'amount' => (int) $o->amount,
+                    'amount' => \App\Support\Money::r($o->amount),
                     'active' => $o->active,
                     'students' => (int) ($optionUse[$o->id] ?? 0),
                 ];
@@ -60,8 +62,8 @@ class FinanceConfigController extends Controller
                 return [
                     'id' => $r->id,
                     'name' => $r->name,
-                    'amount_both' => (int) $r->amount_both,
-                    'amount_one_way' => (int) $r->amount_one_way,
+                    'amount_both' => \App\Support\Money::r($r->amount_both),
+                    'amount_one_way' => \App\Support\Money::r($r->amount_one_way),
                     'active' => $r->active,
                     'students' => (int) ($routeUse[$r->id] ?? 0),
                 ];
@@ -80,7 +82,7 @@ class FinanceConfigController extends Controller
                     'title' => $p->title,
                     'class' => optional($p->my_class)->name ?: 'All classes',
                     'category' => Payment::CATEGORIES[$p->student_category ?: 'all'],
-                    'amount' => (int) $p->amount,
+                    'amount' => \App\Support\Money::r($p->amount),
                     'items' => (int) $p->items_count,
                     'edit_url' => route('payments.edit', $p->id),
                 ];
@@ -240,7 +242,7 @@ class FinanceConfigController extends Controller
         $d = $req->validate([
             'group' => 'required|in:'.implode(',', array_keys(FeeOption::GROUPS)),
             'name' => 'required|string|max:100',
-            'amount' => 'required|integer|min:0',
+            'amount' => 'required|'.Money::rule().'|min:0',
             'active' => 'nullable|boolean',
         ], [], ['group' => 'Service type', 'amount' => 'Price']);
         $d['active'] = $req->boolean('active', true);
@@ -252,13 +254,13 @@ class FinanceConfigController extends Controller
     {
         $d = $req->validate([
             'name' => 'required|string|max:100|unique:bus_routes,name'.($id ? ','.$id : ''),
-            'amount_both' => 'required|integer|min:0',
-            'amount_one_way' => 'nullable|integer|min:0',
+            'amount_both' => 'required|'.Money::rule().'|min:0',
+            'amount_one_way' => 'nullable|'.Money::rule().'|min:0',
             'active' => 'nullable|boolean',
         ], [], ['name' => 'Location', 'amount_both' => 'Both-ways price', 'amount_one_way' => 'One-way price']);
 
         // One way (in or out) defaults to half the both-ways price.
-        $d['amount_one_way'] = $req->filled('amount_one_way') ? (int) $req->amount_one_way : (int) round($d['amount_both'] / 2);
+        $d['amount_one_way'] = $req->filled('amount_one_way') ? \App\Support\Money::r($req->amount_one_way) : \App\Support\Money::r(round($d['amount_both'] / 2));
         $d['active'] = $req->boolean('active', true);
 
         return $d;

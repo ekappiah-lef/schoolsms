@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use AppSupportMoney;
 use App\Models\MomoPayment;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -31,7 +32,7 @@ class MoMo
     }
 
     /** Start a payment; returns the MomoPayment (status pending) or throws with a readable message. */
-    public static function requestToPay(int $studentId, string $phone, int $amount, ?int $initiatedBy, string $note): MomoPayment
+    public static function requestToPay(int $studentId, string $phone, float $amount, ?int $initiatedBy, string $note): MomoPayment
     {
         $msisdn = Notices::normalisePhone($phone);
         if (!$msisdn || strlen($msisdn) < 12 || strpos($msisdn, '233') !== 0) {
@@ -129,7 +130,7 @@ class MoMo
                 return;
             }
             if ($status === 'SUCCESSFUL') {
-                Fees::applyPayment($p->student_id, (int) $p->amount, 'Mobile payment', 'MTN MoMo '.($txn ?: $p->reference));
+                Fees::applyPayment($p->student_id, \App\Support\Money::r($p->amount), 'Mobile payment', 'MTN MoMo '.($txn ?: $p->reference));
                 $p->update(['status' => 'successful', 'financial_transaction_id' => $txn, 'applied_at' => now()]);
             } else {
                 $p->update(['status' => 'failed', 'reason' => is_string($reason) ? mb_substr($reason, 0, 250) : 'Payment was not completed']);

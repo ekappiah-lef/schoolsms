@@ -12,7 +12,7 @@ class FinanceTransaction extends Eloquent
 
     protected $fillable = ['type', 'category', 'amount', 'date', 'method', 'reference', 'description', 'recorded_by'];
 
-    protected $casts = ['date' => 'date'];
+    protected $casts = ['date' => 'date', 'amount' => 'float'];
 
     public function recorder()
     {

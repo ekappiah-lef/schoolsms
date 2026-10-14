@@ -217,7 +217,7 @@ function HeroStats({ stats, links, enrolment }) {
     const girls = (enrolment ?? []).reduce((a, r) => a + r.female, 0);
     const ratio = stats.teachers ? (stats.students / stats.teachers).toFixed(1) : null;
     return (
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <HeroCard
                 label="Total students"
                 value={formatNumber(stats.students)}
@@ -225,12 +225,29 @@ function HeroStats({ stats, links, enrolment }) {
                 footRight={`${stats.sections} sections`}
                 href={links.students}
             />
+            {stats.attendance && (
+                <HeroCard
+                    label="Present today"
+                    value={`${formatNumber(stats.attendance.present)}/${formatNumber(stats.attendance.total)}`}
+                    footLeft={`${stats.attendance.absent} absent${stats.attendance.late ? ` · ${stats.attendance.late} late` : ''}`}
+                    footRight={stats.attendance.unmarked ? `${stats.attendance.unmarked} of ${stats.attendance.sections} classes not marked` : 'All registers taken'}
+                    footRightTone={stats.attendance.unmarked ? 'default' : 'success'}
+                    href={links.attendance}
+                />
+            )}
             <HeroCard
                 label="Teaching staff"
                 value={formatNumber(stats.teachers)}
                 footLeft="Faculty ratio"
                 footRight={`${girls} girls`}
-                href={links.users}
+                href={links.staff ? `${links.staff}?tab=teaching` : links.users}
+            />
+            <HeroCard
+                label="Non-teaching staff"
+                value={formatNumber(stats.nonTeaching)}
+                footLeft="Office and support"
+                footRight="View staff"
+                href={links.staff ? `${links.staff}?tab=non_teaching` : links.users}
             />
             <HeroCard
                 label="Admin team"

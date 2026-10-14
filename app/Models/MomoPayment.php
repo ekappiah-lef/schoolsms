@@ -8,5 +8,5 @@ class MomoPayment extends Model
 {
     protected $fillable = ['reference', 'student_id', 'phone', 'amount', 'currency', 'status', 'financial_transaction_id', 'reason', 'initiated_by', 'applied_at'];
 
-    protected $casts = ['applied_at' => 'datetime'];
+    protected $casts = ['applied_at' => 'datetime', 'amount' => 'float'];
 }
