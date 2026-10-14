@@ -20,7 +20,7 @@ class ClassCreate extends FormRequest
     public function rules()
     {
         return [
-            'name' => 'required|string|min:3',
+            'name' => ['required', 'string', 'min:3', \Illuminate\Validation\Rule::unique('my_classes')->where('class_type_id', $this->class_type_id)],
             'class_type_id' => 'required|exists:class_types,id',
         ];
     }
@@ -30,6 +30,11 @@ class ClassCreate extends FormRequest
         return  [
             'class_type_id' => 'Class Type',
         ];
+    }
+
+    public function messages()
+    {
+        return ['name.unique' => 'A class with this name already exists for this class type.'];
     }
 
 }

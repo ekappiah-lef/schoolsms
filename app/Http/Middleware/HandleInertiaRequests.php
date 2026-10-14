@@ -56,6 +56,7 @@ class HandleInertiaRequests extends Middleware
                     'code' => Qs::getSetting('system_title'),
                     'session' => Qs::getCurrentSession(),
                     'classic_url' => route('ui.mode', 'classic'),
+                    'idle_minutes' => (int) config('session.lifetime'),
                 ];
             },
             'auth' => function () {
