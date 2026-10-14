@@ -16,10 +16,11 @@ use Illuminate\Support\Facades\DB;
  * bus routes, shop items, all bills, payments, receipts, sales, income, expenses and the audit trail.
  *
  * Take a database backup first. Run: php artisan school:clear-data
+ * With --keep-users every login except students is kept (parents stay, without children).
  */
 class ClearSchoolData extends Command
 {
-    protected $signature = 'school:clear-data {--keep=admin,academic,accountant : Usernames to keep besides super admins} {--force : Do not ask}';
+    protected $signature = 'school:clear-data {--keep=admin,academic,accountant : Usernames to keep besides super admins} {--keep-users : Keep every login except students (teachers, parents and staff stay)} {--force : Do not ask}';
 
     protected $description = 'Remove all school data (students, parents, classes, fees, payments…) and keep logins + reference lists';
 
@@ -42,7 +43,9 @@ class ClearSchoolData extends Command
     public function handle()
     {
         $keepNames = array_filter(array_map('trim', explode(',', (string) $this->option('keep'))));
-        $keep = DB::table('users')->where('user_type', 'super_admin')->orWhereIn('username', $keepNames)->get(['id', 'name', 'username', 'user_type']);
+        $keep = $this->option('keep-users')
+            ? DB::table('users')->where('user_type', '!=', 'student')->get(['id', 'name', 'username', 'user_type'])
+            : DB::table('users')->where('user_type', 'super_admin')->orWhereIn('username', $keepNames)->get(['id', 'name', 'username', 'user_type']);
 
         $this->info('These logins are kept:');
         $this->table(['Name', 'Username', 'Role'], $keep->map(function ($u) { return [$u->name, $u->username, $u->user_type]; })->all());
