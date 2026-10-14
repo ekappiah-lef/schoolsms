@@ -17,7 +17,7 @@ use Throwable;
 /**
  * Admission notices sent to the parent/guardian after a student is admitted:
  *  1. admission letter (email, with the school policy attached) + SMS
- *  2. link to the fees statement (school fees + optional fees) by email + SMS
+ *  2. link to the fees statement (school fees + additional fees) by email + SMS
  * Every attempt is written to notification_logs so failures are visible.
  */
 class Notices
@@ -129,7 +129,7 @@ class Notices
 
         $first = $parentName ? strtok($parentName, ' ') : 'Parent';
         $sms1 = "Dear {$first}, congratulations! {$student} has been admitted to {$school}".($class ? " ({$class})" : '').'. Details have been sent to your email.';
-        $sms2 = "{$school}: view {$student}'s fees (school fees and optional services) here: {$url}";
+        $sms2 = "{$school}: view {$student}'s fees (school fees and additional services) here: {$url}";
         foreach ($to['phones'] as $phone) {
             $log('sms', 'admission', $phone, self::sms($phone, $sms1));
             $log('sms', 'fees_link', $phone, self::sms($phone, $sms2));
@@ -314,27 +314,30 @@ class Notices
      * Send one message to many people (Messages page). Returns counts of sent, held back
      * (demo allowlist) and failed messages.
      */
-    public static function broadcast(array $emails, array $phones, ?string $subject, string $body, bool $sms, bool $email, bool $whatsapp = false): array
+    public static function broadcast(array $emails, array $phones, ?string $subject, string $body, bool $sms, bool $email, bool $whatsapp = false, ?int $messageId = null): array
     {
         $count = ['sent' => 0, 'held' => 0, 'failed' => 0];
-        $tally = function (?string $error) use (&$count) {
+        // Every recipient is logged for the delivery report.
+        $tally = function (string $channel, string $recipient, ?string $error) use (&$count, $messageId) {
             if ($error === null) $count['sent']++;
             elseif (strpos($error, 'Demo mode') === 0) $count['held']++;
             else $count['failed']++;
+            NotificationLog::create(['channel' => $channel, 'kind' => 'message', 'recipient' => $recipient, 'status' => $error ? 'failed' : 'sent',
+                'error' => $error ? mb_substr($error, 0, 1000) : null, 'message_id' => $messageId]);
         };
         if ($sms) {
             foreach (array_unique($phones) as $phone) {
-                $tally(self::sms($phone, $body));
+                $tally('sms', $phone, self::sms($phone, $body));
             }
         }
         if ($whatsapp) {
             foreach (array_unique($phones) as $phone) {
-                $tally(self::whatsapp($phone, $body));
+                $tally('whatsapp', $phone, self::whatsapp($phone, $body));
             }
         }
         if ($email) {
             foreach (array_unique($emails) as $address) {
-                $tally(self::email($address, $subject ?: 'Message from '.Qs::getSystemName(), $body));
+                $tally('email', $address, self::email($address, $subject ?: 'Message from '.Qs::getSystemName(), $body));
             }
         }
 

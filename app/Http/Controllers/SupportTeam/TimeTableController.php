@@ -29,9 +29,15 @@ class TimeTableController extends Controller
         $this->year = Qs::getCurrentSession();
     }
 
-    /** Classes whose timetables the user may see: students their own class, parents their children's; staff null (all). */
+    /**
+     * Classes whose timetables the user may see: students their own class, parents their children's,
+     * teachers the classes they are class teacher of or teach a subject in; admins null (all).
+     */
     protected function visibleClassIds(): ?array
     {
+        if (Qs::userIsTeacher()) {
+            return \App\Support\TeacherScope::markClassIds();
+        }
         if (Qs::userIsStudent()) {
             return DB::table('student_records')->where('user_id', Auth::id())->pluck('my_class_id')->all();
         }

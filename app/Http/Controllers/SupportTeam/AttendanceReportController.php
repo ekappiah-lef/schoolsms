@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 /**
- * Attendance report: who was absent or late, on which day, for a date range and a class or section.
+ * Attendance report: who was absent, on which day, for a date range and a class or section.
  * Admins and the academic admin see every class; a class teacher sees their own class.
  * A child's attendance for the range can be sent to the parents as a short PDF by email.
  */
@@ -33,7 +33,6 @@ class AttendanceReportController extends Controller
         [$from, $to] = $this->range($req);
         $classId = (int) $req->query('class') ?: null;
         $sectionId = (int) $req->query('section') ?: null;
-        $status = in_array($req->query('status'), ['absent', 'late'], true) ? $req->query('status') : 'all';
 
         $marks = $this->marks($from, $to, $classId, $sectionId)->get();
         $students = StudentRecord::whereIn('user_id', $marks->pluck('student_id')->unique())->with(['user', 'my_class', 'section'])->get()->keyBy('user_id');
@@ -42,16 +41,15 @@ class AttendanceReportController extends Controller
 
         $count = function ($rows, $s) { return $rows->where('status', $s)->count(); };
         $present = $count($marks, 'present');
-        $late = $count($marks, 'late');
         $absent = $count($marks, 'absent');
 
         $days = $marks->groupBy(function ($m) { return $m->date->toDateString(); })->sortKeysDesc()->map(function ($rows, $date) use ($count) {
-            return ['date' => $date, 'present' => $count($rows, 'present'), 'late' => $count($rows, 'late'), 'absent' => $count($rows, 'absent'),
+            return ['date' => $date, 'present' => $count($rows, 'present'), 'absent' => $count($rows, 'absent'),
                 'registers' => $rows->pluck('section_id')->unique()->count()];
         })->values();
 
-        $exceptions = $marks->whereIn('status', $status === 'all' ? ['absent', 'late'] : [$status])
-            ->sortBy(function ($m) use ($name) { return [-$m->date->timestamp, $m->status === 'absent' ? 0 : 1, $name($m->student_id)]; })
+        $exceptions = $marks->where('status', 'absent')
+            ->sortBy(function ($m) use ($name) { return [-$m->date->timestamp, $name($m->student_id)]; })
             ->map(function ($m) use ($name, $class) {
                 return ['id' => $m->id, 'date' => $m->date->toDateString(), 'student' => $name($m->student_id), 'class' => $class($m->student_id),
                     'status' => $m->status, 'note' => $m->note, 'alerted' => (bool) $m->alerted_at];
@@ -62,21 +60,19 @@ class AttendanceReportController extends Controller
             $n = $rows->count();
             return [
                 'id' => Qs::hash($id), 'name' => $name($id), 'class' => $class($id), 'days' => $n,
-                'present' => $count($rows, 'present'), 'late' => $count($rows, 'late'), 'absent' => $count($rows, 'absent'),
-                'rate' => $n ? round(($n - $count($rows, 'absent')) / $n * 100) : null,
+                'present' => $count($rows, 'present'), 'absent' => $count($rows, 'absent'),
                 'urls' => [
                     'student' => $sr ? route('students.show', Qs::hash($sr->id)) : null,
                     'pdf' => route('attendance.report.pdf', [Qs::hash($id), 'from' => $from->toDateString(), 'to' => $to->toDateString()]),
                     'send' => route('attendance.report.send', [Qs::hash($id), 'from' => $from->toDateString(), 'to' => $to->toDateString()]),
                 ],
             ];
-        })->sort(function ($a, $b) { return [$b['absent'], $b['late'], $a['name']] <=> [$a['absent'], $a['late'], $b['name']]; })->values();
+        })->sort(function ($a, $b) { return [$b['absent'], $a['name']] <=> [$a['absent'], $b['name']]; })->values();
 
         return Inertia::render('Attendance/Report', [
-            'filters' => ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'class' => $classId, 'section' => $sectionId, 'status' => $status],
+            'filters' => ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'class' => $classId, 'section' => $sectionId],
             'classes' => $this->classes(),
-            'summary' => ['marks' => $marks->count(), 'present' => $present, 'late' => $late, 'absent' => $absent, 'days' => $days->count(),
-                'students' => $byStudent->count(), 'rate' => $marks->count() ? round(($present + $late) / $marks->count() * 100, 1) : null],
+            'summary' => ['marks' => $marks->count(), 'present' => $present, 'absent' => $absent, 'days' => $days->count(), 'students' => $byStudent->count()],
             'days' => $days,
             'exceptions' => $exceptions,
             'students' => $byStudent,
@@ -129,21 +125,16 @@ class AttendanceReportController extends Controller
     protected function childData(StudentRecord $sr, Carbon $from, Carbon $to): array
     {
         $rows = Attendance::where('student_id', $sr->user_id)->whereBetween('date', [$from->toDateString(), $to->toDateString()])->orderBy('date')->get();
-        $n = $rows->count();
-        $absent = $rows->where('status', 'absent')->count();
-
         return [
             'school' => Qs::getSystemName(),
             'logo' => Qs::getSetting('logo'),
             'student' => $sr->user->name,
             'class' => trim(optional($sr->my_class)->name.' '.optional($sr->section)->name),
             'period' => $from->isSameDay($to) ? $from->format('j M Y') : $from->format('j M Y').' – '.$to->format('j M Y'),
-            'days' => $n,
+            'days' => $rows->count(),
             'present' => $rows->where('status', 'present')->count(),
-            'late' => $rows->where('status', 'late')->count(),
-            'absent' => $absent,
-            'rate' => $n ? round(($n - $absent) / $n * 100) : null,
-            'exceptions' => $rows->whereIn('status', ['absent', 'late'])->map(function ($m) {
+            'absent' => $rows->where('status', 'absent')->count(),
+            'exceptions' => $rows->where('status', 'absent')->map(function ($m) {
                 return ['date' => $m->date->format('D j M Y'), 'status' => ucfirst($m->status), 'note' => $m->note];
             })->values(),
         ];

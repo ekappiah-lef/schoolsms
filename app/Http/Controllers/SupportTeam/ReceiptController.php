@@ -91,7 +91,7 @@ class ReceiptController extends Controller
             $studentId = $rc->charge->student_id;
             $ref = null;
             $number = 'OF-'.str_pad($rc->id, 6, '0', STR_PAD_LEFT);
-            $category = 'Optional fees · '.(\App\Models\OptionalFeeCharge::GROUPS[$rc->charge->group] ?? ucfirst($rc->charge->group));
+            $category = 'Additional fees · '.(\App\Models\OptionalFeeCharge::GROUPS[$rc->charge->group] ?? ucfirst($rc->charge->group));
         } else {
             return null;
         }

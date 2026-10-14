@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Segmented } from '@/components/ui/tabs';
 import { FeeTotals, MomoPay, OptionalFeesInvoice, PaymentHistory, SchoolFeesInvoice, TermInvoice } from '@/components/fees/fee-statement';
 
-/** A student's two invoices (school fees with breakdown, optional services) and payments. */
+/** A student's two invoices (school fees with breakdown, additional services) and payments. */
 export default function PaymentsInvoice({ student, year, years, statement, invoice, parentPhone, momoTest, urls }) {
     const [confirm, confirmDialog] = useConfirmAction();
     const reload = () => router.reload({ only: ['statement', 'invoice'], preserveScroll: true });

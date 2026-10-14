@@ -401,11 +401,10 @@ class HomeController extends Controller
         $total = (clone $active)->count();
         $marks = \App\Models\Attendance::whereDate('date', today())->whereIn('student_id', (clone $active)->pluck('user_id'));
         $absent = (clone $marks)->where('status', 'absent')->count();
-        $late = (clone $marks)->where('status', 'late')->count();
         $marked = (clone $marks)->distinct()->pluck('section_id');
         $sections = (clone $active)->whereNotNull('section_id')->distinct()->pluck('section_id');
 
-        return ['total' => $total, 'present' => $total - $absent, 'absent' => $absent, 'late' => $late,
+        return ['total' => $total, 'present' => $total - $absent, 'absent' => $absent,
             'unmarked' => $sections->diff($marked)->count(), 'sections' => $sections->count()];
     }
 }

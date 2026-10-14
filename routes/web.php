@@ -219,6 +219,7 @@ Route::group(['middleware' => 'auth'], function () {
         Route::get('attendance/report/{student}/pdf', 'AttendanceReportController@pdf')->name('attendance.report.pdf');
         Route::post('attendance/report/{student}/send', 'AttendanceReportController@send')->name('attendance.report.send');
         Route::get('messages', 'MessageController@index')->name('messages.index');
+        Route::get('messages/delivery', 'DeliveryReportController@index')->name('messages.delivery');
         Route::get('clearenroll/verify-student', 'ClearEnrollController@student')->name('clearenroll.student');
         Route::get('clearenroll/verify-teacher', 'ClearEnrollController@teacher')->name('clearenroll.teacher');
         Route::post('clearenroll/search', 'ClearEnrollController@search')->name('clearenroll.search');

@@ -189,7 +189,6 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                                         { label: 'Fee discount', value: student.discount ? `${student.discount.name} (${student.discount.percent}% of tuition)` : 'None' },
                                         { label: 'Year', value: student.session },
                                         { label: 'Sport house', value: student.house },
-                                        { label: 'Dormitory', value: student.dorm ? `${student.dorm}${student.dorm_room_no ? ` · Room ${student.dorm_room_no}` : ''}` : null },
                                         { label: 'Login ID', value: student.username },
                                     ]}
                                 />
@@ -382,7 +381,7 @@ function FeeSummary({ fees, onOpen }) {
                             <dd>{formatMoney(school.balance)} due</dd>
                         </div>
                         <div className="flex justify-between">
-                            <dt className="text-fg-muted">Optional fees</dt>
+                            <dt className="text-fg-muted">Additional fees</dt>
                             <dd>{formatMoney(optional.balance)} due</dd>
                         </div>
                     </dl>

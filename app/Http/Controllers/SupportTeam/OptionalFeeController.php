@@ -10,7 +10,7 @@ use App\Models\OptionalFeeCharge;
 use App\Models\OptionalFeeReceipt;
 use Illuminate\Http\Request;
 
-/** Part/full payments against single optional services (e.g. only the bus). */
+/** Part/full payments against single additional services (e.g. only the bus). */
 class OptionalFeeController extends Controller
 {
     public function __construct()

@@ -16,17 +16,13 @@ import { cn, formatDate } from '@/lib/utils';
 
 const STATUS = [
     { value: 'present', label: 'Present' },
-    { value: 'late', label: 'Late' },
     { value: 'absent', label: 'Absent' },
 ];
-// Only late and absent are marked; everyone else is present.
-const MARKS = [
-    { value: 'late', label: 'Late', on: 'bg-warning text-white border-warning' },
-    { value: 'absent', label: 'Absent', on: 'bg-danger text-white border-danger' },
-];
+// Only absence is marked; everyone else is present.
+const MARKS = [{ value: 'absent', label: 'Absent', on: 'bg-danger text-white border-danger' }];
 
 /**
- * Daily register for a class section. Everyone starts as present; mark who is late or absent,
+ * Daily register for a class section. Everyone starts as present; mark who is absent,
  * save, then send the absence alert to the parents of the absent children.
  */
 export default function Attendance({ sections, sectionId, date, saved, students, recent, urls }) {
@@ -110,7 +106,7 @@ export default function Attendance({ sections, sectionId, date, saved, students,
                                     {students.map((s, i) => {
                                         const m = marks[s.id];
                                         return (
-                                            <li key={s.id} className={cn('flex flex-wrap items-center gap-3 px-5 py-2.5', m.status === 'absent' && 'bg-danger-soft/30', m.status === 'late' && 'bg-warning-soft/30')}>
+                                            <li key={s.id} className={cn('flex flex-wrap items-center gap-3 px-5 py-2.5', m.status === 'absent' && 'bg-danger-soft/30')}>
                                                 <span className="tabular w-6 text-sm text-fg-subtle">{i + 1}</span>
                                                 <Avatar src={s.photo} name={s.name} size="md" />
                                                 <div className="min-w-0 flex-1">
@@ -158,7 +154,6 @@ export default function Attendance({ sections, sectionId, date, saved, students,
                                         <tr className="border-b border-border bg-canvas text-left text-2xs font-semibold uppercase text-fg-muted">
                                             <th className="h-9 px-5">Date</th>
                                             <th className="h-9 px-3 text-right">Present</th>
-                                            <th className="h-9 px-3 text-right">Late</th>
                                             <th className="h-9 px-5 text-right">Absent</th>
                                         </tr>
                                     </thead>
@@ -167,7 +162,6 @@ export default function Attendance({ sections, sectionId, date, saved, students,
                                             <tr key={r.date} onClick={() => go({ date: r.date })} className={cn('cursor-pointer border-b border-border last:border-0 hover:bg-muted/50', r.date === date && 'bg-primary-soft/40')}>
                                                 <td className="px-5 py-2">{formatDate(r.date, 'EEE dd/MM/yyyy')}</td>
                                                 <td className="px-3 py-2 text-right text-success-fg">{r.present}</td>
-                                                <td className="px-3 py-2 text-right">{r.late}</td>
                                                 <td className={cn('px-5 py-2 text-right', r.absent > 0 && 'font-semibold text-danger-fg')}>{r.absent}</td>
                                             </tr>
                                         ))}

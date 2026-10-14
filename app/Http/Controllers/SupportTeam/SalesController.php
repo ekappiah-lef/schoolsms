@@ -19,7 +19,7 @@ use Inertia\Inertia;
 
 /**
  * School shop: items in stock (uniform, socks, sweaters, books, stationery…),
- * restocking, selling to students (charged to their optional fees), books
+ * restocking, selling to students (charged to their additional fees), books
  * handed down between siblings, and returns.
  */
 class SalesController extends Controller
@@ -140,7 +140,7 @@ class SalesController extends Controller
         return Qs::jsonUpdateOk();
     }
 
-    /** Sell items to a student (charged to their optional fees), optionally taking payment now. */
+    /** Sell items to a student (charged to their additional fees), optionally taking payment now. */
     public function sell(Request $req)
     {
         $req->validate([

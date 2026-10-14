@@ -29,6 +29,13 @@ class MessageController extends Controller
     public function __construct()
     {
         $this->middleware('teamSAT');
+        // A teacher who is not a class teacher has no parents to message.
+        $this->middleware(function ($request, $next) {
+            if (Qs::userIsTeacher() && !\App\Support\TeacherScope::ownSectionIds()) {
+                return $request->expectsJson() ? Qs::json('Only class teachers can send messages.', false) : redirect()->route('dashboard')->with('pop_error', 'Only class teachers can send messages.');
+            }
+            return $next($request);
+        });
     }
 
     protected static function isTeacher(): bool
@@ -165,7 +172,7 @@ class MessageController extends Controller
     protected function deliver(Message $m): string
     {
         $r = $this->people($m->audience, $m->class_id, $m->section_id);
-        $count = Notices::broadcast($r['emails'], $r['phones'], $m->subject, $m->body, $m->sms, $m->email, (bool) $m->whatsapp);
+        $count = Notices::broadcast($r['emails'], $r['phones'], $m->subject, $m->body, $m->sms, $m->email, (bool) $m->whatsapp, $m->id);
         $m->update(['status' => 'sent', 'recipients' => $r['people'], 'sent' => $count['sent'], 'failed' => $count['failed']]);
 
         $msg = "Message sent: {$count['sent']} delivered";

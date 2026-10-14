@@ -101,12 +101,9 @@ class MarkController extends Controller
             return redirect(route('dashboard'))->with('pop_error', __('msg.denied'));
         }
 
-        if(Mk::examIsLocked() && !Qs::userIsTeamSA()){
-            Session::put('marks_url', route('marks.show', [Qs::hash($student_id), $year]));
-
-            if(!$this->checkPinVerified($student_id)){
-                return redirect()->route('pins.enter', Qs::hash($student_id));
-            }
+        // Locked results (Settings) are hidden from parents and students until unlocked; result pins are not used.
+        if(Mk::examIsLocked() && !Qs::userIsTeamSAT()){
+            return redirect()->route('dashboard')->with('pop_error', 'Results have not been released yet.');
         }
 
         if(!$this->verifyStudentExamYear($student_id, $year)){
@@ -195,12 +192,9 @@ class MarkController extends Controller
             return redirect(route('dashboard'))->with('pop_error', __('msg.denied'));
         }
 
-        if(Mk::examIsLocked() && !Qs::userIsTeamSA()){
-            Session::put('marks_url', route('marks.show', [Qs::hash($student_id), $year]));
-
-            if(!$this->checkPinVerified($student_id)){
-                return redirect()->route('pins.enter', Qs::hash($student_id));
-            }
+        // Locked results (Settings) are hidden from parents and students until unlocked; result pins are not used.
+        if(Mk::examIsLocked() && !Qs::userIsTeamSAT()){
+            return redirect()->route('dashboard')->with('pop_error', 'Results have not been released yet.');
         }
 
         if(!$this->verifyStudentExamYear($student_id, $year)){

@@ -31,7 +31,7 @@ export function selectedServiceLines(catalogue, value) {
 export const servicesTotal = (catalogue, value) => selectedServiceLines(catalogue, value).reduce((t, l) => t + l.amount, 0);
 
 /**
- * Optional services on the admission/edit form: feeding, bus, extra-curricular
+ * Additional services on the admission/edit form: feeding, bus, extra-curricular
  * and books. Every choice is optional; prices come from Finance configuration.
  */
 export function ServicesPicker({ catalogue, value, onChange, mode = 'create' }) {
@@ -114,7 +114,7 @@ export function ServicesPicker({ catalogue, value, onChange, mode = 'create' }) 
             {groups.filter((g) => g.key !== 'feeding').map(group)}
 
             <div className="flex items-center justify-between rounded-lg bg-muted/60 px-3 py-2.5 text-sm">
-                <span className="text-fg-muted">Optional fees per term</span>
+                <span className="text-fg-muted">Additional fees per term</span>
                 <span className="tabular font-semibold">{formatMoney(total)}</span>
             </div>
         </div>
@@ -127,7 +127,6 @@ function ServiceGroup({ icon: Icon, title, children }) {
             <div className="mb-2 flex items-center gap-2 text-sm font-medium">
                 {Icon && <Icon className="size-4 text-fg-subtle" />}
                 {title}
-                <span className="rounded bg-subtle px-1.5 py-px text-2xs font-medium uppercase tracking-wide text-fg-muted">Optional</span>
             </div>
             {children}
         </div>

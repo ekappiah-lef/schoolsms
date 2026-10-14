@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * School fees (itemised, billed by class and new/continuing category) and
- * optional fees (feeding, bus, extra-curricular, books) for one student.
+ * additional fees (feeding, bus, extra-curricular, books) for one student.
  *
  * School fees keep using the existing payments / payment_records / receipts
  * tables, so the pay, reset and receipt screens are unchanged.
@@ -205,7 +205,7 @@ class Fees
     }
 
     /* ------------------------------------------------------------------
-     | Optional services
+     | Additional services
      * -----------------------------------------------------------------*/
 
     /**
@@ -285,7 +285,7 @@ class Fees
     }
 
     /**
-     * Sell an item to a student: adds it to their optional fees and takes it out of stock.
+     * Sell an item to a student: adds it to their additional fees and takes it out of stock.
      * A hand-down from a sibling is recorded at no charge and does not touch stock.
      */
     public static function sell(int $studentId, string $year, InventoryItem $item, int $qty, ?int $handedDownFrom = null, ?string $date = null): OptionalFeeCharge
@@ -552,7 +552,7 @@ class Fees
      * What a student will owe for the term after ($year, $term), for the report card, from Fee setup
      * and the student's own bills (not typed in by hand):
      *   school fees for the next term (their class and category, less their discount; what is left to
-     *   pay if already billed), plus their optional services' share for that term (feeding, bus, clubs),
+     *   pay if already billed), plus their additional services' share for that term (feeding, bus, clubs),
      *   plus everything still unpaid up to and including ($year, $term). set = false when the next
      *   term's school fees are not in Fee setup yet.
      */
@@ -606,7 +606,7 @@ class Fees
 
     /**
      * Apply one payment to everything the student owes, oldest first: earlier years and terms,
-     * then this term's school fees, then optional services. Creates a receipt for each bill paid
+     * then this term's school fees, then additional services. Creates a receipt for each bill paid
      * and returns [['kind' => 'school'|'optional', 'id' => receipt id, 'label', 'amount']].
      */
     public static function applyPayment(int $studentId, float $amount, string $method, ?string $reference = null): array

@@ -17,7 +17,7 @@ import { cn, formatDate, formatMoney } from '@/lib/utils';
 const SCOPES = [
     { value: 'total', label: 'All fees' },
     { value: 'school', label: 'School fees' },
-    { value: 'optional', label: 'Optional fees' },
+    { value: 'optional', label: 'Additional fees' },
 ];
 
 /**
@@ -67,7 +67,7 @@ export default function FinanceDashboard({ selection, fees, cashflow, invoiced, 
                     <BalanceCards selection={selection} invoiced={invoiced} received={cashflow.income} expenses={cashflow.expenses} />
                 </section>
 
-                {/* Fees this year and optional services */}
+                {/* Fees this year and additional services */}
                 <section className="grid grid-cols-1 gap-6 xl:grid-cols-5">
                     <FeesChartCard
                         fees={fees}
@@ -432,7 +432,7 @@ function FeeStudents({ kind, scope, onClose, url, periodQuery, periodLabel }) {
     );
 }
 
-/** Optional services: paid vs due per service, with the figures underneath. */
+/** Additional services: paid vs due per service, with the figures underneath. */
 function ServicesChartCard({ services, label }) {
     const data = services.map((s) => ({ label: s.label, paid: s.paid, due: s.due }));
     return (
@@ -440,7 +440,7 @@ function ServicesChartCard({ services, label }) {
             <div className="flex items-start justify-between gap-3">
                 <div>
                     <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">{label}</span>
-                    <h3 className="text-lg font-semibold tracking-tight">Optional services</h3>
+                    <h3 className="text-lg font-semibold tracking-tight">Additional services</h3>
                 </div>
                 <Legend items={[{ label: 'Paid', color: C_PAID }, { label: 'Due', color: C_DUE }]} />
             </div>
@@ -572,7 +572,7 @@ function FeesByType({ types, scope, onClose }) {
 function IncomeSources({ cashflow }) {
     const rows = [
         { category: 'School fees', total: cashflow.schoolFees },
-        { category: 'Optional fees', total: cashflow.optionalFees },
+        { category: 'Additional fees', total: cashflow.optionalFees },
         ...cashflow.incomeByCategory,
     ].filter((r) => r.total > 0);
     return rows.length ? (

@@ -42,7 +42,7 @@ class AttendanceController extends Controller
 
         // The last 10 register days for this section, for a quick overview.
         $recent = Attendance::where('section_id', $sectionId)->where('date', '<=', $date->toDateString())
-            ->select('date', DB::raw("sum(status = 'present') as present"), DB::raw("sum(status = 'late') as late"), DB::raw("sum(status = 'absent') as absent"))
+            ->select('date', DB::raw("sum(status = 'present') as present"), DB::raw("sum(status = 'absent') as absent"))
             ->groupBy('date')->orderByDesc('date')->limit(10)->get();
 
         return Inertia::render('Attendance/Index', [
@@ -58,7 +58,7 @@ class AttendanceController extends Controller
                 ];
             })->values(),
             'recent' => $recent->map(function ($r) {
-                return ['date' => Carbon::parse($r->date)->toDateString(), 'present' => (int) $r->present, 'late' => (int) $r->late, 'absent' => (int) $r->absent];
+                return ['date' => Carbon::parse($r->date)->toDateString(), 'present' => (int) $r->present, 'absent' => (int) $r->absent];
             })->values(),
             'urls' => ['self' => route('attendance.index'), 'save' => route('attendance.store'), 'alert' => route('attendance.alert')],
         ]);

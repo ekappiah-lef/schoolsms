@@ -65,7 +65,7 @@ function Admitted({ result, onAnother, onList }) {
                 </span>
                 <div className="min-w-0 flex-1">
                     <h2 className="text-lg font-semibold">{result.name} has been admitted</h2>
-                    <p className="mt-1 text-sm text-fg-muted">The student record and portal account were created, and school fees and optional services were billed for this term.</p>
+                    <p className="mt-1 text-sm text-fg-muted">The student record and portal account were created, and school fees and additional services were billed for this term.</p>
                     {result.parent_login && (
                         <p className="mt-3 rounded-lg bg-muted/60 px-3 py-2 text-sm">
                             <UserPlus className="mr-1.5 inline size-4 text-fg-muted" />

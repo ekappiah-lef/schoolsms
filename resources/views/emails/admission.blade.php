@@ -15,7 +15,7 @@
                 Please contact the school office for a copy of the school policy.
             @endif
         </p>
-        <p style="margin:0 0 12px;">A separate email contains a link to your ward's fees, including any optional services you selected.</p>
+        <p style="margin:0 0 12px;">A separate email contains a link to your ward's fees, including any additional services you selected.</p>
         <p style="margin:0;">We look forward to working with you.</p>
     </td></tr>
     <tr><td style="padding:20px 32px 28px;font-size:12px;line-height:18px;color:#777587;border-top:1px solid #eceaf4;">

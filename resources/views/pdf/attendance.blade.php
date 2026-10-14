@@ -20,12 +20,11 @@
         .who { font-size: 14px; font-weight: bold; margin: 0; }
         .muted { color: #6b6f80; }
         table { width: 100%; border-collapse: collapse; }
-        .stats td { border: 1px solid #d9dbe3; padding: 8px; text-align: center; width: 25%; }
+        .stats td { border: 1px solid #d9dbe3; padding: 8px; text-align: center; width: 33%; }
         .stats .n { font-size: 16px; font-weight: bold; display: block; }
         .list th { text-align: left; font-size: 10px; text-transform: uppercase; color: #6b6f80; border-bottom: 1px solid #d9dbe3; padding: 6px 4px; }
         .list td { border-bottom: 1px solid #eceef3; padding: 6px 4px; }
         .absent { color: #b42318; font-weight: bold; }
-        .late { color: #b54708; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -46,21 +45,17 @@
         <tr>
             <td><span class="n">{{ $days }}</span>School days</td>
             <td><span class="n">{{ $present }}</span>Present</td>
-            <td><span class="n">{{ $late }}</span>Late</td>
             <td><span class="n">{{ $absent }}</span>Absent</td>
         </tr>
     </table>
-    @if($rate !== null)
-        <p style="margin: 10px 0 18px;">Attendance: <strong>{{ $rate }}%</strong></p>
-    @endif
+    <div style="height: 18px;"></div>
 
     @if(count($exceptions))
         <table class="list">
-            <tr><th>Date</th><th>Status</th><th>Note</th></tr>
+            <tr><th>Absent on</th><th>Note</th></tr>
             @foreach($exceptions as $e)
                 <tr>
                     <td>{{ $e['date'] }}</td>
-                    <td class="{{ strtolower($e['status']) }}">{{ $e['status'] }}</td>
                     <td>{{ $e['note'] }}</td>
                 </tr>
             @endforeach

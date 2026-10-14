@@ -15,12 +15,12 @@ const CATEGORY = { new: 'New student', old: 'Continuing student' };
 export const sumRows = (rows) =>
     rows.reduce((a, r) => ({ amount: a.amount + r.amount, paid: a.paid + r.paid, balance: a.balance + r.balance }), { amount: 0, paid: 0, balance: 0 });
 
-/** Totals for school fees, optional fees and everything together. */
+/** Totals for school fees, additional fees and everything together. */
 export function FeeTotals({ school, optional, overall, scopeLabel }) {
     return (
         <div className="panel grid divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0">
             <TotalBlock title="School fees" t={school} />
-            <TotalBlock title="Optional fees" t={optional} />
+            <TotalBlock title="Additional fees" t={optional} />
             <TotalBlock title={scopeLabel ?? 'All fees'} t={overall} strong />
         </div>
     );
@@ -158,16 +158,16 @@ export function SchoolFeesInvoice({ records, onPaid, confirm, actions }) {
     );
 }
 
-/** Invoice 2: optional services, each payable on its own (e.g. only the bus). */
+/** Invoice 2: additional services, each payable on its own (e.g. only the bus). */
 export function OptionalFeesInvoice({ charges, onPaid, confirm }) {
     const t = sumRows(charges);
     const payable = charges.some((c) => c.urls?.pay);
     const groups = [...new Set(charges.map((c) => c.group_label))];
 
     return (
-        <Panel title="Optional fees" flush>
+        <Panel title="Additional fees" flush>
             {!charges.length ? (
-                <EmptyState compact icon={Receipt} title="No optional services" />
+                <EmptyState compact icon={Receipt} title="No additional services" />
             ) : (
                 <div className="scrollbar-thin overflow-x-auto">
                     <table className="w-full text-left">

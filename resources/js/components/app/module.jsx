@@ -223,7 +223,12 @@ export function SummaryTile({ icon: Icon, label, value }) {
 }
 
 /**
- * Registry table card: "● Manage X" header, filter box, Show N, Copy / Excel / PDF,
+ * Copy / Excel / PDF and column visibility on every registry table. Hidden for now; set to true to bring them back.
+ */
+const SHOW_TABLE_TOOLS = false;
+
+/**
+ * Registry table card: "Manage X" header, filter box, Show N, Copy / Excel / PDF,
  * column visibility, sortable S/N table and pagination — all client-side
  * (these lists are small).
  *
@@ -272,7 +277,6 @@ export function RegistryCard({ title, rows, columns, searchText, exportName, emp
         <div className="flex w-full flex-col overflow-hidden rounded-lg bg-surface shadow-card">
             <div className="flex items-center justify-between px-6 py-3">
                 <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-primary" />
                     <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
                 </div>
                 <div className="flex items-center gap-0.5 text-fg-muted">
@@ -329,8 +333,8 @@ export function RegistryCard({ title, rows, columns, searchText, exportName, emp
                                     <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle" />
                                 </div>
                             </div>
-                            <div className="hidden h-5 w-px bg-border sm:block" />
-                            <div className="flex items-center gap-0.5 rounded-lg bg-surface p-0.5 shadow-card">
+                            {SHOW_TABLE_TOOLS && <div className="hidden h-5 w-px bg-border sm:block" />}
+                            {SHOW_TABLE_TOOLS && <div className="flex items-center gap-0.5 rounded-lg bg-surface p-0.5 shadow-card">
                                 {exportCols.length > 0 && (
                                     <>
                                         <ToolButton
@@ -373,7 +377,7 @@ export function RegistryCard({ title, rows, columns, searchText, exportName, emp
                                             ))}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
-                            </div>
+                            </div>}
                             {actions}
                         </div>
                     </div>

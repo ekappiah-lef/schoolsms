@@ -6,7 +6,7 @@ use App\Helpers\Qs;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 
-/** Link to the student's fees statement (school fees + optional fees). */
+/** Link to the student's fees statement (school fees + additional fees). */
 class FeesStatementLink extends Mailable
 {
     use Queueable;

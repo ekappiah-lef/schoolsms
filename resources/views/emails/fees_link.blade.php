@@ -10,7 +10,7 @@
         <p style="margin:0 0 16px;">Dear {{ $parentName ?: 'Parent/Guardian' }}, below is a summary of the fees for this term. Open the statement to see the full breakdown.</p>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;border:1px solid #eceaf4;border-radius:6px;">
             <tr><td style="padding:10px 14px;">School fees</td><td align="right" style="padding:10px 14px;">GH₵ {{ \App\Support\Money::fmt($schoolTotals['balance']) }} due</td></tr>
-            <tr><td style="padding:10px 14px;border-top:1px solid #eceaf4;">Optional services</td><td align="right" style="padding:10px 14px;border-top:1px solid #eceaf4;">GH₵ {{ \App\Support\Money::fmt($optionalTotals['balance']) }} due</td></tr>
+            <tr><td style="padding:10px 14px;border-top:1px solid #eceaf4;">Additional services</td><td align="right" style="padding:10px 14px;border-top:1px solid #eceaf4;">GH₵ {{ \App\Support\Money::fmt($optionalTotals['balance']) }} due</td></tr>
             <tr><td style="padding:10px 14px;border-top:1px solid #eceaf4;font-weight:bold;color:#131b2e;">Total outstanding</td><td align="right" style="padding:10px 14px;border-top:1px solid #eceaf4;font-weight:bold;color:#131b2e;">GH₵ {{ \App\Support\Money::fmt($totals['balance']) }}</td></tr>
         </table>
         <p style="margin:20px 0;"><a href="{{ $url }}" style="display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:bold;">View fees statement</a></p>

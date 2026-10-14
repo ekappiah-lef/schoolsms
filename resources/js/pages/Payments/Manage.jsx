@@ -178,15 +178,15 @@ export default function PaymentsManage({
                                                 value: (r) => r.balance,
                                             },
                                             {
-                                                label: "Optional fees",
+                                                label: "Additional fees",
                                                 value: (r) => r.optional.amount,
                                             },
                                             {
-                                                label: "Optional paid",
+                                                label: "Additional paid",
                                                 value: (r) => r.optional.paid,
                                             },
                                             {
-                                                label: "Optional balance",
+                                                label: "Additional balance",
                                                 value: (r) =>
                                                     r.optional.balance,
                                             },
@@ -252,7 +252,7 @@ export default function PaymentsManage({
                                                     Balance
                                                 </th>
                                                 <th className="hidden h-9 px-3 text-right md:table-cell">
-                                                    Optional due
+                                                    Additional due
                                                 </th>
                                                 <th className="hidden h-9 w-40 px-3 lg:table-cell">
                                                     Progress

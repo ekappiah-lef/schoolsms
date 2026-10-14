@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Attendance extends Model
 {
-    const STATUSES = ['present' => 'Present', 'absent' => 'Absent', 'late' => 'Late'];
+    const STATUSES = ['present' => 'Present', 'absent' => 'Absent'];
 
     protected $fillable = ['student_id', 'my_class_id', 'section_id', 'date', 'status', 'note', 'recorded_by', 'alerted_at', 'year'];
 

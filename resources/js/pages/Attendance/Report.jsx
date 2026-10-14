@@ -5,17 +5,15 @@ import { FileText, Mail } from 'lucide-react';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { ModuleHeader, RegistryCard, RowIconButton } from '@/components/app/module';
 import { EmptyState, Panel, StatCard, StatStrip } from '@/components/app/page';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Select } from '@/components/ui/select';
-import { Segmented } from '@/components/ui/tabs';
 import { submitForm } from '@/lib/http';
 import { cn, formatDate } from '@/lib/utils';
 
 /**
- * Who was absent or late, on which day, for a date range and a class or section.
+ * Who was absent, on which day, for a date range and a class or section.
  * Each child's attendance for the range can be opened as a PDF or emailed to the parents.
  */
 export default function AttendanceReport({ filters, classes, summary, days, exceptions, students, urls }) {
@@ -84,26 +82,14 @@ export default function AttendanceReport({ filters, classes, summary, days, exce
                 {summary.marks ? (
                     <>
                         <StatStrip>
-                            <StatCard label="Attendance" value={summary.rate !== null ? `${summary.rate}%` : '—'} context={`${summary.days} school ${summary.days === 1 ? 'day' : 'days'} · ${summary.students} students`} />
-                            <StatCard label="Present" value={summary.present} tone="success" />
-                            <StatCard label="Late" value={summary.late} />
-                            <StatCard label="Absent" value={summary.absent} tone={summary.absent ? 'danger' : 'neutral'} context={summary.absent ? `${summary.absent} of ${summary.marks} marks` : null} />
+                            <StatCard label="School days" value={summary.days} />
+                            <StatCard label="Students" value={summary.students} />
+                            <StatCard label="Present" value={summary.present} />
+                            <StatCard label="Absent" value={summary.absent} />
                         </StatStrip>
 
                         <Panel
-                            title={`Absent and late · ${scope} · ${period}`}
-                            actions={
-                                <Segmented
-                                    size="sm"
-                                    value={filters.status}
-                                    onChange={(v) => go({ status: v })}
-                                    options={[
-                                        { value: 'all', label: 'Both' },
-                                        { value: 'absent', label: 'Absent' },
-                                        { value: 'late', label: 'Late' },
-                                    ]}
-                                />
-                            }
+                            title={`Absent · ${scope} · ${period}`}
                             flush
                         >
                             {exceptions.length ? (
@@ -114,7 +100,6 @@ export default function AttendanceReport({ filters, classes, summary, days, exce
                                                 <th className="h-9 px-5">Date</th>
                                                 <th className="h-9 px-3">Student</th>
                                                 <th className="h-9 px-3">Class</th>
-                                                <th className="h-9 px-3">Status</th>
                                                 <th className="h-9 px-5">Note</th>
                                             </tr>
                                         </thead>
@@ -124,10 +109,6 @@ export default function AttendanceReport({ filters, classes, summary, days, exce
                                                     <td className="whitespace-nowrap px-5 py-2">{formatDate(e.date, 'EEE dd/MM/yyyy')}</td>
                                                     <td className="px-3 py-2 font-medium">{e.student}</td>
                                                     <td className="px-3 py-2 text-fg-muted">{e.class}</td>
-                                                    <td className="px-3 py-2">
-                                                        <Badge tone={e.status === 'absent' ? 'danger' : 'warning'}>{e.status === 'absent' ? 'Absent' : 'Late'}</Badge>
-                                                        {e.alerted && <span className="ml-2 text-xs text-fg-muted">Parent alerted</span>}
-                                                    </td>
                                                     <td className="px-5 py-2 text-fg-muted">{e.note || ''}</td>
                                                 </tr>
                                             ))}
@@ -135,7 +116,7 @@ export default function AttendanceReport({ filters, classes, summary, days, exce
                                     </table>
                                 </div>
                             ) : (
-                                <EmptyState compact title="No one absent or late" />
+                                <EmptyState compact title="No one absent" />
                             )}
                         </Panel>
 
@@ -156,7 +137,6 @@ export default function AttendanceReport({ filters, classes, summary, days, exce
                                 { key: 'class', header: 'Class', sort: (r) => r.class, exportValue: (r) => r.class, cell: (r) => <span className="text-fg-muted">{r.class}</span> },
                                 { key: 'days', header: 'Days', sort: (r) => r.days, exportValue: (r) => r.days, className: 'tabular text-right', headerClassName: 'text-right', cell: (r) => r.days },
                                 { key: 'present', header: 'Present', sort: (r) => r.present, exportValue: (r) => r.present, className: 'tabular text-right', headerClassName: 'text-right', cell: (r) => r.present },
-                                { key: 'late', header: 'Late', sort: (r) => r.late, exportValue: (r) => r.late, className: 'tabular text-right', headerClassName: 'text-right', cell: (r) => r.late || '' },
                                 {
                                     key: 'absent',
                                     header: 'Absent',
@@ -166,7 +146,6 @@ export default function AttendanceReport({ filters, classes, summary, days, exce
                                     headerClassName: 'text-right',
                                     cell: (r) => <span className={cn(r.absent > 0 && 'font-semibold text-danger-fg')}>{r.absent || ''}</span>,
                                 },
-                                { key: 'rate', header: 'Rate', sort: (r) => r.rate ?? 0, exportValue: (r) => (r.rate !== null ? `${r.rate}%` : ''), className: 'tabular text-right', headerClassName: 'text-right', cell: (r) => (r.rate !== null ? `${r.rate}%` : '—') },
                                 {
                                     key: 'action',
                                     header: 'Report',
@@ -190,7 +169,6 @@ export default function AttendanceReport({ filters, classes, summary, days, exce
                                             <th className="h-9 px-5">Date</th>
                                             <th className="h-9 px-3 text-right">Registers</th>
                                             <th className="h-9 px-3 text-right">Present</th>
-                                            <th className="h-9 px-3 text-right">Late</th>
                                             <th className="h-9 px-5 text-right">Absent</th>
                                         </tr>
                                     </thead>
@@ -200,7 +178,6 @@ export default function AttendanceReport({ filters, classes, summary, days, exce
                                                 <td className="px-5 py-2">{formatDate(d.date, 'EEE dd/MM/yyyy')}</td>
                                                 <td className="px-3 py-2 text-right">{d.registers}</td>
                                                 <td className="px-3 py-2 text-right text-success-fg">{d.present}</td>
-                                                <td className="px-3 py-2 text-right">{d.late}</td>
                                                 <td className={cn('px-5 py-2 text-right', d.absent > 0 && 'font-semibold text-danger-fg')}>{d.absent}</td>
                                             </tr>
                                         ))}

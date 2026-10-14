@@ -268,12 +268,7 @@ export default function ServiceRoster({
 
                     <div className="flex flex-col gap-2">
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-sm font-medium">
-                                {isBus ? "Routes" : "Takes"}{" "}
-                                <span className="font-normal text-fg-muted">
-                                    · pick one or more
-                                </span>
-                            </span>
+                            <span className="text-sm font-medium">Pick one or more</span>
                             {isBus ? (
                                 <Segmented
                                     size="sm"

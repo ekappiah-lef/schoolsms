@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 /**
- * Finance configuration: prices for optional services (feeding,
+ * Finance configuration: prices for additional services (feeding,
  * extra-curricular, books), bus routes, and what admission notices contain.
  * School-fee breakdowns live on each fee in Fee setup.
  */

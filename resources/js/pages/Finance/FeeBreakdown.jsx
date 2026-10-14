@@ -179,7 +179,6 @@ function TermTable({ rows, ledgerUrl, onPick }) {
             <div className="flex flex-wrap items-center justify-between gap-3 px-6 pb-4 pt-5">
                 <div>
                     <h2 className="text-lg font-semibold">Term by term</h2>
-                    <p className="text-sm text-fg-muted">Click a term to look at it on its own.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <DropdownMenu>

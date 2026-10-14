@@ -229,7 +229,7 @@ function HeroStats({ stats, links, enrolment }) {
                 <HeroCard
                     label="Present today"
                     value={`${formatNumber(stats.attendance.present)}/${formatNumber(stats.attendance.total)}`}
-                    footLeft={`${stats.attendance.absent} absent${stats.attendance.late ? ` · ${stats.attendance.late} late` : ''}`}
+                    footLeft={`${stats.attendance.absent} absent`}
                     footRight={stats.attendance.unmarked ? `${stats.attendance.unmarked} of ${stats.attendance.sections} classes not marked` : 'All registers taken'}
                     footRightTone={stats.attendance.unmarked ? 'default' : 'success'}
                     href={links.attendance}
@@ -391,7 +391,7 @@ function FinanceBreakdown({ finance, session }) {
     const { fees, cashflow, balance, urls } = finance;
     const blocks = [
         { label: 'School Fees', v: fees.school, note: fees.school.discount ? `${formatMoney(fees.school.discount)} discounts given` : 'Tuition and termly charges' },
-        { label: 'Optional Fees', v: fees.optional, note: 'Feeding, bus, activities, books' },
+        { label: 'Additional Fees', v: fees.optional, note: 'Feeding, bus, activities, books' },
         { label: 'Overall Fees', v: fees.total, note: `Year ${session}` },
     ];
 
@@ -457,7 +457,7 @@ function FinanceBreakdown({ finance, session }) {
                 </div>
                 <div className="flex flex-col gap-4 xl:col-span-2">
                     <div>
-                        <h3 className="mb-2 text-sm font-semibold">Optional services</h3>
+                        <h3 className="mb-2 text-sm font-semibold">Additional services</h3>
                         <ul className="divide-y divide-border overflow-hidden rounded-lg shadow-field">
                             {fees.services.map((sv) => (
                                 <li key={sv.group}>
@@ -771,11 +771,6 @@ function Agenda({ exams, term, session, className }) {
                     />
                 ))}
                 <AgendaRow tone={tones[3]} badge={badges[3]} top={ends ? format(ends, 'MMM') : 'Term'} day={ends ? format(ends, 'dd') : '—'} title="Term ends" meta={ends ? formatDate(ends, 'EEEE, d MMMM yyyy') : 'Not set in school settings'} tag="Calendar" />
-            </div>
-            <div className="flex items-center justify-between pt-1">
-                <span className="text-xs text-fg-subtle">
-                    {session} session · term dates come from school settings
-                </span>
             </div>
         </div>
     );

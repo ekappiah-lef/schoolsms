@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Rules, the same everywhere so every page agrees:
  *  - School fees belong to the term on the bill (payments.term); invoiced = fee − discount.
- *  - Optional services (feeding, bus, clubs) are billed for the whole year: a third belongs to each
+ *  - Additional services (feeding, bus, clubs) are billed for the whole year: a third belongs to each
  *    term (the remainder to term 1), and payments on them settle the terms oldest first.
  *  - Shop sales belong to the term they were sold in.
  *  - Money received, other income and expenses belong to the term of the day they happened.
@@ -88,7 +88,7 @@ class FinanceSummary
     }
 
     /**
-     * Bills sent to parents for the selection: school fees after discounts, optional services and
+     * Bills sent to parents for the selection: school fees after discounts, additional services and
      * shop sales; what has been paid against them (whenever it was paid) and what is still owed.
      */
     public static function invoiced(TermSelection $sel): array
@@ -116,7 +116,7 @@ class FinanceSummary
         ];
     }
 
-    /** School and optional fees for the selection, by class type → class, and by service. */
+    /** School and additional fees for the selection, by class type → class, and by service. */
     public static function fees(TermSelection $sel): array
     {
         $byClass = []; // class id => [gross, discount, sPaid, oAmount, oPaid, students]

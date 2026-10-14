@@ -22,7 +22,7 @@ const GROUP_HINTS = {
 };
 
 /**
- * Finance configuration: prices for optional services and bus routes, the
+ * Finance configuration: prices for additional services and bus routes, the
  * school-fee breakdowns, and what the admission notices contain.
  */
 export default function FinanceConfig({ session, groups, options, routes, discounts, schoolFees, notices, urls }) {
@@ -50,7 +50,7 @@ export default function FinanceConfig({ session, groups, options, routes, discou
                 <Tabs value={tab} onValueChange={changeTab}>
                     <TabsList className="mb-6">
                         <TabsTrigger value="services" count={options.filter((o) => o.active).length}>
-                            Optional services
+                            Additional services
                         </TabsTrigger>
                         <TabsTrigger value="bus" count={routes.filter((r) => r.active).length}>
                             Bus routes

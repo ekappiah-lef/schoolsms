@@ -114,7 +114,7 @@ export const LABELS = {
     dorm_room_no: 'Room number',
     house: 'Sport house',
     adm_no: 'Admission number',
-    services: 'Optional services',
+    services: 'Additional services',
     fee_discount_id: 'Fee discount',
     terms_accepted: 'Parent/guardian agreement',
     father_name: 'Father’s name',
@@ -131,7 +131,7 @@ const STUDENT_FIELDS = ['first_name', 'middle_name', 'last_name', 'gender', 'dob
 
 const STEPS = [
     { id: 'student', title: 'Student Details', description: 'Personal, contact and health information', fields: STUDENT_FIELDS },
-    { id: 'enrolment', title: 'Enrolment & Services', description: 'Class, admission details and optional services', fields: ['my_class_id', 'section_id', 'admission_date', 'adm_no', 'clearenroll_status', 'fee_discount_id', 'dorm_id', 'dorm_room_no', 'house', 'services'] },
+    { id: 'enrolment', title: 'Enrolment & Services', description: 'Class, admission details and additional services', fields: ['my_class_id', 'section_id', 'admission_date', 'adm_no', 'clearenroll_status', 'fee_discount_id', 'dorm_id', 'dorm_room_no', 'house', 'services'] },
     { id: 'parent', title: 'Parent / Guardian', description: 'Link an existing or add a new guardian', fields: ['parent_mode', 'my_parent_id', 'parent_primary', ...PARENT_FIELDS] },
     { id: 'review', title: 'Review & Submit', description: 'Confirm details, fees and agreements', fields: ['terms_accepted'] },
 ];
@@ -594,20 +594,14 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                 </FormField>
             </FormSection>
 
-            <FormSection id="services" title="Optional services & shop" >
+            <FormSection id="services" title="Additional services & shop" >
                 <div className="sm:col-span-2">
                     <ServicesPicker catalogue={options.services} value={data.services} onChange={(v) => set('services', v)} mode={mode} />
                     {err('services') && <p className="mt-2 text-xs text-danger-fg">{err('services')}</p>}
                 </div>
             </FormSection>
 
-            <FormSection id="boarding" title="Boarding & house">
-                <FormField label="Dormitory" error={err('dorm_id')}>
-                    <Select id="field-dorm_id" value={data.dorm_id} onChange={(v) => set('dorm_id', v)} options={opt.dorms} clearable clearLabel="Day student" placeholder="Day student" />
-                </FormField>
-                <FormField label="Room number" error={err('dorm_room_no')}>
-                    <Input id="field-dorm_room_no" value={data.dorm_room_no ?? ''} onChange={(e) => set('dorm_room_no', e.target.value)} disabled={!data.dorm_id} />
-                </FormField>
+            <FormSection id="boarding" title="House">
                 <FormField label="Sport house" error={err('house')}>
                     {text('house')}
                 </FormField>
@@ -725,7 +719,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                                     <span>
                                         <span className="font-medium text-fg">Send admission notices to the parent</span>
                                         <span className="mt-0.5 block text-fg-muted">
-                                            Email and SMS: an admission letter with the school policy attached, and a link to the fees statement (school fees and optional services).
+                                            Email and SMS: an admission letter with the school policy attached, and a link to the fees statement (school fees and additional services).
                                         </span>
                                     </span>
                                 </label>
@@ -1008,8 +1002,8 @@ const SECTION_INDEX = [
     ['doctor', 'Family doctor', ['doctor_name', 'doctor_hospital', 'doctor_contact']],
     ['enrolment', 'Class placement', ['my_class_id', 'section_id', 'admission_date']],
     ['discount', 'Fee discount', ['fee_discount_id']],
-    ['services', 'Optional services', ['services']],
-    ['boarding', 'Boarding & house', ['dorm_id', 'dorm_room_no', 'house']],
+    ['services', 'Additional services', ['services']],
+    ['boarding', 'House', ['house']],
     ['guardian', 'Parent / guardian', ['my_parent_id']],
 ];
 

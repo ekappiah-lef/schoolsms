@@ -5,7 +5,7 @@ import {
     ChevronDown,
     LogOut,
     Menu,
-    MonitorSmartphone,
+
     PanelLeftClose,
     PanelLeftOpen,
     Search,
@@ -181,12 +181,6 @@ export default function AppLayout({ children }) {
                                         <a href={user?.account_url}>
                                             <UserRoundCog />
                                             Account settings
-                                        </a>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem asChild>
-                                        <a href={app.classic_url}>
-                                            <MonitorSmartphone />
-                                            Switch to classic interface
                                         </a>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />

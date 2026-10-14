@@ -70,7 +70,7 @@ class Navigation
         }
 
         if (Qs::userIsStudent()) {
-            $academics[] = self::item('My marksheet', 'scroll-text', ['marks.year_selector', Qs::hash(Auth::id())], ['marks.show', 'marks.year_selector', 'pins.enter']);
+            $academics[] = self::item('My marksheet', 'scroll-text', ['marks.year_selector', Qs::hash(Auth::id())], ['marks.show', 'marks.year_selector']);
         }
 
         if (Qs::userIsParent()) {
@@ -90,12 +90,15 @@ class Navigation
             $sections[] = self::section('Academics', $academics);
         }
 
-        /* Messages: parents, staff, a class */
-        if (Qs::userIsTeamSAT()) {
+        /* Messages: parents, staff, a class (teachers: class teachers only, for their class's parents) */
+        if (Qs::userIsTeamSA() || (Qs::userIsTeacher() && \App\Support\TeacherScope::ownSectionIds())) {
             // Admins approve everything; the academic admin approves teachers' messages.
             $waiting = Qs::userIsTeamAdmin() ? \App\Models\Message::where('status', 'pending')->count()
                 : (Qs::userIsAcademicAdmin() ? \App\Models\Message::where('status', 'pending')->whereIn('sent_by', \App\User::where('user_type', 'teacher')->pluck('id'))->count() : 0);
-            $sections[] = self::section('Communication', [self::item($waiting ? "Messages ({$waiting} to approve)" : 'Messages', 'megaphone', 'messages.index')]);
+            $sections[] = self::section('Communication', [
+                self::item($waiting ? "Messages ({$waiting} to approve)" : 'Messages', 'megaphone', 'messages.index'),
+                self::item('Delivery report', 'send', 'messages.delivery'),
+            ]);
         }
 
         /* Finance */
@@ -134,14 +137,9 @@ class Navigation
                 self::item('Classes', 'school', 'classes.index', ['classes.index', 'classes.edit']),
                 self::item('Sections', 'layers', 'sections.index', ['sections.index', 'sections.edit']),
                 self::item('Subjects', 'book-open', 'subjects.index', ['subjects.index', 'subjects.edit']),
-                self::item('Dormitories', 'bed-double', 'dorms.index', ['dorms.index', 'dorms.edit']),
             ]);
 
             if (Qs::userIsSuperAdmin()) {
-                $admin[] = self::group('Result pins', 'key-round', [
-                    self::item('Generate pins', null, 'pins.create'),
-                    self::item('View pins', null, 'pins.index'),
-                ]);
                 $admin[] = self::item('Settings', 'settings', 'settings');
             }
 
