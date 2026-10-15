@@ -94,14 +94,14 @@ export default function Settings({ settings, logo, years, urls }) {
                             </Field>
                             <Field label="Boarding facility">
                                 <NativeSelect value={String(data.has_boarding || '0')} onChange={(v) => set('has_boarding', v)}>
-                                    <option value="0">No, day school only</option>
-                                    <option value="1">Yes, the school has dormitories</option>
+                                    <option value="1">Yes</option>
+                                    <option value="0">No</option>
                                 </NativeSelect>
                             </Field>
-                            <Field label="Lock exam results" hint="When locked, parents and students cannot see results until they are unlocked." span={2}>
+                            <Field label="Lock exam results">
                                 <NativeSelect value={String(data.lock_exam)} onChange={(v) => set('lock_exam', v)}>
-                                    <option value="0">No, results are visible</option>
-                                    <option value="1">Yes, lock results</option>
+                                    <option value="1">Yes</option>
+                                    <option value="0">No</option>
                                 </NativeSelect>
                             </Field>
                         </div>
