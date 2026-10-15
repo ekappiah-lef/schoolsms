@@ -601,7 +601,17 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                 </div>
             </FormSection>
 
-            <FormSection id="boarding" title="House">
+            <FormSection id="boarding" title={options.boarding ? 'Boarding & house' : 'House'}>
+                {options.boarding && (
+                    <>
+                        <FormField label="Dormitory" error={err('dorm_id')}>
+                            <Select id="field-dorm_id" value={data.dorm_id} onChange={(v) => set('dorm_id', v)} options={opt.dorms} clearable clearLabel="Day student" placeholder="Day student" />
+                        </FormField>
+                        <FormField label="Room number" error={err('dorm_room_no')}>
+                            <Input id="field-dorm_room_no" value={data.dorm_room_no ?? ''} onChange={(e) => set('dorm_room_no', e.target.value)} disabled={!data.dorm_id} />
+                        </FormField>
+                    </>
+                )}
                 <FormField label="Sport house" error={err('house')}>
                     {text('house')}
                 </FormField>
@@ -1003,7 +1013,7 @@ const SECTION_INDEX = [
     ['enrolment', 'Class placement', ['my_class_id', 'section_id', 'admission_date']],
     ['discount', 'Fee discount', ['fee_discount_id']],
     ['services', 'Additional services', ['services']],
-    ['boarding', 'House', ['house']],
+    ['boarding', 'Boarding & house', ['dorm_id', 'dorm_room_no', 'house']],
     ['guardian', 'Parent / guardian', ['my_parent_id']],
 ];
 

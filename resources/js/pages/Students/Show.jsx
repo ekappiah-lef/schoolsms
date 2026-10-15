@@ -189,6 +189,7 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                                         { label: 'Fee discount', value: student.discount ? `${student.discount.name} (${student.discount.percent}% of tuition)` : 'None' },
                                         { label: 'Year', value: student.session },
                                         { label: 'Sport house', value: student.house },
+                                        { label: 'Dormitory', value: student.dorm ? `${student.dorm}${student.dorm_room_no ? ` · Room ${student.dorm_room_no}` : ''}` : null },
                                         { label: 'Login ID', value: student.username },
                                     ]}
                                 />

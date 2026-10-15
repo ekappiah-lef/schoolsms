@@ -137,6 +137,8 @@ class Navigation
                 self::item('Classes', 'school', 'classes.index', ['classes.index', 'classes.edit']),
                 self::item('Sections', 'layers', 'sections.index', ['sections.index', 'sections.edit']),
                 self::item('Subjects', 'book-open', 'subjects.index', ['subjects.index', 'subjects.edit']),
+                // Only for schools with boarding (Settings → Boarding facility).
+                Qs::getSetting('has_boarding') ? self::item('Dormitories', 'bed-double', 'dorms.index', ['dorms.index', 'dorms.edit']) : null,
             ]);
 
             if (Qs::userIsSuperAdmin()) {

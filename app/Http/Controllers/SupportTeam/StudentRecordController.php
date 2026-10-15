@@ -741,6 +741,7 @@ class StudentRecordController extends Controller
                 return ['id' => Qs::hash($p->id), 'name' => $p->name, 'hint' => $p->email ?: $p->phone];
             })->values(),
             'dorms' => $this->idNames($this->student->getAllDorms()),
+            'boarding' => (bool) Qs::getSetting('has_boarding'),
             'states' => $this->idNames($this->loc->getAllStates()),
             'nationals' => $this->idNames($this->loc->getAllNationals()),
             'blood_groups' => $this->idNames(BloodGroup::all()),
