@@ -7,7 +7,7 @@ use Eloquent;
 
 class StaffRecord extends Eloquent
 {
-    protected $fillable = ['code', 'emp_date', 'employment_type', 'job_title', 'user_id'];
+    protected $fillable = ['code', 'emp_date', 'employment_type', 'job_title', 'clock_id', 'user_id'];
 
     public function user()
     {

@@ -28,6 +28,10 @@ class Kernel extends ConsoleKernel
         $schedule->command('fees:bill-terms')->dailyAt('00:10');
         // ClearEnroll: send every student who owes fees, with the amount, at the end of each day (Sync now does it at once).
         $schedule->command('clearenroll:sync')->dailyAt('23:00');
+        // Birthday wishes to staff, and to parents on their child's birthday (Settings → Birthday messages).
+        $schedule->command('notices:birthdays')->dailyAt('07:30');
+        // Fees reminders to parents who owe, as often as Settings → Fee reminders says.
+        $schedule->command('fees:remind')->dailyAt('09:00');
     }
 
     /**

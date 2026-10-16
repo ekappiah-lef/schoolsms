@@ -15,10 +15,10 @@ import { useModuleForm } from '@/lib/use-module-form';
 import http from '@/lib/http';
 import { cn } from '@/lib/utils';
 
-const BLANK = { user_type: '', name: '', address: '', email: '', username: '', phone: '', phone2: '', emp_date: '', employment_type: '', job_title: '', password: '', gender: '', nal_id: '', state_id: '', lga_id: '', bg_id: '', photo: null };
+const BLANK = { user_type: '', name: '', address: '', email: '', username: '', phone: '', phone2: '', emp_date: '', dob: '', employment_type: '', job_title: '', clock_id: '', password: '', gender: '', nal_id: '', state_id: '', lga_id: '', bg_id: '', photo: null };
 // When editing, the type, username, password and photo are never sent unless changed
 // (an empty photo or password would overwrite the saved one).
-const EDIT_BLANK = { name: '', address: '', email: '', phone: '', phone2: '', emp_date: '', employment_type: '', job_title: '', gender: '', nal_id: '', state_id: '', lga_id: '', bg_id: '' };
+const EDIT_BLANK = { name: '', address: '', email: '', phone: '', phone2: '', emp_date: '', dob: '', clock_id: '', employment_type: '', job_title: '', gender: '', nal_id: '', state_id: '', lga_id: '', bg_id: '' };
 
 const EMPLOYMENT = { full_time: 'Full time', part_time: 'Part time' };
 
@@ -109,12 +109,20 @@ export default function UsersIndex({ userTypes, users, options, editing, staffVi
                                     <option value="Female">Female</option>
                                 </NativeSelect>
                             </Field>
+                            <Field label="Date of birth" error={form.errors.dob}>
+                                <DatePicker value={form.data.dob} onChange={(v) => form.set('dob', v)} fromYear={1940} toYear={new Date().getFullYear() - 15} />
+                            </Field>
                             <Field label="Date of employment" error={form.errors.emp_date}>
                                 <DatePicker value={form.data.emp_date} onChange={(v) => form.set('emp_date', v)} fromYear={1980} />
                             </Field>
                             {typeTitle === 'non_teaching' && (
                                 <Field label="Job title" error={form.errors.job_title}>
                                     <input className={fieldInput} value={form.data.job_title} onChange={(e) => form.set('job_title', e.target.value)} placeholder="e.g., Driver, Cook, Security" maxLength={60} />
+                                </Field>
+                            )}
+                            {typeTitle && typeTitle !== 'parent' && (
+                                <Field label="Clock-in ID" error={form.errors.clock_id}>
+                                    <input className={fieldInput} value={form.data.clock_id} onChange={(e) => form.set('clock_id', e.target.value)} placeholder="Number on the clock-in device" maxLength={30} />
                                 </Field>
                             )}
                             {typeTitle !== 'parent' && (

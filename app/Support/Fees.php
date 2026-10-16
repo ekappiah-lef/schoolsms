@@ -2,7 +2,6 @@
 
 namespace App\Support;
 
-use AppSupportMoney;
 use App\Helpers\Qs;
 use App\Models\BusRoute;
 use App\Models\FeeDiscount;
@@ -455,6 +454,58 @@ class Fees
                 'balance' => $t1['balance'] + $t2['balance'],
             ],
         ];
+    }
+
+    /**
+     * Account statement for one or more students over a period, like a bank statement:
+     * opening balance, each bill (debit) and payment (credit) in date order with the running balance, closing balance.
+     * Bills are school fees (less any discount) and additional fees / shop sales; payments are the receipts.
+     */
+    public static function accountStatement(array $studentIds, \Carbon\Carbon $from, \Carbon\Carbon $to): array
+    {
+        $names = DB::table('users')->whereIn('id', $studentIds)->pluck('name', 'id');
+        $lines = collect();
+        foreach (PaymentRecord::whereIn('student_id', $studentIds)->with('payment')->get() as $pr) {
+            if (!$pr->payment) continue;
+            $lines->push(['at' => $pr->created_at, 'student' => $names[$pr->student_id] ?? '', 'ref' => $pr->ref_no,
+                'text' => $pr->payment->title.' · '.str_replace('-', '–', $pr->year).($pr->payment->term ? ' · Term '.$pr->payment->term : ''),
+                'debit' => Money::r($pr->payment->amount), 'credit' => 0.0]);
+            if ($pr->discount > 0) {
+                $lines->push(['at' => $pr->created_at, 'student' => $names[$pr->student_id] ?? '', 'ref' => $pr->ref_no,
+                    'text' => 'Discount · '.$pr->payment->title, 'debit' => 0.0, 'credit' => Money::r($pr->discount)]);
+            }
+        }
+        foreach (OptionalFeeCharge::whereIn('student_id', $studentIds)->where('amount', '>', 0)->get() as $c) {
+            $lines->push(['at' => $c->created_at, 'student' => $names[$c->student_id] ?? '', 'ref' => null,
+                'text' => $c->label.($c->group !== 'sales' && $c->term ? ' · Term '.$c->term : ''), 'debit' => Money::r($c->amount), 'credit' => 0.0]);
+        }
+        $receipts = DB::table('receipts as r')->join('payment_records as pr', 'pr.id', '=', 'r.pr_id')->whereIn('pr.student_id', $studentIds)
+            ->get(['r.id', 'r.created_at', 'r.amt_paid', 'r.method', 'pr.student_id']);
+        foreach ($receipts as $r) {
+            $lines->push(['at' => \Carbon\Carbon::parse($r->created_at), 'student' => $names[$r->student_id] ?? '', 'ref' => 'SF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT),
+                'text' => 'Payment'.($r->method ? ' · '.$r->method : ''), 'debit' => 0.0, 'credit' => Money::r($r->amt_paid)]);
+        }
+        $receipts = DB::table('optional_fee_receipts as r')->join('optional_fee_charges as c', 'c.id', '=', 'r.charge_id')->whereIn('c.student_id', $studentIds)
+            ->get(['r.id', 'r.created_at', 'r.amt_paid', 'r.method', 'c.student_id']);
+        foreach ($receipts as $r) {
+            $lines->push(['at' => \Carbon\Carbon::parse($r->created_at), 'student' => $names[$r->student_id] ?? '', 'ref' => 'OF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT),
+                'text' => 'Payment'.($r->method ? ' · '.$r->method : ''), 'debit' => 0.0, 'credit' => Money::r($r->amt_paid)]);
+        }
+
+        // Bills before payments on the same moment, so the balance never dips below what was owed.
+        $lines = $lines->filter(function ($l) { return $l['at']; })
+            ->sortBy(function ($l) { return $l['at']->format('Y-m-d H:i:s').($l['debit'] > 0 ? '0' : '1'); })->values();
+        $start = $from->copy()->startOfDay();
+        $end = $to->copy()->endOfDay();
+        $opening = Money::r($lines->filter(function ($l) use ($start) { return $l['at']->lt($start); })->sum(function ($l) { return $l['debit'] - $l['credit']; }));
+        $balance = $opening;
+        $rows = $lines->filter(function ($l) use ($start, $end) { return $l['at']->between($start, $end); })->map(function ($l) use (&$balance) {
+            $balance = Money::r($balance + $l['debit'] - $l['credit']);
+            return ['date' => $l['at']->toDateString(), 'student' => $l['student'], 'ref' => $l['ref'], 'text' => $l['text'],
+                'debit' => $l['debit'], 'credit' => $l['credit'], 'balance' => $balance];
+        })->values();
+
+        return ['opening' => $opening, 'rows' => $rows, 'billed' => Money::r($rows->sum('debit')), 'paid' => Money::r($rows->sum('credit')), 'closing' => $balance];
     }
 
     /**

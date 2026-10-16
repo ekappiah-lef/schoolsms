@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\SupportTeam;
 
 use App\Support\Money;
-use AppSupportMoney;
 use App\Helpers\Qs;
 use App\Helpers\Pay;
 use App\Helpers\Ui;
@@ -504,6 +503,6 @@ class PaymentController extends Controller
         }
         $total = \App\Support\FinanceLog::voidSchoolBill(\App\Models\PaymentRecord::findOrFail($id), $reason);
 
-        return Qs::json(AppSupportMoney::fmt($total).' reversed. The receipts are kept in the audit trail.');
+        return Qs::json(\App\Support\Money::fmt($total).' reversed. The receipts are kept in the audit trail.');
     }
 }

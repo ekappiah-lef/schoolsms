@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use AppSupportMoney;
 use Eloquent;
 
 class BusRoute extends Eloquent

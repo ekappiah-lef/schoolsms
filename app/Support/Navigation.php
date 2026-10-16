@@ -75,6 +75,7 @@ class Navigation
 
         if (Qs::userIsParent()) {
             $academics[] = self::item('My children', 'users', 'my_children');
+            $academics[] = self::item('Statement', 'receipt', 'my_children.statement');
             // Only their children's classes are listed (TimeTableController::visibleClassIds).
             $academics[] = self::item('Timetables', 'calendar-clock', 'tt.index', ['tt.index', 'ttr.show']);
         }
@@ -95,10 +96,10 @@ class Navigation
             // Admins approve everything; the academic admin approves teachers' messages.
             $waiting = Qs::userIsTeamAdmin() ? \App\Models\Message::where('status', 'pending')->count()
                 : (Qs::userIsAcademicAdmin() ? \App\Models\Message::where('status', 'pending')->whereIn('sent_by', \App\User::where('user_type', 'teacher')->pluck('id'))->count() : 0);
-            $sections[] = self::section('Communication', [
+            $sections[] = self::section('Communication', array_values(array_filter([
                 self::item($waiting ? "Messages ({$waiting} to approve)" : 'Messages', 'megaphone', 'messages.index'),
-                self::item('Delivery report', 'send', 'messages.delivery'),
-            ]);
+                Qs::userIsTeamSA() ? self::item('Delivery report', 'send', 'messages.delivery') : null,
+            ])));
         }
 
         /* Finance */
@@ -134,6 +135,7 @@ class Navigation
                 Qs::userIsTeamAdmin() ? self::item('Users', 'user-cog', 'users.index', ['users.index', 'users.show', 'users.edit']) : null,
                 // Teaching and non-teaching staff (admins: every staff role; the academic admin: teachers and non-teaching staff).
                 self::item('Staff', 'graduation-cap', 'staff.index', Qs::userIsTeamAdmin() ? ['staff.index'] : ['staff.index', 'users.index', 'users.show', 'users.edit']),
+                self::item('Staff attendance', 'clock', 'staff.attendance'),
                 self::item('Classes', 'school', 'classes.index', ['classes.index', 'classes.edit']),
                 self::item('Sections', 'layers', 'sections.index', ['sections.index', 'sections.edit']),
                 self::item('Subjects', 'book-open', 'subjects.index', ['subjects.index', 'subjects.edit']),

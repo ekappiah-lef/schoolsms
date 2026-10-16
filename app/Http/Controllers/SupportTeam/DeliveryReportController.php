@@ -13,19 +13,13 @@ use Inertia\Inertia;
 
 /**
  * Delivery report: every SMS, email and WhatsApp sent to a person, whether it went, was held (demo mode)
- * or failed, and why. Admins and the academic admin see everything; a class teacher sees what they sent.
+ * or failed, and why. Admins and the academic admin.
  */
 class DeliveryReportController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('teamSAT');
-        $this->middleware(function ($request, $next) {
-            if (Qs::userIsTeacher() && !\App\Support\TeacherScope::ownSectionIds()) {
-                return redirect()->route('dashboard')->with('pop_error', 'Only class teachers can see the delivery report.');
-            }
-            return $next($request);
-        });
+        $this->middleware('teamSA');
     }
 
     public function index(Request $req)

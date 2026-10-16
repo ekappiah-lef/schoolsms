@@ -146,7 +146,7 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
             <Tabs value={tab} onValueChange={changeTab}>
                 <TabsList className="mb-6">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="guardian">Guardian</TabsTrigger>
+                    {tabs.guardian && <TabsTrigger value="guardian">Guardian</TabsTrigger>}
                     {tabs.fees && (
                         <TabsTrigger value="fees" count={fees ? [...fees.school.records, ...fees.optional.charges].filter((r) => r.balance > 0).length || undefined : undefined}>
                             Fees
@@ -197,7 +197,7 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                         </div>
 
                         <div className="space-y-6">
-                            <GuardianCard guardian={guardian} canEdit={!!urls.edit} compact onOpen={() => changeTab('guardian')} />
+                            {tabs.guardian && <GuardianCard guardian={guardian} canEdit={!!urls.edit} compact onOpen={() => changeTab('guardian')} />}
                             <SiblingsCard siblings={siblings} />
                             {fees && <FeeSummary fees={fees} onOpen={() => changeTab('fees')} />}
                             <Panel

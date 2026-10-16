@@ -10,6 +10,7 @@ class NotificationLog extends Eloquent
     const KINDS = [
         'message' => 'Message', 'absence' => 'Absence alert', 'attendance' => 'Attendance report', 'report' => 'Report sheet',
         'receipt' => 'Receipt', 'invoice' => 'Invoice', 'admission' => 'Admission', 'fees_link' => 'Fees statement',
+        'birthday' => 'Birthday', 'reminder' => 'Fees reminder',
     ];
 
     protected $fillable = ['student_id', 'channel', 'kind', 'recipient', 'status', 'error', 'sent_by', 'message_id'];

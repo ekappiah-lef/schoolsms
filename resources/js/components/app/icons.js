@@ -1,6 +1,7 @@
 import {
     BedDouble,
     Scale,
+    Clock,
     Send,
     ShieldCheck,
     BookOpen,
@@ -37,6 +38,7 @@ const icons = {
     'calendar-clock': CalendarClock,
     'scroll-text': ScrollText,
     scale: Scale,
+    clock: Clock,
     send: Send,
     wallet: Wallet,
     banknote: Banknote,

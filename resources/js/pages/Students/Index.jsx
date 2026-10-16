@@ -34,7 +34,7 @@ import {
 import { downloadCsv, useVisitState } from '@/lib/use-visit-state';
 import { formatNumber } from '@/lib/utils';
 
-export default function StudentsIndex({ variant, students, summary, filters, classes, sections, urls }) {
+export default function StudentsIndex({ variant, showParent = true, students, summary, filters, classes, sections, urls }) {
     const graduated = variant === 'graduated';
     const busy = useVisitState();
     const [confirm, confirmDialog] = useConfirmAction();
@@ -106,7 +106,7 @@ export default function StudentsIndex({ variant, students, summary, filters, cla
                 meta: { label: 'Gender', hideBelow: 'lg', className: 'text-sm text-fg-muted' },
                 cell: ({ row }) => row.original.gender || '—',
             },
-            {
+            showParent && {
                 id: 'parent',
                 header: 'Parent / guardian',
                 meta: { label: 'Parent / guardian', hideBelow: 'xl', className: 'max-w-[200px] truncate text-sm' },
@@ -132,7 +132,7 @@ export default function StudentsIndex({ variant, students, summary, filters, cla
                 meta: { className: 'w-12 text-right', headerClassName: 'w-12' },
                 cell: ({ row }) => <RowActions student={row.original} confirm={confirm} resetPassword={resetPassword} />,
             },
-        ],
+        ].filter(Boolean),
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [graduated],
     );

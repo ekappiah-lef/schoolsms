@@ -175,6 +175,8 @@ class UserController extends Controller
                 'emp_date' => optional($u->staff->first())->emp_date ? date('Y-m-d', strtotime($u->staff->first()->emp_date)) : '',
                 'employment_type' => optional($u->staff->first())->employment_type ?: '',
                 'job_title' => optional($u->staff->first())->job_title ?: '',
+                'dob' => $u->dob ? date('Y-m-d', strtotime($u->dob)) : '',
+                'clock_id' => optional($u->staff->first())->clock_id ?: '',
                 'photo' => $u->photo, 'username' => $u->username,
                 'is_staff' => in_array($u->user_type, Qs::getStaff()),
                 'lgas' => $u->state_id ? $this->loc->getLGAs($u->state_id)->map->only(['id', 'name'])->values() : [],
@@ -202,6 +204,10 @@ class UserController extends Controller
         $user_type = $this->user->findType($req->user_type)->title;
         if (($allowed = self::limitedTo()) && !in_array($user_type, $allowed, true)) {
             return Qs::json('You can only add teachers and non-teaching staff.', false);
+        }
+
+        if ($req->filled('clock_id') && \DB::table('staff_records')->where('clock_id', $req->clock_id)->exists()) {
+            return Qs::json('Another staff member already has this clock-in ID.', false);
         }
 
         $data = $req->except(Qs::getStaffRecord());
@@ -259,6 +265,10 @@ class UserController extends Controller
             return Qs::json('You can only edit teachers and non-teaching staff.', false);
         }
 
+        if ($req->filled('clock_id') && \DB::table('staff_records')->where('clock_id', $req->clock_id)->where('user_id', '!=', $id)->exists()) {
+            return Qs::json('Another staff member already has this clock-in ID.', false);
+        }
+
         $user_type = $user->user_type;
         $user_is_staff = in_array($user_type, Qs::getStaff());
         $user_is_teamSA = in_array($user_type, Qs::getTeamSA());
@@ -298,7 +308,9 @@ class UserController extends Controller
         $data['user'] = $this->user->find($user_id);
 
         /* Prevent Other Students from viewing Profile of others*/
-        if(Auth::user()->id != $user_id && !Qs::userIsTeamSAT() && !Qs::userIsMyChild(Auth::user()->id, $user_id)){
+        // Teachers have no access to parents' details.
+        $isParent = optional($this->user->find($user_id))->user_type === 'parent';
+        if((Auth::user()->id != $user_id && !Qs::userIsTeamSAT() && !Qs::userIsMyChild(Auth::user()->id, $user_id)) || ($isParent && Qs::userIsTeacher())){
             return redirect(route('dashboard'))->with('pop_error', __('msg.denied'));
         }
 

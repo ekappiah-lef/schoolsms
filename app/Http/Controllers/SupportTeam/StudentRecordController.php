@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\SupportTeam;
 
-use AppSupportMoney;
 use App\Helpers\Qs;
 use App\Helpers\Mk;
 use App\Helpers\Ui;
@@ -518,7 +517,7 @@ class StudentRecordController extends Controller
                 'adm_no' => $r->adm_no,
                 'class' => $r->class_name,
                 'section' => $r->section_name,
-                'parent' => $r->parent_name,
+                'parent' => Qs::userIsTeacher() ? null : $r->parent_name,
                 'year_admitted' => $r->year_admitted,
                 'grad_date' => $r->grad_date,
                 'urls' => array_filter([
@@ -534,6 +533,7 @@ class StudentRecordController extends Controller
 
         return [
             'variant' => $grad ? 'graduated' : 'active',
+            'showParent' => !Qs::userIsTeacher(),
             'students' => [
                 'data' => $rows,
                 'meta' => [
@@ -614,7 +614,8 @@ class StudentRecordController extends Controller
                     ? optional(StudentDetail::where('user_id', $u->id)->first())->only(StudentDetail::FIELDS)
                     : null,
             ],
-            'guardian' => $parent ? [
+            // Teachers have no access to parents' details.
+            'guardian' => $parent && !Qs::userIsTeacher() ? [
                 'name' => $parent->name,
                 'photo' => $parent->photo,
                 'email' => $parent->email,
@@ -648,6 +649,7 @@ class StudentRecordController extends Controller
                 'destroy' => Qs::userIsSuperAdmin() ? route('students.destroy', $userHash) : null,
             ]),
             'tabs' => [
+                'guardian' => !Qs::userIsTeacher(),
                 'fees' => $seesFees,
                 'results' => true,
             ],

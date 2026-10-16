@@ -98,6 +98,20 @@ export default function Settings({ settings, logo, years, urls }) {
                                     <option value="0">No</option>
                                 </NativeSelect>
                             </Field>
+                            <Field label="Birthday messages">
+                                <NativeSelect value={String(data.birthday_messages || '0')} onChange={(v) => set('birthday_messages', v)}>
+                                    <option value="1">Yes</option>
+                                    <option value="0">No</option>
+                                </NativeSelect>
+                            </Field>
+                            <Field label="Fee reminders">
+                                <NativeSelect value={String(data.fee_reminders || '0')} onChange={(v) => set('fee_reminders', v)}>
+                                    <option value="0">Off</option>
+                                    <option value="7">Every week</option>
+                                    <option value="14">Every 2 weeks</option>
+                                    <option value="30">Every month</option>
+                                </NativeSelect>
+                            </Field>
                             <Field label="Lock exam results">
                                 <NativeSelect value={String(data.lock_exam)} onChange={(v) => set('lock_exam', v)}>
                                     <option value="1">Yes</option>

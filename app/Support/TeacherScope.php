@@ -44,17 +44,12 @@ class TeacherScope
         $tid = $teacherId ?: Auth::id();
         $subjects = Subject::where('my_class_id', $classId)->get(['id', 'teacher_id']);
         $mine = $subjects->where('teacher_id', $tid)->pluck('id')->map(function ($v) { return (int) $v; })->values()->all();
-        $all = $subjects->pluck('id')->map(function ($v) { return (int) $v; })->values()->all();
 
-        $sections = Section::where('my_class_id', $classId)->get(['id', 'teacher_id']);
-        $classTeacherHere = $sections->contains(function ($s) use ($tid) { return (int) $s->teacher_id === (int) $tid; });
-
+        // Every teacher, class teacher or not, enters marks only for the subjects they teach.
         $access = [];
-        foreach ($sections as $s) {
-            if ((int) $s->teacher_id === (int) $tid) {
-                $access[$s->id] = $all;          // class teacher: every subject in their section
-            } elseif ($mine && !$classTeacherHere) {
-                $access[$s->id] = $mine;         // subject teacher: only their subjects
+        if ($mine) {
+            foreach (Section::where('my_class_id', $classId)->pluck('id') as $id) {
+                $access[(int) $id] = $mine;
             }
         }
 

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Support\Money;
-use AppSupportMoney;
 use App\Helpers\Qs;
 use App\Models\MomoPayment;
 use App\Models\StudentRecord;
@@ -73,7 +72,7 @@ class MomoController extends Controller
         $req->validate([
             'phone' => 'required|string|max:20',
             'amount' => 'required|'.Money::rule().'|min:0.01|max:'.max($due, 0.01),
-        ], ['amount.max' => 'The amount cannot be more than what is owed ('.AppSupportMoney::fmt($due).').'], ['phone' => 'MoMo number']);
+        ], ['amount.max' => 'The amount cannot be more than what is owed ('.\App\Support\Money::fmt($due).').'], ['phone' => 'MoMo number']);
 
         try {
             $p = MoMo::requestToPay($studentId, $req->phone, \App\Support\Money::r($req->amount), $by, Qs::getSystemName().' fees: '.$sr->user->name);

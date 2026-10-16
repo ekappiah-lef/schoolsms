@@ -33,7 +33,7 @@ class SettingController extends Controller
                 $years[] = ($y - 1).'-'.$y;
             }
             return [
-                'settings' => collect(['system_name', 'system_title', 'current_session', 'phone', 'system_email', 'address', 'term_ends', 'term_begins', 'lock_exam', 'has_boarding'])
+                'settings' => collect(['system_name', 'system_title', 'current_session', 'phone', 'system_email', 'address', 'term_ends', 'term_begins', 'lock_exam', 'has_boarding', 'birthday_messages', 'fee_reminders'])
                     ->mapWithKeys(function ($k) use ($s) { return [$k => (string) ($s[$k] ?? '')]; }),
                 'logo' => $s['logo'] ?? null,
                 'years' => $years,
@@ -47,6 +47,8 @@ class SettingController extends Controller
         $sets = $req->except('_token', '_method', 'logo');
         $sets['lock_exam'] = $sets['lock_exam'] == 1 ? 1 : 0;
         $sets['has_boarding'] = ($sets['has_boarding'] ?? 0) == 1 ? 1 : 0;
+        $sets['birthday_messages'] = ($sets['birthday_messages'] ?? 0) == 1 ? 1 : 0;
+        $sets['fee_reminders'] = in_array((int) ($sets['fee_reminders'] ?? 0), [0, 7, 14, 30], true) ? (int) $sets['fee_reminders'] : 0;
         $keys = array_keys($sets);
         $values = array_values($sets);
         for($i=0; $i<count($sets); $i++){

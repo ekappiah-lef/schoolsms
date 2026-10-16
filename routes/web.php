@@ -24,6 +24,13 @@ Route::post('pay/momo/{student}', 'MomoController@start')->name('momo.pay')->mid
 Route::get('pay/momo/status/{reference}', 'MomoController@status')->name('momo.status')->middleware('throttle:60,1');
 Route::match(['post', 'put'], 'momo/callback', 'MomoController@callback')->name('momo.callback');
 
+/* Staff clock-in devices (no login: checked by device serial number / token) */
+Route::get('iclock/cdata', 'StaffClockController@admsHandshake');
+Route::post('iclock/cdata', 'StaffClockController@admsData');
+Route::get('iclock/getrequest', 'StaffClockController@admsRequest');
+Route::post('iclock/devicecmd', 'StaffClockController@admsRequest');
+Route::post('api/staff-clock', 'StaffClockController@punch')->middleware('throttle:120,1');
+
 
 Route::group(['middleware' => 'auth'], function () {
 
@@ -67,6 +74,8 @@ Route::group(['middleware' => 'auth'], function () {
             Route::put('reset_pass/{id}', 'UserController@reset_pass')->name('users.reset_pass');
         });
         Route::get('staff', 'UserController@staff')->name('staff.index');
+        Route::get('staff/attendance', 'StaffAttendanceController@index')->name('staff.attendance');
+        Route::post('staff/attendance', 'StaffAttendanceController@save')->name('staff.attendance.save');
         Route::get('teachers', function () { return redirect()->route('staff.index', ['tab' => 'teaching']); })->name('teachers.index');
 
         /*************** TimeTables *****************/
@@ -266,5 +275,7 @@ Route::group(['namespace' => 'SuperAdmin','middleware' => 'super_admin', 'prefix
 Route::group(['namespace' => 'MyParent','middleware' => 'my_parent',], function(){
 
     Route::get('/my_children', 'MyController@children')->name('my_children');
+    Route::get('/statement', 'MyController@statement')->name('my_children.statement');
+    Route::get('/statement/pdf', 'MyController@statementPdf')->name('my_children.statement_pdf');
 
 });

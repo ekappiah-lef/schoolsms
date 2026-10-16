@@ -36,4 +36,10 @@ return [
         'secret' => env('STRIPE_SECRET'),
     ],
 
+    // Staff clock-in devices (see StaffClockController): device serial numbers, and the token for other devices / apps.
+    'staff_clock' => [
+        'devices' => env('STAFF_CLOCK_DEVICES'),
+        'token' => env('STAFF_CLOCK_TOKEN'),
+    ],
+
 ];

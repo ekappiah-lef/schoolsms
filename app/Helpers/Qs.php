@@ -131,7 +131,7 @@ class Qs
 
     public static function getStaffRecord($remove = [])
     {
-        $data = ['emp_date', 'employment_type', 'job_title'];
+        $data = ['emp_date', 'employment_type', 'job_title', 'clock_id'];
 
         return $remove ? array_values(array_diff($data, $remove)) : $data;
     }
