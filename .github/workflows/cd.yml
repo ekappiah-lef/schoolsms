@@ -97,3 +97,14 @@ jobs:
             cd "${{ secrets.DEPLOY_PATH }}"
             sed -i 's/\r$//' deploy/deploy.sh deploy/backup.sh
             bash deploy/deploy.sh
+
+            # Schools (/opt/schools/<school>/), only after the test school above is healthy (set -e stops here otherwise).
+            # Each has its own .env (project name, port, image tag), .env.docker, database and backups; .health_url is its /healthz.
+            failed=""
+            for d in /opt/schools/*/; do
+              [ -f "$d/.env" ] || continue
+              echo "=== $(basename "$d") ==="
+              cp docker-compose.prod.yml "$d/" && cp deploy/deploy.sh deploy/backup.sh "$d/deploy/"
+              HEALTH_CHECK_URL="$(cat "$d/.health_url" 2>/dev/null || true)" bash "$d/deploy/deploy.sh" || failed="$failed $(basename "$d")"
+            done
+            if [ -n "$failed" ]; then echo "Not updated (rolled back):$failed"; exit 1; fi
