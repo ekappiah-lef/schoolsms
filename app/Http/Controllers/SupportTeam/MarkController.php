@@ -537,13 +537,52 @@ class MarkController extends Controller
         }
 
         return Ui::render('Marks/Tools', function () use ($d) {
+            // Graphs of the class for an exam this year: the one asked for, else the latest with results.
+            $results = null;
+            if ($d['selected']) {
+                $withResults = \App\Models\Exam::where('year', $this->year)->whereIn('id', \App\Models\ExamRecord::where('section_id', $d['section_id'])->pluck('exam_id'))->orderBy('term')->get();
+                $exam = $withResults->firstWhere('id', (int) request()->query('exam')) ?: $withResults->last();
+                if ($exam) {
+                    $results = ['exam' => $exam->id, 'exams' => $withResults->map(function ($e) { return ['id' => $e->id, 'name' => $e->name]; })->values()]
+                        + $this->classResults($exam, (int) $d['my_class_id'], (int) $d['section_id']);
+                }
+            }
             return array_merge($this->toolsProps('sheets', $d), [
+                'results' => $results,
                 'selected' => $d['selected'] ? ['class' => (int) $d['my_class_id'], 'section' => (int) $d['section_id']] : null,
                 'students' => $d['selected'] ? $d['students']->map(function ($s) {
                     return ['name' => $s->user->name, 'photo' => $s->user->photo, 'adm_no' => $s->adm_no, 'url' => route('marks.year_selector', Qs::hash($s->user_id))];
                 })->values() : [],
             ]);
         }, 'pages.support_team.marks.bulk', $d);
+    }
+
+    /**
+     * Graphs and subject positions of one class section for one exam: each subject's average and highest score,
+     * how many students got each grade, and the top three in each subject.
+     */
+    protected function classResults($exam, int $class_id, int $section_id): array
+    {
+        $tex = 'tex'.$exam->term;
+        $marks = \App\Models\Mark::where(['exam_id' => $exam->id, 'my_class_id' => $class_id, 'section_id' => $section_id, 'year' => $exam->year])
+            ->with(['grade', 'user', 'subject'])->get()->filter(function ($m) { return $m->subject; });
+        $bySubject = $marks->groupBy('subject_id')->sortBy(function ($g) { return $g->first()->subject->name; });
+
+        return [
+            'chart' => [
+                'subjects' => $bySubject->map(function ($g) use ($tex) {
+                    $t = $g->pluck($tex)->filter(function ($v) { return $v !== null; });
+                    return ['name' => $g->first()->subject->name, 'average' => $t->count() ? round($t->avg(), 1) : 0, 'highest' => (int) $t->max()];
+                })->filter(function ($s) { return $s['highest'] > 0; })->values(),
+                'grades' => $marks->filter(function ($m) { return $m->grade; })->groupBy(function ($m) { return $m->grade->name; })
+                    ->map(function ($g, $name) { return ['grade' => (string) $name, 'count' => $g->count()]; })->sortBy('grade')->values(),
+            ],
+            'leaders' => $bySubject->map(function ($g) use ($tex) {
+                $top = $g->filter(function ($m) use ($tex) { return $m->$tex !== null && $m->sub_pos; })->sortBy('sub_pos')->take(3)
+                    ->map(function ($m) use ($tex) { return ['name' => optional($m->user)->name, 'score' => $m->$tex, 'pos' => (int) $m->sub_pos]; })->values();
+                return ['subject' => $g->first()->subject->name, 'top' => $top];
+            })->filter(function ($s) { return count($s['top']); })->values(),
+        ];
     }
 
     /** Shared props for the marks tools page: tabulation, marksheets by class and fixing totals. */
@@ -642,25 +681,7 @@ class MarkController extends Controller
                     'print' => route('marks.print_tabulation', [$d['exam_id'], $d['my_class_id'], $d['section_id']]),
                     'email' => route('marks.email_class_reports', [$d['exam_id'], $d['my_class_id'], $d['section_id']]),
                     'showPosition' => !\App\Support\School::has('subject_positions_only'),
-                    // Graphs: each subject's class average and highest score, and how many students got each grade.
-                    'chart' => [
-                        'subjects' => $d['subjects']->map(function ($sub) use ($d, $tex) {
-                            $t = $d['marks']->where('subject_id', $sub->id)->pluck($tex)->filter(function ($v) { return $v !== null; });
-                            return ['name' => $sub->name, 'average' => $t->count() ? round($t->avg(), 1) : 0, 'highest' => (int) $t->max()];
-                        })->values(),
-                        'grades' => $d['marks']->filter(function ($m) { return $m->grade; })->groupBy(function ($m) { return $m->grade->name; })
-                            ->map(function ($g, $name) { return ['grade' => $name, 'count' => $g->count()]; })->sortBy('grade')->values(),
-                    ],
-                    // Subject positions: the top three in each subject in this class.
-                    'leaders' => $d['subjects']->map(function ($sub) use ($d, $tex) {
-                        $top = $d['marks']->where('subject_id', $sub->id)->filter(function ($m) use ($tex) { return $m->$tex !== null && $m->sub_pos; })
-                            ->sortBy('sub_pos')->take(3)->map(function ($m) use ($d, $tex) {
-                                $st = $d['students']->firstWhere('user_id', $m->student_id);
-                                return ['name' => optional(optional($st)->user)->name, 'score' => $m->$tex, 'pos' => (int) $m->sub_pos];
-                            })->values();
-                        return ['subject' => $sub->name, 'top' => $top];
-                    })->filter(function ($s) { return count($s['top']); })->values(),
-                ],
+                ] + $this->classResults($d['ex'], (int) $d['my_class_id'], (int) $d['section_id']),
             ]);
         }, 'pages.support_team.marks.tabulation.index', $d);
     }

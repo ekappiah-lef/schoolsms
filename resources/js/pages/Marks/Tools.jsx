@@ -23,7 +23,7 @@ const TOOLS = [
  * Marks tools for the current year: the tabulation sheet of a class and opening each
  * student's results.
  */
-export default function MarkTools({ tool, year, exams, classes, sections, selected, sheet, students, urls }) {
+export default function MarkTools({ tool, year, exams, classes, sections, selected, sheet, students, results, urls }) {
     const needsExam = tool !== 'sheets';
     const secs = (c) => sections.filter((x) => String(x.class_id) === String(c));
     const [exam, setExam] = useState(String(selected?.exam ?? exams[exams.length - 1]?.id ?? ''));
@@ -99,6 +99,19 @@ export default function MarkTools({ tool, year, exams, classes, sections, select
                 {tool === 'tabulation' && sheet && <ResultCharts sheet={sheet} />}
                 {tool === 'tabulation' && sheet && <Tabulation sheet={sheet} />}
                 {tool === 'tabulation' && sheet && sheet.leaders?.length > 0 && <SubjectLeaders leaders={sheet.leaders} />}
+                {tool === 'sheets' && selected && results && (
+                    <>
+                        {results.exams.length > 1 && (
+                            <Segmented
+                                value={String(results.exam)}
+                                onChange={(v) => router.get(`${urls.sheets}/${selected.class}/${selected.section}`, { exam: v }, { preserveScroll: true })}
+                                options={results.exams.map((e) => ({ value: String(e.id), label: e.name }))}
+                            />
+                        )}
+                        <ResultCharts sheet={results} />
+                        {results.leaders?.length > 0 && <SubjectLeaders leaders={results.leaders} />}
+                    </>
+                )}
                 {tool === 'sheets' && selected && <Students students={students} />}
             </div>
         </>
