@@ -218,7 +218,7 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                                         <div className="mt-3 grid grid-cols-3 gap-3">
                                             <Mini label="Average" value={`${latestResult.average}%`} />
                                             <Mini label="Class avg." value={latestResult.class_average !== null ? `${latestResult.class_average}%` : '—'} />
-                                            <Mini label="Position" value={ordinal(latestResult.position)} />
+                                            {latestResult.position !== null && <Mini label="Position" value={ordinal(latestResult.position)} />}
                                         </div>
                                     </div>
                                 ) : (
@@ -626,7 +626,7 @@ function ResultsTab({ results, marksheet }) {
             <div className="panel grid divide-y divide-border sm:grid-cols-4 sm:divide-x sm:divide-y-0">
                 <FeeFigure label="Average" value={exam.average !== null ? `${exam.average}%` : '—'} />
                 <FeeFigure label="Class average" value={exam.class_average !== null ? `${exam.class_average}%` : '—'} />
-                <FeeFigure label="Position" value={ordinal(exam.position)} />
+                {results.showPosition !== false && <FeeFigure label="Position" value={ordinal(exam.position)} />}
                 <FeeFigure label="Total score" value={exam.total ?? '—'} />
             </div>
 
@@ -636,9 +636,11 @@ function ResultsTab({ results, marksheet }) {
                         <thead>
                             <tr className="border-b border-border bg-canvas text-2xs font-semibold uppercase text-fg-muted">
                                 <th className="h-9 px-4">Subject</th>
-                                <th className="h-9 px-3 text-right">1st CA</th>
-                                <th className="h-9 px-3 text-right">2nd CA</th>
-                                <th className="h-9 px-3 text-right">Exam</th>
+                                {(results.scoreColumns ?? []).map((c) => (
+                                    <th key={c.key} className="h-9 px-3 text-right">
+                                        {c.label}
+                                    </th>
+                                ))}
                                 <th className="h-9 px-3 text-right">Total</th>
                                 <th className="h-9 min-w-[140px] px-3" />
                                 <th className="h-9 px-3">Grade</th>
@@ -649,9 +651,11 @@ function ResultsTab({ results, marksheet }) {
                             {exam.subjects.map((s) => (
                                 <tr key={s.subject} className="border-b border-border last:border-0 hover:bg-muted">
                                     <td className="h-11 px-4 font-medium">{s.subject}</td>
-                                    <td className="px-3 text-right text-fg-muted">{s.ca1 ?? '—'}</td>
-                                    <td className="px-3 text-right text-fg-muted">{s.ca2 ?? '—'}</td>
-                                    <td className="px-3 text-right text-fg-muted">{s.exam ?? '—'}</td>
+                                    {(results.scoreColumns ?? []).map((c) => (
+                                        <td key={c.key} className="px-3 text-right text-fg-muted">
+                                            {s.scores?.[c.key] ?? '—'}
+                                        </td>
+                                    ))}
                                     <td className="px-3 text-right font-semibold">{s.total ?? '—'}</td>
                                     <td className="px-3">{s.total !== null && s.total !== undefined && <Meter value={Number(s.total)} max={100} />}</td>
                                     <td className="px-3">

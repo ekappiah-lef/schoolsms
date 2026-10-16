@@ -86,7 +86,7 @@
                         @endif--}}
                         <th style="color: darkred">Total</th>
                         <th style="color: darkblue">Average</th>
-                        <th style="color: darkgreen">Position</th>
+                        @unless(\App\Support\School::has('subject_positions_only'))<th style="color: darkgreen">Position</th>@endunless
                     </tr>
                     </thead>
                     <tbody>
@@ -109,7 +109,7 @@
 
                             <td style="color: darkred">{{ $exr->where('student_id', $s->user_id)->first()->total ?: '-' }}</td>
                             <td style="color: darkblue">{{ $exr->where('student_id', $s->user_id)->first()->ave ?: '-' }}</td>
-                            <td style="color: darkgreen">{!! Mk::getSuffix($exr->where('student_id', $s->user_id)->first()->pos) ?: '-' !!}</td>
+                            @unless(\App\Support\School::has('subject_positions_only'))<td style="color: darkgreen">{!! Mk::getSuffix($exr->where('student_id', $s->user_id)->first()->pos) ?: '-' !!}</td>@endunless
                         </tr>
                     @endforeach
                     </tbody>

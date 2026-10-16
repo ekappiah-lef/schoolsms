@@ -34,8 +34,10 @@ class Navigation
             $students = [self::item('All students', 'users', 'students.index', ['students.index', 'students.list', 'students.show', 'students.edit'])];
             if (Qs::userIsTeamSA()) {
                 $students[] = self::item('Admit student', null, 'students.create');
-                $students[] = self::item('Promote students', null, 'students.promotion');
-                $students[] = self::item('Manage promotions', null, 'students.promotion_manage');
+                if (!\App\Support\School::has('promotions_academic_admin_only') || Qs::userIsAcademicAdmin() || Qs::userIsSuperAdmin()) {
+                    $students[] = self::item('Promote students', null, 'students.promotion');
+                    $students[] = self::item('Manage promotions', null, 'students.promotion_manage');
+                }
                 $students[] = self::item('Graduated', null, 'students.graduated');
             }
             $academics[] = self::group('Students', 'graduation-cap', $students);

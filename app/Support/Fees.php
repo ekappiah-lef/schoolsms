@@ -46,6 +46,25 @@ class Fees
             ->get();
     }
 
+    /**
+     * A graduate's discount moves to their youngest brother or sister still in school who has none
+     * (schools with the discount_to_youngest_sibling switch). Returns the sibling who got it, if any.
+     */
+    public static function passDiscountToSibling(StudentRecord $graduate): ?StudentRecord
+    {
+        if (!$graduate->fee_discount_id || !$graduate->my_parent_id) return null;
+        $sibling = StudentRecord::where('my_parent_id', $graduate->my_parent_id)->where('id', '!=', $graduate->id)
+            ->where('grad', 0)->whereNull('fee_discount_id')->with('user')->get()
+            ->sortByDesc(function ($s) { return [optional($s->user)->dob ?: '0000-00-00', $s->id]; })->first();
+        if (!$sibling) return null;
+
+        $sibling->update(['fee_discount_id' => $graduate->fee_discount_id]);
+        DB::table('student_records')->where('id', $graduate->id)->update(['fee_discount_id' => null]);
+        self::applyDiscount($sibling->fresh(), Qs::getCurrentSession());
+
+        return $sibling;
+    }
+
     /** Whether a fee should be billed to the student (used by the class billing action). */
     public static function appliesTo(Payment $p, StudentRecord $sr, string $year): bool
     {

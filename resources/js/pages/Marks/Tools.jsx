@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Segmented } from '@/components/ui/tabs';
 import { submitForm } from '@/lib/http';
 import { ordinal } from '@/lib/utils';
+import { HorizontalBars, SERIES } from '@/components/app/charts';
 
 const TOOLS = [
     { value: 'tabulation', label: 'Tabulation sheet' },
@@ -95,7 +96,9 @@ export default function MarkTools({ tool, year, exams, classes, sections, select
                     </div>
                 </Panel>
 
+                {tool === 'tabulation' && sheet && <ResultCharts sheet={sheet} />}
                 {tool === 'tabulation' && sheet && <Tabulation sheet={sheet} />}
+                {tool === 'tabulation' && sheet && sheet.leaders?.length > 0 && <SubjectLeaders leaders={sheet.leaders} />}
                 {tool === 'sheets' && selected && <Students students={students} />}
             </div>
         </>
@@ -135,7 +138,7 @@ function Tabulation({ sheet }) {
                             ))}
                             <th className="h-9 px-3 text-right">Total</th>
                             <th className="h-9 px-3 text-right">Average</th>
-                            <th className="h-9 px-4 text-right">Position</th>
+                            {sheet.showPosition && <th className="h-9 px-4 text-right">Position</th>}
                         </tr>
                     </thead>
                     <tbody className="tabular">
@@ -154,13 +157,73 @@ function Tabulation({ sheet }) {
                                 ))}
                                 <td className="px-3 py-2.5 text-right font-semibold">{r.total ?? '—'}</td>
                                 <td className="px-3 py-2.5 text-right">{r.ave ?? '—'}</td>
-                                <td className="px-4 py-2.5 text-right">{r.pos ? ordinal(r.pos) : '—'}</td>
+                                {sheet.showPosition && <td className="px-4 py-2.5 text-right">{r.pos ? ordinal(r.pos) : '—'}</td>}
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
             {pager}
+        </Panel>
+    );
+}
+
+/** Graphs of the class's results: average per subject, and how many students got each grade. */
+function ResultCharts({ sheet }) {
+    const subjects = sheet.chart?.subjects ?? [];
+    const grades = sheet.chart?.grades ?? [];
+    if (!subjects.length) return null;
+    const most = Math.max(1, ...grades.map((g) => g.count));
+    return (
+        <div className="grid gap-6 lg:grid-cols-2">
+            <Panel title="Average per subject">
+                <HorizontalBars data={subjects} labelKey="name" valueKey="average" name="Class average" domain={[0, 100]} height={Math.max(160, subjects.length * 34)} labelWidth={130} />
+            </Panel>
+            <Panel title="Grades">
+                {grades.length ? (
+                    <HorizontalBars data={grades} labelKey="grade" valueKey="count" name="Students" domain={[0, most]} height={Math.max(160, grades.length * 34)} color={SERIES.two} labelWidth={60} />
+                ) : (
+                    <EmptyState compact title="No grades yet" />
+                )}
+            </Panel>
+        </div>
+    );
+}
+
+/** Subject positions: who came first, second and third in each subject in this class. */
+function SubjectLeaders({ leaders }) {
+    return (
+        <Panel title="Top in each subject" flush>
+            <div className="scrollbar-thin overflow-x-auto">
+                <table className="w-full text-sm">
+                    <thead>
+                        <tr className="border-b border-border bg-canvas text-2xs font-semibold uppercase text-fg-muted">
+                            <th className="h-9 px-5 text-left">Subject</th>
+                            <th className="h-9 px-3 text-left">1st</th>
+                            <th className="h-9 px-3 text-left">2nd</th>
+                            <th className="h-9 px-5 text-left">3rd</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {leaders.map((l) => (
+                            <tr key={l.subject} className="border-b border-border last:border-0">
+                                <td className="px-5 py-2.5 font-medium">{l.subject}</td>
+                                {[0, 1, 2].map((i) => (
+                                    <td key={i} className={i === 2 ? 'px-5 py-2.5' : 'px-3 py-2.5'}>
+                                        {l.top[i] ? (
+                                            <span>
+                                                {l.top[i].name} <span className="tabular text-fg-muted">({l.top[i].score})</span>
+                                            </span>
+                                        ) : (
+                                            <span className="text-fg-subtle">—</span>
+                                        )}
+                                    </td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </Panel>
     );
 }

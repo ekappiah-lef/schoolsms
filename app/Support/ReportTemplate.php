@@ -29,7 +29,11 @@ class ReportTemplate
 
         return [
             'title' => 'REPORT SHEET',
-            'columns' => collect(self::COLUMNS)->map(function ($label, $key) { return ['key' => $key, 'label' => $label, 'show' => true]; })->values()->all(),
+            // The assessment scheme may rename or hide score columns (e.g. CLASS SCORE (50%) instead of CA1 / CA2).
+            'columns' => collect(self::COLUMNS)->map(function ($label, $key) {
+                $r = Assessment::scheme()['report'][$key] ?? null;
+                return ['key' => $key, 'label' => is_string($r) ? $r : $label, 'show' => $r !== false];
+            })->values()->all(),
             'summary' => true,
             'groups' => [
                 ['key' => 'af', 'title' => 'AFFECTIVE TRAITS', 'show' => true, 'items' => $skills('AF')],
@@ -52,10 +56,14 @@ class ReportTemplate
     {
         $saved = $classTypeId ? DB::table('report_templates')->where('class_type_id', $classTypeId)->value('settings') : null;
         $t = array_replace(self::defaults(), $saved ? (array) json_decode($saved, true) : []);
+        $defaultCols = collect(self::defaults()['columns']);
         // keep every known column, in the saved order, adding any new ones at the end
         $known = collect($t['columns'])->keyBy('key');
         $t['columns'] = collect(self::COLUMNS)->keys()->sortBy(function ($k) use ($known) { $i = $known->keys()->search($k); return $i === false ? 99 : $i; })
-            ->map(function ($k) use ($known) { return array_replace(['key' => $k, 'label' => self::COLUMNS[$k], 'show' => true], (array) ($known[$k] ?? [])); })->values()->all();
+            ->map(function ($k) use ($known, $defaultCols) {
+                $d = $defaultCols->firstWhere('key', $k);
+                return array_replace($d, (array) ($known[$k] ?? []));
+            })->values()->all();
         $t['comments'] = array_replace(self::defaults()['comments'], (array) ($t['comments'] ?? []));
         $t['key'] = array_replace(self::defaults()['key'], (array) ($t['key'] ?? []));
 

@@ -678,7 +678,7 @@ class StudentRecordController extends Controller
                 'year' => $latest->year,
                 'average' => round((float) $latest->ave, 1),
                 'class_average' => $latest->class_ave !== null ? round((float) $latest->class_ave, 1) : null,
-                'position' => $latest->pos,
+                'position' => \App\Support\School::has('subject_positions_only') ? null : $latest->pos,
             ] : null;
         }
 
@@ -702,15 +702,15 @@ class StudentRecordController extends Controller
         $marks = Mark::where('student_id', $student_id)->with(['subject', 'grade'])->get()->groupBy('exam_id');
 
         return [
+            'scoreColumns' => \App\Support\Assessment::summaryColumns(),
+            'showPosition' => !\App\Support\School::has('subject_positions_only'),
             'exams' => $records->map(function ($r) use ($marks) {
                 $tex = 'tex'.$r->term;
                 $subjects = ($marks[$r->exam_id] ?? collect())->filter(function ($m) { return $m->subject; })
                     ->map(function ($m) use ($tex) {
                         return [
                             'subject' => $m->subject->name,
-                            'ca1' => $m->t1,
-                            'ca2' => $m->t2,
-                            'exam' => $m->exm,
+                            'scores' => \App\Support\Assessment::summary($m),
                             'total' => $m->$tex,
                             'grade' => optional($m->grade)->name,
                             'remark' => optional($m->grade)->remark,
@@ -726,7 +726,7 @@ class StudentRecordController extends Controller
                     'total' => $r->total,
                     'average' => $r->ave !== null ? round((float) $r->ave, 1) : null,
                     'class_average' => $r->class_ave !== null ? round((float) $r->class_ave, 1) : null,
-                    'position' => $r->pos,
+                    'position' => \App\Support\School::has('subject_positions_only') ? null : $r->pos,
                     'subjects' => $subjects,
                 ];
             })->values(),

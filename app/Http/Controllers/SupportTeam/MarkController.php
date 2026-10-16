@@ -149,12 +149,13 @@ class MarkController extends Controller
                         $mk = $d['marks']->where('subject_id', $sub->id)->where('exam_id', $ex->id)->first();
                         return [
                             'name' => $sub->name,
-                            't1' => $mk->t1 ?? null, 't2' => $mk->t2 ?? null, 'exm' => $mk->exm ?? null, 'total' => $mk->$tex ?? null,
+                            'scores' => \App\Support\Assessment::summary($mk), 'total' => $mk->$tex ?? null,
                             'grade' => optional(optional($mk)->grade)->name, 'remark' => optional(optional($mk)->grade)->remark,
                             'pos' => $mk && $mk->grade ? $mk->sub_pos : null,
                         ];
                     })->values(),
-                    'total' => $exr->total, 'ave' => $exr->ave, 'class_ave' => $exr->class_ave, 'pos' => $exr->pos,
+                    'total' => $exr->total, 'ave' => $exr->ave, 'class_ave' => $exr->class_ave,
+                    'pos' => \App\Support\School::has('subject_positions_only') ? null : $exr->pos,
                     't_comment' => $exr->t_comment, 'p_comment' => $exr->p_comment,
                     'af' => $ratings($exr->af, $af->count()), 'ps' => $ratings($exr->ps, $ps->count()),
                     'urls' => [
@@ -179,6 +180,7 @@ class MarkController extends Controller
                 return ['value' => $y, 'url' => route('marks.show', [$hash, $y])];
             }),
             'exams' => $exams,
+            'scoreColumns' => \App\Support\Assessment::summaryColumns(),
             'skills' => ['af' => $af, 'ps' => $ps],
             'canComment' => Qs::userIsTeamSAT(),
             'canHeadComment' => Qs::userIsTeamSA(),
@@ -256,6 +258,9 @@ class MarkController extends Controller
         if (!$this->exam->getRecord(['student_id' => $student_id, 'exam_id' => $exam_id, 'year' => $year])->first()) {
             return Qs::json('There is no result for this exam yet.', false);
         }
+        if ($owed = $this->owedBeforeReport((int) $student_id)) {
+            return Qs::json('Not sent: '.$sr->user->name.' still owes GHS '.\App\Support\Money::fmt($owed).'. The report can be sent once fees are paid; the bill can be sent now.', false);
+        }
         $r = collect($this->sendReport($sr, $exam_id, $year));
         $sent = $r->where('status', 'sent')->count();
 
@@ -271,13 +276,23 @@ class MarkController extends Controller
         $records = $this->exam->getRecord(['exam_id' => $exam_id, 'my_class_id' => $class_id, 'section_id' => $section_id, 'year' => $this->year]);
         $sent = 0;
         $held = 0;
+        $owing = 0;
         foreach ($records as $exr) {
             $sr = $this->student->getRecord(['user_id' => $exr->student_id])->first();
             if (!$sr) continue;
+            if ($this->owedBeforeReport((int) $exr->student_id)) { $owing++; continue; }
             collect($this->sendReport($sr, $exam_id, $this->year))->where('status', 'sent')->count() ? $sent++ : $held++;
         }
 
-        return Qs::json("Reports sent for {$sent} of ".count($records).' students'.($held ? " ({$held} not sent: demo mode or no contact)" : '').'.', true);
+        return Qs::json("Reports sent for {$sent} of ".count($records).' students'.($owing ? " ({$owing} not sent: fees owing)" : '').($held ? " ({$held} not sent: demo mode or no contact)" : '').'.', true);
+    }
+
+    /** Schools with report_after_fees_cleared: what the student still owes (0 when clear, or when the switch is off). */
+    protected function owedBeforeReport(int $studentId): float
+    {
+        if (!\App\Support\School::has('report_after_fees_cleared')) return 0.0;
+
+        return max(\App\Support\Money::r(\App\Support\Fees::termInvoice($studentId)['total']), 0.0);
     }
 
     protected function sendReport($sr, $exam_id, $year): array
@@ -364,20 +379,43 @@ class MarkController extends Controller
                         'name' => optional($mk->user)->name,
                         'photo' => optional($mk->user)->photo,
                         'adm_no' => optional(optional($mk->user)->student_record)->adm_no,
-                        't1' => $mk->t1,
-                        't2' => $mk->t2,
-                        'exm' => $mk->exm,
+                        'scores' => \App\Support\Assessment::scores($mk),
                         'total' => $mk->$tex,
                         'grade' => optional($mk->grade)->name,
                         'position' => $mk->sub_pos,
                     ];
                 }),
+                'scheme' => \App\Support\Assessment::forPage(),
                 'urls' => array_merge($this->selectorProps(collect(), null)['urls'], [
                     'update' => route('marks.update', [$exam_id, $class_id, $section_id, $subject_id]),
+                    'register' => route('marks.register', [$exam_id, $class_id, $section_id, $subject_id]),
                     'tabulation' => Qs::userIsTeamSA() ? route('marks.tabulation', [$exam_id, $class_id, $section_id]) : null,
                 ]),
             ]);
         }, 'pages.support_team.marks.manage', $d);
+    }
+
+    /** The subject's assessment register (the school's own layout), filled with the scores entered so far. */
+    public function register($exam_id, $class_id, $section_id, $subject_id)
+    {
+        if (!TeacherScope::canMark((int) $class_id, (int) $section_id, (int) $subject_id)) {
+            abort(403);
+        }
+        $p = ['exam_id' => $exam_id, 'my_class_id' => $class_id, 'section_id' => $section_id, 'subject_id' => $subject_id, 'year' => $this->year];
+        $marks = $this->exam->getMark($p)->load('user', 'grade')->sortBy('user.name')->values();
+        $exam = $this->exam->find($exam_id);
+        $subject = \App\Models\Subject::with('teacher')->find($subject_id);
+        $class = $this->my_class->find($class_id);
+        $section = \App\Models\Section::find($section_id);
+        $students = \App\Models\StudentRecord::where(['my_class_id' => $class_id, 'section_id' => $section_id, 'grad' => 0])->with('user')->get();
+
+        return \App\Support\Pdf::loadView('pages.support_team.marks.register', [
+            'scheme' => \App\Support\Assessment::scheme(), 'marks' => $marks, 'exam' => $exam, 'subject' => $subject,
+            'class' => trim(optional($class)->name.' '.optional($section)->name), 'school' => Qs::getSystemName(), 'logo' => Qs::getSetting('logo'),
+            'boys' => $students->filter(function ($s) { return optional($s->user)->gender === 'Male'; })->count(),
+            'girls' => $students->filter(function ($s) { return optional($s->user)->gender === 'Female'; })->count(),
+            'roll' => $students->count(), 'tex' => 'tex'.$exam->term,
+        ])->setPaper('a4', 'landscape')->stream('Register-'.preg_replace('/[^A-Za-z0-9]+/', '-', optional($subject)->name.' '.optional($class)->name).'.pdf');
     }
 
     public function update(Request $req, $exam_id, $class_id, $section_id, $subject_id)
@@ -395,24 +433,17 @@ class MarkController extends Controller
 
         $mks = $req->all();
 
-        /** Test, Exam, Grade **/
+        /** Scores, total and grade, following the school's assessment scheme (App\Support\Assessment) **/
         foreach($marks->sortBy('user.name') as $mk)
         {
             $all_st_ids[] = $mk->student_id;
 
-                $d['t1'] = $t1 = $mks['t1_'.$mk->id];
-                $d['t2'] = $t2 = $mks['t2_'.$mk->id];
-                $d['tca'] = $tca = $t1 + $t2;
-                $d['exm'] = $exm = $mks['exm_'.$mk->id];
-
-
-            /** SubTotal Grade, Remark, Cum, CumAvg**/
-
-            $d['tex'.$exam->term] = $total = $tca + $exm;
-
-            if($total > 100){
-                $d['tex'.$exam->term] = $d['t1'] = $d['t2'] = $d['t3'] = $d['t4'] = $d['tca'] = $d['exm'] = NULL;
+            $in = [];
+            foreach (\App\Support\Assessment::scheme()['parts'] as $box) {
+                $in[$box['key']] = $mks[$box['key'].'_'.$mk->id] ?? null;
             }
+            $d = \App\Support\Assessment::columns($in, (int) $exam->term);
+            $total = $d['tex'.$exam->term];
 
          /*   if($exam->term < 3){
                 $grade = $this->mark->getGrade($total, $class_type->id);
@@ -610,6 +641,25 @@ class MarkController extends Controller
                     }),
                     'print' => route('marks.print_tabulation', [$d['exam_id'], $d['my_class_id'], $d['section_id']]),
                     'email' => route('marks.email_class_reports', [$d['exam_id'], $d['my_class_id'], $d['section_id']]),
+                    'showPosition' => !\App\Support\School::has('subject_positions_only'),
+                    // Graphs: each subject's class average and highest score, and how many students got each grade.
+                    'chart' => [
+                        'subjects' => $d['subjects']->map(function ($sub) use ($d, $tex) {
+                            $t = $d['marks']->where('subject_id', $sub->id)->pluck($tex)->filter(function ($v) { return $v !== null; });
+                            return ['name' => $sub->name, 'average' => $t->count() ? round($t->avg(), 1) : 0, 'highest' => (int) $t->max()];
+                        })->values(),
+                        'grades' => $d['marks']->filter(function ($m) { return $m->grade; })->groupBy(function ($m) { return $m->grade->name; })
+                            ->map(function ($g, $name) { return ['grade' => $name, 'count' => $g->count()]; })->sortBy('grade')->values(),
+                    ],
+                    // Subject positions: the top three in each subject in this class.
+                    'leaders' => $d['subjects']->map(function ($sub) use ($d, $tex) {
+                        $top = $d['marks']->where('subject_id', $sub->id)->filter(function ($m) use ($tex) { return $m->$tex !== null && $m->sub_pos; })
+                            ->sortBy('sub_pos')->take(3)->map(function ($m) use ($d, $tex) {
+                                $st = $d['students']->firstWhere('user_id', $m->student_id);
+                                return ['name' => optional(optional($st)->user)->name, 'score' => $m->$tex, 'pos' => (int) $m->sub_pos];
+                            })->values();
+                        return ['subject' => $sub->name, 'top' => $top];
+                    })->filter(function ($s) { return count($s['top']); })->values(),
                 ],
             ]);
         }, 'pages.support_team.marks.tabulation.index', $d);

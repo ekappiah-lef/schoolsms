@@ -7,10 +7,10 @@
     $value = function ($key, $mk) use ($tex) {
         if (!$mk) return '-';
         switch ($key) {
-            case 'ca1': return $mk->t1 ?: '-';
-            case 'ca2': return $mk->t2 ?: '-';
-            case 'ca_total': return $mk->tca ?: '-';
-            case 'exam': return $mk->exm ?: '-';
+            // Score columns follow the school's assessment scheme (e.g. class score 50% / exam 50%).
+            case 'ca1': case 'ca2': case 'ca_total': case 'exam':
+                $v = \App\Support\Assessment::reportValue($key, $mk);
+                return $v === null || $v === '' ? '-' : $v;
             case 'total': return $mk->$tex ?: '-';
             case 'grade': return $mk->grade ? $mk->grade->name : '-';
             case 'position': return $mk->grade ? Mk::getSuffix($mk->sub_pos) : '-';

@@ -13,7 +13,7 @@ import { cn, ordinal } from '@/lib/utils';
 const dash = (v) => (v === null || v === undefined || v === '' || v === 0 ? '—' : v);
 
 /** A student's results for a year: each exam's scores, comments and skill ratings, with print links. */
-export default function MarkSheet({ student, year, years, exams, skills, canComment, canHeadComment }) {
+export default function MarkSheet({ student, year, years, exams, skills, canComment, canHeadComment, scoreColumns = [] }) {
     return (
         <>
             <Head title={`Results · ${student.name}`} />
@@ -50,7 +50,7 @@ export default function MarkSheet({ student, year, years, exams, skills, canComm
                 </div>
 
                 {exams.length ? (
-                    exams.map((ex) => <ExamCard key={ex.id} ex={ex} skills={skills} canComment={canComment} canHeadComment={canHeadComment} />)
+                    exams.map((ex) => <ExamCard key={ex.id} ex={ex} skills={skills} scoreColumns={scoreColumns} canComment={canComment} canHeadComment={canHeadComment} />)
                 ) : (
                     <EmptyState title="No results for this year" />
                 )}
@@ -61,7 +61,7 @@ export default function MarkSheet({ student, year, years, exams, skills, canComm
 
 MarkSheet.layout = withAppLayout;
 
-function ExamCard({ ex, skills, canComment, canHeadComment }) {
+function ExamCard({ ex, skills, scoreColumns, canComment, canHeadComment }) {
     // Staff see the comment boxes straight away; parents and students open them if they want.
     const [open, setOpen] = useState(!!canComment);
     const hasSkills = skills.af.length > 0 || skills.ps.length > 0;
@@ -87,12 +87,14 @@ function ExamCard({ ex, skills, canComment, canHeadComment }) {
                     <thead>
                         <tr className="border-b border-border bg-canvas text-2xs font-semibold uppercase text-fg-muted">
                             <th className="h-9 px-5">Subject</th>
-                            <th className="h-9 px-3 text-right">CA 1 (20)</th>
-                            <th className="h-9 px-3 text-right">CA 2 (20)</th>
-                            <th className="h-9 px-3 text-right">Exam (60)</th>
+                            {scoreColumns.map((c) => (
+                                <th key={c.key} className="h-9 px-3 text-right">
+                                    {c.label}
+                                </th>
+                            ))}
                             <th className="h-9 px-3 text-right">Total (100)</th>
                             <th className="h-9 px-3">Grade</th>
-                            <th className="h-9 px-3">Position</th>
+                            <th className="h-9 px-3">Subject position</th>
                             <th className="h-9 px-5">Remark</th>
                         </tr>
                     </thead>
@@ -100,9 +102,11 @@ function ExamCard({ ex, skills, canComment, canHeadComment }) {
                         {ex.subjects.map((s) => (
                             <tr key={s.name} className="border-b border-border last:border-0 hover:bg-muted/50">
                                 <td className="px-5 py-2.5 font-medium">{s.name}</td>
-                                <td className="px-3 py-2.5 text-right">{dash(s.t1)}</td>
-                                <td className="px-3 py-2.5 text-right">{dash(s.t2)}</td>
-                                <td className="px-3 py-2.5 text-right">{dash(s.exm)}</td>
+                                {scoreColumns.map((c) => (
+                                    <td key={c.key} className="px-3 py-2.5 text-right">
+                                        {dash(s.scores?.[c.key])}
+                                    </td>
+                                ))}
                                 <td className="px-3 py-2.5 text-right font-semibold">{dash(s.total)}</td>
                                 <td className="px-3 py-2.5">{s.grade || '—'}</td>
                                 <td className="px-3 py-2.5">{s.pos ? ordinal(s.pos) : '—'}</td>

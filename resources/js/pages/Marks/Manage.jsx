@@ -1,24 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { toast } from 'sonner';
-import { Check, Download, Info, RotateCcw, Table2 } from 'lucide-react';
+import { Check, Download, Info, Printer, RotateCcw, Table2 } from 'lucide-react';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { PageHeader, Panel } from '@/components/app/page';
 import { MarkSelector } from '@/components/marks/mark-selector';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/dialog';
 import { Tooltip } from '@/components/ui/tooltip';
 import { submitForm } from '@/lib/http';
 import { downloadCsv } from '@/lib/use-visit-state';
 import { cn, ordinal } from '@/lib/utils';
-
-// Maximum scores per column, as on the original score sheet.
-const COLUMNS = [
-    { key: 't1', label: '1st CA', max: 20 },
-    { key: 't2', label: '2nd CA', max: 20 },
-    { key: 'exm', label: 'Exam', max: 60 },
-];
 
 const toValue = (v) => (v === null || v === undefined ? '' : String(v));
 
@@ -36,10 +30,18 @@ function gradeTone(name = '') {
     return 'danger';
 }
 
-export default function MarksManage({ context, rows, grades, generalGrades, exams, classes, current, urls }) {
-    const initial = useMemo(() => Object.fromEntries(rows.map((r) => [r.id, { t1: toValue(r.t1), t2: toValue(r.t2), exm: toValue(r.exm) }])), [rows]);
+export default function MarksManage({ context, rows, grades, generalGrades, exams, classes, current, scheme, urls }) {
+    // The school's assessment scheme decides the score boxes (App\Support\Assessment).
+    const COLUMNS = scheme.parts;
+    const weights = scheme.weights;
+    const classKeys = COLUMNS.filter((c) => c.key !== scheme.exam).map((c) => c.key);
+    const groups = scheme.groups
+        ? Object.entries(scheme.groups).map(([key, label]) => ({ key, label, parts: COLUMNS.filter((c) => c.group === key) }))
+        : null;
+    const initial = useMemo(() => Object.fromEntries(rows.map((r) => [r.id, Object.fromEntries(COLUMNS.map((c) => [c.key, toValue(r.scores?.[c.key])]))])), [rows]);
     const [values, setValues] = useState(initial);
     const [saving, setSaving] = useState(false);
+    const [confirming, setConfirming] = useState(false);
     const inputs = useRef({});
 
     useEffect(() => setValues(initial), [initial]);
@@ -73,9 +75,10 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
             const stored = row.total === null || row.total === undefined ? null : Number(row.total);
             return { total: stored, grade: row.grade ? { name: row.grade, remark: gradeFor(stored, grades, generalGrades)?.remark } : null };
         }
-        const nums = COLUMNS.map((c) => (v[c.key] === '' ? null : Number(v[c.key])));
-        if (nums.every((n) => n === null)) return { total: null, grade: null };
-        const total = nums.reduce((a, n) => a + (n || 0), 0);
+        const num = (k) => (v[k] === '' || v[k] === undefined ? null : Number(v[k]));
+        if (COLUMNS.every((c) => num(c.key) === null)) return { total: null, grade: null };
+        const cls = classKeys.reduce((a, k) => a + (num(k) || 0), 0);
+        const total = weights ? Math.round(cls * weights.class + (num(scheme.exam) || 0) * weights.exam) : cls + (num(scheme.exam) || 0);
         return { total, grade: gradeFor(total, grades, generalGrades) };
     };
 
@@ -114,15 +117,30 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
         }
     };
 
-    const save = useCallback(async () => {
+    // Box sums for the register layout: each group's total and the class total.
+    const sumOf = (id, keys) => {
+        const v = values[id] ?? {};
+        const nums = keys.map((k) => (v[k] === '' || v[k] === undefined ? null : Number(v[k])));
+        return nums.every((n) => n === null) ? null : nums.reduce((a, n) => a + (n || 0), 0);
+    };
+    // Before saving: how many students changed and how many still have empty boxes, to cross-check.
+    const blanks = rows.filter((r) => dirtyIds.includes(r.id) && COLUMNS.some((c) => (values[r.id]?.[c.key] ?? '') === '')).length;
+
+    const askSave = () => {
         if (!dirty || hasErrors || saving) return;
         const over = rows.filter((r) => (computed(r.id).total ?? 0) > 100);
         if (over.length) {
             toast.error(`${over.length} student(s) total more than 100. Fix those rows before saving.`);
             return;
         }
+        setConfirming(true);
+    };
+
+    const save = useCallback(async () => {
+        if (!dirty || hasErrors || saving) return;
+        setConfirming(false);
         setSaving(true);
-        // The endpoint expects every student's fields (t1_{id}, t2_{id}, exm_{id}).
+        // The endpoint expects every student's boxes ({key}_{id}).
         const payload = {};
         rows.forEach((r) => COLUMNS.forEach((c) => (payload[`${c.key}_${r.id}`] = values[r.id]?.[c.key] ?? '')));
         const result = await submitForm(urls.update, payload, { method: 'put' });
@@ -141,7 +159,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
         const onKey = (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
                 e.preventDefault();
-                save();
+                askSave();
             }
         };
         const onUnload = (e) => {
@@ -160,7 +178,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
             window.removeEventListener('beforeunload', onUnload);
             off();
         };
-    }, [save, dirty]);
+    }, [save, dirty, values, hasErrors, saving]);
 
     const title = `${context.subject} · ${context.class} ${context.section}`;
 
@@ -177,6 +195,14 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                 }
                 actions={
                     <>
+                        {urls.register && (
+                            <Button asChild>
+                                <a href={urls.register} target="_blank" rel="noreferrer">
+                                    <Printer />
+                                    Register
+                                </a>
+                            </Button>
+                        )}
                         {urls.tabulation && (
                             <Button asChild>
                                 <a href={urls.tabulation}>
@@ -239,18 +265,53 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                 <div className="scrollbar-thin overflow-x-auto">
                     <table className="w-full text-left">
                         <thead>
-                            <tr className="border-b border-border bg-canvas text-2xs font-semibold uppercase text-fg-muted">
-                                <th className="h-9 w-10 px-4 text-right">#</th>
-                                <th className="h-9 px-3">Student</th>
-                                {COLUMNS.map((c) => (
-                                    <th key={c.key} className="h-9 w-28 px-2 text-center">
-                                        {c.label} <span className="font-normal text-fg-subtle">/{c.max}</span>
-                                    </th>
-                                ))}
-                                <th className="h-9 w-20 px-3 text-right">Total</th>
-                                <th className="h-9 w-32 px-3">Grade</th>
-                                <th className="hidden h-9 w-20 px-4 text-right md:table-cell">Pos.</th>
-                            </tr>
+                            {groups ? (
+                                <>
+                                    <tr className="border-b border-border bg-canvas text-2xs font-semibold uppercase text-fg-muted">
+                                        <th rowSpan={2} className="h-9 w-10 px-4 text-right">#</th>
+                                        <th rowSpan={2} className="h-9 px-3">Student</th>
+                                        {groups.map((g) => (
+                                            <th key={g.key} colSpan={g.parts.length + 1} className="h-8 border-l border-border px-2 text-center">
+                                                {g.label}
+                                            </th>
+                                        ))}
+                                        <th rowSpan={2} className="h-9 w-16 border-l border-border px-2 text-center">
+                                            Class <span className="font-normal text-fg-subtle">/100</span>
+                                        </th>
+                                        <th rowSpan={2} className="h-9 w-24 border-l border-border px-2 text-center">
+                                            {COLUMNS.find((c) => c.key === scheme.exam)?.label} <span className="font-normal text-fg-subtle">/{COLUMNS.find((c) => c.key === scheme.exam)?.max}</span>
+                                        </th>
+                                        <th rowSpan={2} className="h-9 w-20 border-l border-border px-3 text-right">Total</th>
+                                        <th rowSpan={2} className="h-9 w-32 px-3">Grade</th>
+                                        <th rowSpan={2} className="hidden h-9 w-20 px-4 text-right md:table-cell">Pos.</th>
+                                    </tr>
+                                    <tr className="border-b border-border bg-canvas text-2xs font-semibold uppercase text-fg-muted">
+                                        {groups.map((g) => (
+                                            <Fragment key={g.key}>
+                                                {g.parts.map((c, i) => (
+                                                    <th key={c.key} className={cn('h-8 w-14 px-1 text-center', i === 0 && 'border-l border-border')}>
+                                                        {c.label} <span className="font-normal text-fg-subtle">/{c.max}</span>
+                                                    </th>
+                                                ))}
+                                                <th className="h-8 w-12 px-1 text-center text-fg-subtle">Total</th>
+                                            </Fragment>
+                                        ))}
+                                    </tr>
+                                </>
+                            ) : (
+                                <tr className="border-b border-border bg-canvas text-2xs font-semibold uppercase text-fg-muted">
+                                    <th className="h-9 w-10 px-4 text-right">#</th>
+                                    <th className="h-9 px-3">Student</th>
+                                    {COLUMNS.map((c) => (
+                                        <th key={c.key} className="h-9 w-28 px-2 text-center">
+                                            {c.label} <span className="font-normal text-fg-subtle">/{c.max}</span>
+                                        </th>
+                                    ))}
+                                    <th className="h-9 w-20 px-3 text-right">Total</th>
+                                    <th className="h-9 w-32 px-3">Grade</th>
+                                    <th className="hidden h-9 w-20 px-4 text-right md:table-cell">Pos.</th>
+                                </tr>
+                            )}
                         </thead>
                         <tbody>
                             {rows.map((r, ri) => {
@@ -271,8 +332,15 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                                         {COLUMNS.map((c, ci) => {
                                             const key = `${r.id}.${c.key}`;
                                             const err = errors[key];
+                                            const g = groups && c.group ? groups.find((x) => x.key === c.group) : null;
+                                            const lastOfGroup = g && g.parts[g.parts.length - 1].key === c.key;
+                                            const beforeExam = groups && c.key === scheme.exam;
                                             return (
-                                                <td key={c.key} className="px-2 py-1.5">
+                                                <Fragment key={c.key}>
+                                                {beforeExam && (
+                                                    <td className="tabular border-l border-border px-2 text-center text-sm font-semibold">{sumOf(r.id, classKeys) ?? <span className="text-fg-subtle">—</span>}</td>
+                                                )}
+                                                <td className={cn(groups ? 'px-1 py-1.5' : 'px-2 py-1.5', groups && (beforeExam || (g && g.parts[0].key === c.key)) && 'border-l border-border')}>
                                                     <input
                                                             ref={(el) => (inputs.current[key] = el)}
                                                             title={err ? `Enter ${err}` : undefined}
@@ -285,10 +353,15 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                                                             aria-invalid={err ? true : undefined}
                                                             className={cn(
                                                                 'tabular h-8 w-full rounded-md border bg-surface text-center text-base transition-colors focus:border-primary focus:shadow-focus focus:outline-none',
+                                                                groups && 'min-w-[2.75rem]',
                                                                 err ? 'border-danger bg-danger-soft text-danger-fg' : 'border-border hover:border-border-strong',
                                                             )}
                                                         />
                                                 </td>
+                                                {lastOfGroup && (
+                                                    <td className="tabular px-1 text-center text-sm text-fg-muted">{sumOf(r.id, g.parts.map((x) => x.key)) ?? ''}</td>
+                                                )}
+                                                </Fragment>
                                             );
                                         })}
                                         <td className={cn('tabular px-3 text-right font-semibold', total > 100 && 'text-danger-fg')}>{total ?? <span className="text-fg-subtle">—</span>}</td>
@@ -333,13 +406,23 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                                 Discard
                             </Button>
                         )}
-                        <Button variant="primary" onClick={save} disabled={!dirty || hasErrors} loading={saving}>
+                        <Button variant="primary" onClick={askSave} disabled={!dirty || hasErrors} loading={saving}>
                             {!saving && <Check />}
                             {saving ? 'Saving…' : 'Save marks'}
                         </Button>
                     </div>
                 </div>
             </Panel>
+            <ConfirmDialog
+                open={confirming}
+                onOpenChange={(o) => !saving && setConfirming(o)}
+                title={`Save marks for ${dirtyIds.length} ${dirtyIds.length === 1 ? 'student' : 'students'}?`}
+                description={`Have you cross-checked every score against your register?${blanks ? ` ${blanks} of them still ${blanks === 1 ? 'has' : 'have'} empty boxes.` : ''} You can open this page again to correct any mark.`}
+                confirmLabel="Yes, save marks"
+                tone="primary"
+                loading={saving}
+                onConfirm={save}
+            />
         </>
     );
 }

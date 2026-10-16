@@ -18,6 +18,14 @@ class PromotionController extends Controller
     public function __construct(MyClassRepo $my_class, StudentRepo $student)
     {
         $this->middleware('teamSA');
+        // Schools where promotions and repeats are decided by the academic admin only (and LEF's super admin).
+        $this->middleware(function ($request, $next) {
+            if (\App\Support\School::has('promotions_academic_admin_only') && !Qs::userIsAcademicAdmin() && !Qs::userIsSuperAdmin()) {
+                return $request->expectsJson() ? Qs::json('Only the academic admin can promote students.', false)
+                    : redirect()->route('dashboard')->with('pop_error', 'Only the academic admin can promote students.');
+            }
+            return $next($request);
+        });
 
         $this->my_class = $my_class;
         $this->student = $student;
@@ -81,6 +89,7 @@ class PromotionController extends Controller
         }
 
         foreach($students as $st){
+            $d = [];   // each student's own changes (a graduate's "grad" must not carry over to the next student)
             $p = 'p-'.$st->id;
             $p = $req->$p;
             if($p === 'P'){ // Promote
@@ -101,6 +110,9 @@ class PromotionController extends Controller
             }
 
             $this->student->updateRecord($st->id, $d);
+            if ($p === 'G' && \App\Support\School::has('discount_to_youngest_sibling')) {
+                \App\Support\Fees::passDiscountToSibling($st->fresh());
+            }
 
 //            Insert New Promotion Data
             $promote['from_class'] = $fc;
