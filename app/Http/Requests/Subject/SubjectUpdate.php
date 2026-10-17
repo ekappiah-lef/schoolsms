@@ -22,6 +22,7 @@ class SubjectUpdate extends FormRequest
     {
         return [
             'name' => 'required|string|min:3',
+            'category' => 'nullable|in:core,elective',
             'my_class_id' => 'required',
             'teacher_id' => 'sometimes|nullable|exists:users,id',
             'slug' => 'nullable|string|min:3',

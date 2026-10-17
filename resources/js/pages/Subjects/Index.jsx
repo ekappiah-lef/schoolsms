@@ -7,11 +7,11 @@ import { useModuleForm } from '@/lib/use-module-form';
 import { cn } from '@/lib/utils';
 
 /** Subjects — Create subject / Show subjects (SubjectController; JSON store & update, teacher ids are hashed). */
-export default function SubjectsIndex({ session, canDelete, classes, teachers, subjects, editing, urls }) {
+export default function SubjectsIndex({ session, canDelete, classes, teachers, subjects, editing, urls, showCategory = false }) {
     const [tab, setTab] = useModuleTab(editing ? 'create' : 'list');
     const [confirm, confirmDialog] = useConfirmAction();
     const form = useModuleForm({
-        initial: { name: '', slug: '', my_class_id: '', teacher_id: '' },
+        initial: { name: '', slug: '', category: 'core', my_class_id: '', teacher_id: '' },
         editing,
         storeUrl: urls.store,
         indexUrl: urls.index,
@@ -61,6 +61,14 @@ export default function SubjectsIndex({ session, canDelete, classes, teachers, s
                                     ))}
                                 </NativeSelect>
                             </Field>
+                            {showCategory && (
+                                <Field label="Category" error={form.errors.category}>
+                                    <NativeSelect value={form.data.category || 'core'} onChange={(v) => form.set('category', v)}>
+                                        <option value="core">Core</option>
+                                        <option value="elective">Elective</option>
+                                    </NativeSelect>
+                                </Field>
+                            )}
                             <Field label="Subject Teacher" required={!editing} error={form.errors.teacher_id}>
                                 <NativeSelect value={form.data.teacher_id} onChange={(v) => form.set('teacher_id', v)} invalid={!!form.errors.teacher_id}>
                                     <option value="" disabled={!editing}>
@@ -94,6 +102,7 @@ export default function SubjectsIndex({ session, canDelete, classes, teachers, s
                                             <div>
                                                 <div className="font-semibold">{r.name}</div>
                                                 {r.slug && <div className="font-mono text-[11px] text-fg-muted">{r.slug}</div>}
+                                                {showCategory && <div className="text-[11px] text-fg-muted">{r.category === 'elective' ? 'Elective' : 'Core'}</div>}
                                             </div>
                                         </div>
                                     ),

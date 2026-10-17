@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { toast } from 'sonner';
 import { ChevronDown, Mail, Printer, Save } from 'lucide-react';
@@ -99,8 +99,16 @@ function ExamCard({ ex, skills, scoreColumns, canComment, canHeadComment }) {
                         </tr>
                     </thead>
                     <tbody className="tabular">
-                        {ex.subjects.map((s) => (
-                            <tr key={s.name} className="border-b border-border last:border-0 hover:bg-muted/50">
+                        {ex.subjects.map((s, i) => (
+                            <Fragment key={s.name}>
+                            {s.group && s.group !== ex.subjects[i - 1]?.group && (
+                                <tr className="border-b border-border bg-muted/40">
+                                    <td colSpan={scoreColumns.length + 5} className="px-5 py-1.5 text-2xs font-semibold uppercase text-fg-muted">
+                                        {s.group}
+                                    </td>
+                                </tr>
+                            )}
+                            <tr className="border-b border-border last:border-0 hover:bg-muted/50">
                                 <td className="px-5 py-2.5 font-medium">{s.name}</td>
                                 {scoreColumns.map((c) => (
                                     <td key={c.key} className="px-3 py-2.5 text-right">
@@ -112,6 +120,7 @@ function ExamCard({ ex, skills, scoreColumns, canComment, canHeadComment }) {
                                 <td className="px-3 py-2.5">{s.pos ? ordinal(s.pos) : '—'}</td>
                                 <td className="px-5 py-2.5 text-fg-muted">{s.remark || '—'}</td>
                             </tr>
+                            </Fragment>
                         ))}
                     </tbody>
                 </table>

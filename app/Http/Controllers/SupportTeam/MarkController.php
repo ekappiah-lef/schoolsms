@@ -145,10 +145,10 @@ class MarkController extends Controller
                 $tex = 'tex'.$ex->term;
                 $exams[] = [
                     'id' => $ex->id, 'name' => $ex->name, 'term' => (int) $ex->term,
-                    'subjects' => $d['subjects']->map(function ($sub) use ($d, $ex, $tex) {
+                    'subjects' => \App\Support\School::orderSubjects($d['subjects']->values())->map(function ($sub) use ($d, $ex, $tex) {
                         $mk = $d['marks']->where('subject_id', $sub->id)->where('exam_id', $ex->id)->first();
                         return [
-                            'name' => $sub->name,
+                            'name' => $sub->name, 'group' => \App\Support\School::subjectGroup($sub),
                             'scores' => \App\Support\Assessment::summary($mk), 'total' => $mk->$tex ?? null,
                             'grade' => optional(optional($mk)->grade)->name, 'remark' => optional(optional($mk)->grade)->remark,
                             'pos' => $mk && $mk->grade ? $mk->sub_pos : null,

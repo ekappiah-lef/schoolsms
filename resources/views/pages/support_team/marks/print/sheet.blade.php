@@ -57,8 +57,16 @@
     @endif
     </thead>
     <tbody>
-    @foreach($subjects as $sub)
-        @php $mk = $marks->where('subject_id', $sub->id)->where('exam_id', $ex->id)->first(); @endphp
+    @php $lastGroup = null; @endphp
+    @foreach(\App\Support\School::orderSubjects($subjects->values()) as $sub)
+        @php
+            $mk = $marks->where('subject_id', $sub->id)->where('exam_id', $ex->id)->first();
+            $group = \App\Support\School::subjectGroup($sub);
+        @endphp
+        @if($group && $group !== $lastGroup)
+            <tr><td colspan="{{ $cols->count() + 1 }}" style="font-weight: bold; background: #f0f0f0; text-align: left;">{{ strtoupper($group) }}</td></tr>
+            @php $lastGroup = $group; @endphp
+        @endif
         <tr>
             <td style="font-weight: bold">{{ $sub->name }}</td>
             @foreach($ca as $c)

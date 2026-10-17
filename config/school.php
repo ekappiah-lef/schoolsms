@@ -17,6 +17,7 @@ return [
         'promotions_academic_admin_only' => 'Only the academic admin (and LEF) promotes students and decides repeats.',
         'discount_to_youngest_sibling' => 'When a student with a discount graduates, the discount moves to their youngest sibling still in school.',
         'report_after_fees_cleared' => 'A report sheet is not sent to parents while the student owes fees (bills still can be).',
+        'core_elective_subjects' => 'Subjects are core or elective: report cards, result sheets and mark entry group them.',
     ],
 
     'assessment' => env('SCHOOL_ASSESSMENT') ?: 'standard',

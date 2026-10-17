@@ -43,6 +43,7 @@ class SubjectController extends Controller
         return [
             'session' => Qs::getCurrentSession(),
             'canDelete' => Qs::userIsSuperAdmin(),
+            'showCategory' => \App\Support\School::has('core_elective_subjects'),
             'classes' => $classes->map(function ($c) { return ['id' => $c->id, 'name' => $c->name]; })->values(),
             'teachers' => $this->user->getUserByType('teacher')->map(function ($t) { return ['id' => Qs::hash($t->id), 'name' => $t->name]; })->values(),
             'subjects' => $this->my_class->getAllSubjects()->sortBy(function ($s) use ($order) {
@@ -52,6 +53,7 @@ class SubjectController extends Controller
                     'id' => $s->id,
                     'name' => $s->name,
                     'slug' => $s->slug,
+                    'category' => $s->category ?: 'core',
                     'class' => optional($s->my_class)->name,
                     'teacher' => optional($s->teacher)->name,
                     'urls' => ['edit' => route('subjects.edit', $s->id), 'destroy' => route('subjects.destroy', $s->id)],
@@ -83,6 +85,7 @@ class SubjectController extends Controller
             return $this->pageProps([
                 'name' => $sub->name,
                 'slug' => $sub->slug,
+                'category' => $sub->category ?: 'core',
                 'my_class_id' => (string) $sub->my_class_id,
                 'teacher_id' => $sub->teacher_id ? Qs::hash($sub->teacher_id) : '',
                 'url' => route('subjects.update', $sub->id),

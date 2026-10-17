@@ -13,6 +13,22 @@ class School
     /** Switches the pages need to know about. */
     public static function forPage(): array
     {
-        return ['subjectPositionsOnly' => self::has('subject_positions_only')];
+        return ['subjectPositionsOnly' => self::has('subject_positions_only'), 'coreElective' => self::has('core_elective_subjects')];
+    }
+
+    /** Group label of a subject when the school groups subjects (null otherwise). */
+    public static function subjectGroup($subject): ?string
+    {
+        if (!self::has('core_elective_subjects') || !$subject) return null;
+
+        return ($subject->category ?? 'core') === 'elective' ? 'Elective subjects' : 'Core subjects';
+    }
+
+    /** Subjects in report order: core first, then elective (when the school groups them), keeping the given order within each. */
+    public static function orderSubjects($subjects)
+    {
+        if (!self::has('core_elective_subjects')) return $subjects;
+
+        return collect($subjects)->sortBy(function ($s, $i) { return [($s->category ?? 'core') === 'elective' ? 1 : 0, $i]; })->values();
     }
 }

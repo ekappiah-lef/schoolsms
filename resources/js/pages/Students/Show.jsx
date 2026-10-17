@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import {
     BookOpenCheck,
@@ -648,8 +648,16 @@ function ResultsTab({ results, marksheet }) {
                             </tr>
                         </thead>
                         <tbody className="tabular">
-                            {exam.subjects.map((s) => (
-                                <tr key={s.subject} className="border-b border-border last:border-0 hover:bg-muted">
+                            {exam.subjects.map((s, i) => (
+                                <Fragment key={s.subject}>
+                                {s.group && s.group !== exam.subjects[i - 1]?.group && (
+                                    <tr className="border-b border-border bg-muted/40">
+                                        <td colSpan={(results.scoreColumns ?? []).length + 5} className="px-4 py-1.5 text-2xs font-semibold uppercase text-fg-muted">
+                                            {s.group}
+                                        </td>
+                                    </tr>
+                                )}
+                                <tr className="border-b border-border last:border-0 hover:bg-muted">
                                     <td className="h-11 px-4 font-medium">{s.subject}</td>
                                     {(results.scoreColumns ?? []).map((c) => (
                                         <td key={c.key} className="px-3 text-right text-fg-muted">
@@ -672,6 +680,7 @@ function ResultsTab({ results, marksheet }) {
                                     </td>
                                     <td className="hidden px-4 text-right text-fg-muted md:table-cell">{ordinal(s.position)}</td>
                                 </tr>
+                                </Fragment>
                             ))}
                         </tbody>
                     </table>

@@ -56,8 +56,10 @@ class AjaxController extends Controller
         if ($bySection !== null) {
             $d['bySection'] = $bySection;
         }
-        $d['subjects'] = $subjects->map(function($q){
-            return ['id' => $q->id, 'name' => $q->name];
+        // Schools that group subjects: core first, labelled "Core · …" / "Elective · …".
+        $d['subjects'] = \App\Support\School::orderSubjects($subjects->sortBy('name')->values())->map(function($q){
+            $g = \App\Support\School::subjectGroup($q);
+            return ['id' => $q->id, 'name' => $g ? ($g === 'Core subjects' ? 'Core' : 'Elective').' · '.$q->name : $q->name];
         })->values()->all();
 
         return $d;

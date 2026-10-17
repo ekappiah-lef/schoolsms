@@ -710,13 +710,14 @@ class StudentRecordController extends Controller
                     ->map(function ($m) use ($tex) {
                         return [
                             'subject' => $m->subject->name,
+                            'group' => \App\Support\School::subjectGroup($m->subject),
                             'scores' => \App\Support\Assessment::summary($m),
                             'total' => $m->$tex,
                             'grade' => optional($m->grade)->name,
                             'remark' => optional($m->grade)->remark,
                             'position' => $m->sub_pos,
                         ];
-                    })->sortBy('subject')->values();
+                    })->sortBy(function ($s) { return [$s['group'] === 'Elective subjects' ? 1 : 0, $s['subject']]; })->values();
 
                 return [
                     'exam_id' => $r->exam_id,
