@@ -74,7 +74,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
-          source: "docker-compose.prod.yml,deploy/deploy.sh,deploy/backup.sh"
+          source: "docker-compose.prod.yml,deploy/deploy.sh,deploy/backup.sh,deploy/agent/agent.py,deploy/agent/install.sh"
           target: ${{ secrets.DEPLOY_PATH }}
 
       - name: Deploy over SSH
@@ -95,8 +95,10 @@ jobs:
           script: |
             set -e
             cd "${{ secrets.DEPLOY_PATH }}"
-            sed -i 's/\r$//' deploy/deploy.sh deploy/backup.sh
+            sed -i 's/\r$//' deploy/deploy.sh deploy/backup.sh deploy/agent/agent.py deploy/agent/install.sh
             bash deploy/deploy.sh
+            # The server helper used by the LEF Control Centre (installed / updated with every deploy).
+            sudo bash deploy/agent/install.sh
 
             # Schools (/opt/schools/<school>/), only after the test school above is healthy (set -e stops here otherwise).
             # Each has its own .env (project name, port, image tag), .env.docker, database and backups; .health_url is its /healthz.
@@ -107,4 +109,10 @@ jobs:
               cp docker-compose.prod.yml "$d/" && cp deploy/deploy.sh deploy/backup.sh "$d/deploy/"
               HEALTH_CHECK_URL="$(cat "$d/.health_url" 2>/dev/null || true)" bash "$d/deploy/deploy.sh" || failed="$failed $(basename "$d")"
             done
+            # The LEF Control Centre (/opt/control), when it is installed.
+            if [ -f /opt/control/.env ]; then
+              echo "=== control ==="
+              cp docker-compose.prod.yml /opt/control/ && cp deploy/deploy.sh deploy/backup.sh /opt/control/deploy/
+              HEALTH_CHECK_URL="https://control.edunetwork.lefsignature.com/healthz" bash /opt/control/deploy/deploy.sh || failed="$failed control"
+            fi
             if [ -n "$failed" ]; then echo "Not updated (rolled back):$failed"; exit 1; fi

@@ -28,6 +28,12 @@ return [
 
     'env' => env('APP_ENV', 'production'),
 
+    // The deployed version (image tag), set by docker-compose.prod.yml.
+    'version' => env('APP_VERSION'),
+
+    // 'school' for a school, 'control' for the LEF Control Centre.
+    'role' => env('APP_ROLE', 'school'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Debug Mode

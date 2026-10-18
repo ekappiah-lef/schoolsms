@@ -24,6 +24,12 @@ Route::post('pay/momo/{student}', 'MomoController@start')->name('momo.pay')->mid
 Route::get('pay/momo/status/{reference}', 'MomoController@status')->name('momo.status')->middleware('throttle:60,1');
 Route::match(['post', 'put'], 'momo/callback', 'MomoController@callback')->name('momo.callback');
 
+/* LEF Control Centre → this school (no login: secret token per school) */
+Route::get('control-api/status', 'ControlApiController@status')->middleware('throttle:60,1');
+Route::put('control-api/config', 'ControlApiController@config')->middleware('throttle:60,1');
+Route::post('control-api/init', 'ControlApiController@init')->middleware('throttle:10,1');
+Route::post('control-api/password', 'ControlApiController@password')->middleware('throttle:10,1');
+
 /* Staff clock-in devices (no login: checked by device serial number / token) */
 Route::get('iclock/cdata', 'StaffClockController@admsHandshake');
 Route::post('iclock/cdata', 'StaffClockController@admsData');
@@ -33,6 +39,23 @@ Route::post('api/staff-clock', 'StaffClockController@punch')->middleware('thrott
 
 
 Route::group(['middleware' => 'auth'], function () {
+
+    /*************** LEF Control Centre (only on the Control Centre site, APP_ROLE=control) *****************/
+    if (config('app.role') === 'control') {
+        Route::group(['prefix' => 'control', 'namespace' => 'Control'], function () {
+            Route::get('/', 'ControlController@index')->name('control.index');
+            Route::get('new', 'ControlController@create')->name('control.create');
+            Route::post('schools', 'ControlController@store')->name('control.store');
+            Route::post('register', 'ControlController@register')->name('control.register');
+            Route::get('jobs', 'ControlController@jobsFeed')->name('control.jobs');
+            Route::get('schools/{slug}', 'ControlController@show')->name('control.show');
+            Route::put('schools/{slug}/config', 'ControlController@config')->name('control.config');
+            Route::post('schools/{slug}/keys', 'ControlController@keys')->name('control.keys');
+            Route::post('schools/{slug}/action', 'ControlController@action')->name('control.action');
+            Route::post('schools/{slug}/password', 'ControlController@password')->name('control.password');
+            Route::post('schools/{slug}/logins-seen', 'ControlController@loginsSeen')->name('control.logins_seen');
+        });
+    }
 
     Route::get('/', 'HomeController@dashboard')->name('home');
     Route::get('/home', 'HomeController@dashboard')->name('home');

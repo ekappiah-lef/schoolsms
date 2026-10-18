@@ -12,6 +12,8 @@ services:
     image: ${APP_IMAGE}:${IMAGE_TAG:-latest}
     restart: unless-stopped
     env_file: .env.docker
+    environment:
+      APP_VERSION: ${IMAGE_TAG:-latest}
     depends_on:
       db:
         condition: service_healthy

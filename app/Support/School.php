@@ -2,12 +2,22 @@
 
 namespace App\Support;
 
-/** This school's switches (config/school.php, from SCHOOL_FEATURES in its .env). */
+/**
+ * This school's switches: set in the LEF Control Centre (stored in school_config), or, until it has set
+ * them, SCHOOL_FEATURES in the school's .env (config/school.php).
+ */
 class School
 {
+    public static function features(): array
+    {
+        $saved = SchoolConfig::get('features');
+
+        return is_array($saved) ? $saved : (array) config('school.features');
+    }
+
     public static function has(string $feature): bool
     {
-        return in_array($feature, (array) config('school.features'), true);
+        return in_array($feature, self::features(), true);
     }
 
     /** Switches the pages need to know about. */

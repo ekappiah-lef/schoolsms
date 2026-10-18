@@ -9,11 +9,29 @@ namespace App\Support;
  */
 class Assessment
 {
+    /**
+     * The scheme set in the LEF Control Centre (a ready-made one by key, or one built there and stored whole),
+     * else SCHOOL_ASSESSMENT from the .env, else the standard one.
+     */
     public static function scheme(): array
     {
         $all = config('school.schemes');
+        $saved = SchoolConfig::get('scheme');
+        if (is_array($saved) && !empty($saved['parts']) && !empty($saved['exam'])) {
+            return $saved;
+        }
+        $key = is_string($saved) && $saved !== '' ? $saved : config('school.assessment');
 
-        return $all[config('school.assessment')] ?? $all['standard'];
+        return $all[$key] ?? $all['standard'];
+    }
+
+    /** Key of the scheme in use when it is a ready-made one ('custom' when built in the Control Centre). */
+    public static function key(): string
+    {
+        $saved = SchoolConfig::get('scheme');
+        if (is_array($saved)) return 'custom';
+
+        return is_string($saved) && isset(config('school.schemes')[$saved]) ? $saved : (isset(config('school.schemes')[config('school.assessment')]) ? config('school.assessment') : 'standard');
     }
 
     public static function weighted(): bool
@@ -33,10 +51,13 @@ class Assessment
     public static function scores($mk): array
     {
         $parts = $mk && $mk->parts ? (array) json_decode($mk->parts, true) : [];
+        $examKey = self::scheme()['exam'];
         $out = [];
         foreach (self::scheme()['parts'] as $p) {
             $k = $p['key'];
-            $out[$k] = in_array($k, ['t1', 't2', 't3', 't4', 'exm'], true) ? ($mk->$k ?? null) : ($parts[$k] ?? null);
+            if ($k === $examKey) $out[$k] = $mk->exm ?? null;                      // the exam is always kept in exm
+            elseif (array_key_exists($k, $parts)) $out[$k] = $parts[$k];           // class boxes of non-standard schemes
+            else $out[$k] = in_array($k, ['t1', 't2', 't3', 't4'], true) ? ($mk->$k ?? null) : null;
         }
 
         return $out;
@@ -72,8 +93,10 @@ class Assessment
 
         $total = $class + ($exam ?: 0);
         if ($total > 100) return $blank;
+        $own = array_diff_key($classVals, array_flip(['t1', 't2', 't3', 't4']));
 
-        return array_replace($blank, array_intersect_key($vals, array_flip(['t1', 't2', 't3', 't4'])), ['tca' => $class, 'exm' => $exam, $tex => $total]);
+        return array_replace($blank, array_intersect_key($vals, array_flip(['t1', 't2', 't3', 't4'])),
+            ['tca' => $class, 'exm' => $exam, $tex => $total, 'parts' => $own ? json_encode($own) : null]);
     }
 
     /** Columns shown on a student's result sheet (besides total, grade, position): [[key, label]]. */

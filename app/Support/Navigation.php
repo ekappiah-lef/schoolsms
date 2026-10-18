@@ -23,6 +23,14 @@ class Navigation
 
         $sections = [];
 
+        // The LEF Control Centre has its own menu.
+        if (config('app.role') === 'control') {
+            return [self::section('Control Centre', [
+                self::item('Schools', 'school', 'control.index', ['control.index', 'control.show']),
+                self::item('New school', 'plus', 'control.create'),
+            ])];
+        }
+
         $sections[] = self::section(null, [
             self::item('Dashboard', 'dashboard', 'dashboard', ['dashboard', 'home']),
         ]);

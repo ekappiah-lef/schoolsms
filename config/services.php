@@ -42,4 +42,9 @@ return [
         'token' => env('STAFF_CLOCK_TOKEN'),
     ],
 
+    // LEF Control Centre: the secret it uses to manage this school (ControlApiController).
+    'control' => [
+        'token' => env('CONTROL_API_TOKEN'),
+    ],
+
 ];

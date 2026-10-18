@@ -6,6 +6,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 COMPOSE="docker compose -f docker-compose.prod.yml"
+# A folder may add its own compose file (the Control Centre mounts the server helper's jobs folder).
+[ -f docker-compose.local.yml ] && COMPOSE="$COMPOSE -f docker-compose.local.yml"
 
 touch .env
 setenv() { if grep -q "^$1=" .env; then sed -i "s#^$1=.*#$1=$2#" .env; else echo "$1=$2" >> .env; fi; }

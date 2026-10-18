@@ -49,6 +49,9 @@ class HomeController extends Controller
 
     public function dashboard()
     {
+        if (config('app.role') === 'control') {
+            return redirect()->route('control.index');
+        }
         return Ui::render('Dashboard/Index', function () {
             return $this->dashboardProps();
         }, 'pages.support_team.dashboard', function () {
