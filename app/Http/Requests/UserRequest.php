@@ -31,7 +31,7 @@ class UserRequest extends FormRequest
             'photo' => 'sometimes|nullable|image|mimes:jpeg,gif,png,jpg|max:2048',
             'address' => 'required|string|min:6|max:120',
             'state_id' => 'required',
-            'lga_id' => 'required',
+            'lga_id' => 'nullable',   // LGA is hidden on the forms for now (SHOW_LGA)
             'nal_id' => 'required',
             'employment_type' => 'sometimes|nullable|in:full_time,part_time',
             'job_title' => 'sometimes|nullable|string|max:60',
@@ -47,7 +47,7 @@ class UserRequest extends FormRequest
             'photo' => 'sometimes|nullable|image|mimes:jpeg,gif,png,jpg|max:2048',
             'address' => 'required|string|min:6|max:120',
             'state_id' => 'required',
-            'lga_id' => 'required',
+            'lga_id' => 'nullable',   // LGA is hidden on the forms for now (SHOW_LGA)
             'nal_id' => 'required',
             'employment_type' => 'sometimes|nullable|in:full_time,part_time',
             'job_title' => 'sometimes|nullable|string|max:60',

@@ -16,6 +16,9 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { ServicesPicker, servicesTotal, selectedServiceLines, EMPTY_SERVICES } from './services-picker';
 import { SectionPicker } from './section-picker';
 
+// LGA is hidden and optional for now; set to true to bring it back on the student and parent forms.
+const SHOW_LGA = false;
+
 const today = () => format(new Date(), 'yyyy-MM-dd');
 
 const PARENT_KEYS = ['name', 'phone', 'ghana_card', 'occupation', 'workplace', 'email', 'residential_address', 'postal_address'];
@@ -154,7 +157,6 @@ function validate(data, fields, mode) {
     if (has('address') && data.address && data.address.trim().length < 6) e.address = 'The address must be at least 6 characters.';
     need('nal_id', 'Choose a nationality.');
     need('state_id', 'Choose a state.');
-    need('lga_id', 'Choose an LGA.');
     need('my_class_id', 'Choose a class.');
     need('section_id', 'Choose a section.');
     if (mode === 'create') need('admission_date', 'Choose the date of admission.');
@@ -225,14 +227,14 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
     const topRef = useRef(null);
 
     const stepped = mode === 'create';
-    const [lgas, lgasLoading] = useDependentOptions(options.urls.lgas, data.state_id, initialLgas);
+    const [lgas, lgasLoading] = useDependentOptions(SHOW_LGA ? options.urls.lgas : null, SHOW_LGA ? data.state_id : null, initialLgas);
 
     const set = (field, value) => {
         setDirty(true);
         setDataState((d) => {
             const next = { ...d, [field]: value };
             if (field === 'my_class_id' && value !== d.my_class_id) next.section_id = '';
-            if (field === 'state_id' && value !== d.state_id) next.lga_id = '';
+            if (SHOW_LGA && field === 'state_id' && value !== d.state_id) next.lga_id = '';
             return next;
         });
         if (errors[field]) setErrors((e) => ({ ...e, [field]: undefined }));
@@ -453,9 +455,11 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                 <FormField label="State" required error={err('state_id')}>
                     <Combobox id="field-state_id" value={data.state_id} onChange={(v) => set('state_id', v)} options={opt.states} placeholder="Choose or type a state" creatable />
                 </FormField>
+                {SHOW_LGA && (
                 <FormField label="LGA" required error={err('lga_id')} hint={!data.state_id ? 'Choose a state first' : undefined}>
                     <Combobox id="field-lga_id" value={data.lga_id} onChange={(v) => set('lga_id', v)} options={lgaOpts} loading={lgasLoading} disabled={!data.state_id} placeholder="Choose or type an LGA" creatable />
                 </FormField>
+                )}
             </FormSection>
 
             <FormSection id="background" title="Previous school">
@@ -1005,7 +1009,7 @@ function Stepper({ step, onStep }) {
 
 const SECTION_INDEX = [
     ['personal', 'Personal details', ['first_name', 'middle_name', 'last_name', 'gender', 'dob', 'bg_id', 'photo', 'height', 'weight', 'birth_place', 'religion']],
-    ['contact', 'Contact & origin', ['email', 'phone', 'phone2', 'address', 'nal_id', 'state_id', 'lga_id']],
+    ['contact', 'Contact & origin', ['email', 'phone', 'phone2', 'address', 'nal_id', 'state_id', ...(SHOW_LGA ? ['lga_id'] : [])]],
     ['background', 'Previous school', ['past_school', 'past_school_address', 'past_qualification']],
     ['health', 'Health', ['allergies', 'medical_conditions']],
     ['insurance', 'Health insurance', ['insurance_card_no', 'insurance_provider', 'insurance_category', 'insurance_coverage_limit', 'insurance_valid_until', 'insurance_start_date']],

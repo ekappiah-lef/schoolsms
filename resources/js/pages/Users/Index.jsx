@@ -15,6 +15,9 @@ import { useModuleForm } from '@/lib/use-module-form';
 import http from '@/lib/http';
 import { cn } from '@/lib/utils';
 
+// LGA is hidden and optional for now; set to true to bring it back on the staff and parent form.
+const SHOW_LGA = false;
+
 const BLANK = { user_type: '', name: '', address: '', email: '', username: '', phone: '', phone2: '', emp_date: '', dob: '', employment_type: '', job_title: '', clock_id: '', password: '', gender: '', nal_id: '', state_id: '', lga_id: '', bg_id: '', photo: null };
 // When editing, the type, username, password and photo are never sent unless changed
 // (an empty photo or password would overwrite the saved one).
@@ -47,14 +50,13 @@ export default function UsersIndex({ userTypes, users, options, editing, staffVi
             ...(!d.gender ? { gender: 'Choose a gender.' } : {}),
             ...(!d.nal_id ? { nal_id: 'Choose a nationality.' } : {}),
             ...(!d.state_id ? { state_id: 'Choose a state.' } : {}),
-            ...(!d.lga_id ? { lga_id: 'Choose an LGA.' } : {}),
             ...(d.email && !/^\S+@\S+\.\S+$/.test(d.email) ? { email: 'Enter a valid email address.' } : {}),
         }),
     });
-    const lgas = useLgas(urls.lgas, form.data.state_id, editing?.lgas);
+    const lgas = useLgas(urls.lgas, SHOW_LGA ? form.data.state_id : null, editing?.lgas);
     const set = (k, v) => {
         form.set(k, v);
-        if (k === 'state_id') form.set('lga_id', '');
+        if (SHOW_LGA && k === 'state_id') form.set('lga_id', '');
     };
 
     const typeTitle = editing ? editing.type : userTypes.find((t) => t.id === form.data.user_type)?.title;
@@ -170,9 +172,11 @@ export default function UsersIndex({ userTypes, users, options, editing, staffVi
                             <Field label="State" required error={form.errors.state_id}>
                                 <Combobox value={form.data.state_id} onChange={(v) => set('state_id', v)} options={opts(options.states)} placeholder="Choose state" creatable invalid={!!form.errors.state_id} />
                             </Field>
+                            {SHOW_LGA && (
                             <Field label="LGA" required error={form.errors.lga_id} hint={!form.data.state_id ? 'Choose a state first.' : undefined}>
                                 <Combobox value={form.data.lga_id} onChange={(v) => form.set('lga_id', v)} options={opts(lgas.list)} loading={lgas.loading} disabled={!form.data.state_id} placeholder="Choose LGA" creatable invalid={!!form.errors.lga_id} />
                             </Field>
+                            )}
                             <Field label="Passport photo" error={photoError || form.errors.photo} span={2}>
                                 <PhotoUploader value={form.data.photo} onChange={(f) => form.set('photo', f)} currentUrl={editing?.photo} name={form.data.name} onError={setPhotoError} />
                             </Field>

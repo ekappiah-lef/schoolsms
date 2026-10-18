@@ -32,7 +32,7 @@ class StudentRecordCreate extends FormRequest
             'address' => 'required|string|min:6|max:120',
             'bg_id' => 'sometimes|nullable',
             'state_id' => 'required',
-            'lga_id' => 'required',
+            'lga_id' => 'nullable',   // LGA is hidden on the forms for now (SHOW_LGA)
             'nal_id' => 'required',
             'my_class_id' => 'required',
             'section_id' => 'required',

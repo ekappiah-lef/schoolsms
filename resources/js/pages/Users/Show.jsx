@@ -87,7 +87,6 @@ export default function UserShow({ user, subjects, urls }) {
                                 { label: 'Blood group', value: user.blood_group },
                                 { label: 'Nationality', value: user.nationality },
                                 { label: 'State', value: user.state },
-                                { label: 'LGA', value: user.lga },
                             ]}
                         />
                     </Panel>

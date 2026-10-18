@@ -169,7 +169,7 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                                         { label: 'Religion', value: student.details?.religion },
                                         { label: 'Blood group', value: student.blood_group },
                                         { label: 'Nationality', value: student.nationality },
-                                        { label: 'State / LGA', value: [student.state, student.lga].filter(Boolean).join(' · ') },
+                                        { label: 'State', value: student.state },
                                         { label: 'Email', value: student.email },
                                         { label: 'Phone', value: [student.phone, student.phone2].filter(Boolean).join(' · ') },
                                         { label: 'Address', value: student.address },
