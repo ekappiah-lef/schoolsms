@@ -181,12 +181,12 @@ function HeroCard({ label, badge, value, footLeft, footRight, footRightTone, hre
             <div className="flex items-center justify-between gap-2">
                 <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">{label}</span>
             </div>
-            <div className="mt-3">
-                <span className="tabular text-5xl font-semibold leading-none tracking-[-0.03em] text-fg">{value}</span>
+            <div className="mt-2">
+                <span className="tabular text-2xl font-semibold leading-none tracking-tight text-fg">{value}</span>
             </div>
         </>
     );
-    const cls = 'flex flex-col justify-between rounded-lg bg-surface p-6 shadow-card transition-shadow hover:shadow-card-hover';
+    const cls = 'flex flex-col justify-between rounded-lg bg-surface px-4 py-3 shadow-card transition-shadow hover:shadow-card-hover';
     return href ? (
         <Link href={href} className={cls}>
             {body}
@@ -217,7 +217,7 @@ function HeroStats({ stats, links, enrolment }) {
     const girls = (enrolment ?? []).reduce((a, r) => a + r.female, 0);
     const ratio = stats.teachers ? (stats.students / stats.teachers).toFixed(1) : null;
     return (
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             <HeroCard
                 label="Total students"
                 value={formatNumber(stats.students)}
