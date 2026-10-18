@@ -32,8 +32,8 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
  * subjects, dormitories, exams, grades and fees.
  */
 
-/** "ACADEMICS / SCHEDULE" eyebrow, large title, description and the session pill. */
-export function ModuleHeader({ crumbs = [], title, description, session, aside }) {
+/** "ACADEMICS / SCHEDULE" eyebrow and large title (descriptions and the year pill are no longer shown). */
+export function ModuleHeader({ crumbs = [], title, aside }) {
     return (
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
             <div className="flex flex-col gap-1">
@@ -48,16 +48,8 @@ export function ModuleHeader({ crumbs = [], title, description, session, aside }
                     </div>
                 )}
                 <h1 className="text-[2rem] font-semibold leading-10 tracking-[-0.025em] text-fg">{title}</h1>
-                {description && <p className="max-w-2xl text-base text-fg-muted">{description}</p>}
             </div>
-            <div className="flex items-center gap-2">
-                {aside}
-                {session && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-subtle px-3 py-1 text-2xs font-semibold tracking-wide text-fg">
-                        {session.replace('-', ' – ')} Year
-                    </span>
-                )}
-            </div>
+            {aside && <div className="flex items-center gap-2">{aside}</div>}
         </div>
     );
 }
@@ -265,8 +257,6 @@ export function RegistryCard({ title, rows, columns, searchText, exportName, emp
     const pages = Math.max(1, Math.ceil(filtered.length / perPage));
     const current = Math.min(page, pages);
     const shown = filtered.slice((current - 1) * perPage, current * perPage);
-    const from = filtered.length ? (current - 1) * perPage + 1 : 0;
-    const to = Math.min(current * perPage, filtered.length);
 
     const exportCols = columns.filter((c) => c.exportValue).map((c) => ({ label: typeof c.header === 'string' ? c.header : c.key, value: c.exportValue }));
     const asText = () => [exportCols.map((c) => c.label).join('\t'), ...filtered.map((r) => exportCols.map((c) => c.value(r) ?? '').join('\t'))].join('\n');
@@ -423,10 +413,7 @@ export function RegistryCard({ title, rows, columns, searchText, exportName, emp
                         {!shown.length && <div className="px-6 py-12 text-center text-sm text-fg-muted">{query ? 'No records match your filter.' : emptyText}</div>}
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3">
-                        <span className="text-xs text-fg-muted">
-                            Showing {from} to {to} of {filtered.length} entries
-                        </span>
+                    {pages > 1 && <div className="flex flex-wrap items-center justify-end gap-3 px-6 py-3">
                         <div className="flex items-center gap-1">
                             <PagerButton disabled={current <= 1} onClick={() => setPage(current - 1)} label="Previous page">
                                 <ChevronLeft className="size-4" />
@@ -449,7 +436,7 @@ export function RegistryCard({ title, rows, columns, searchText, exportName, emp
                                 <ChevronRight className="size-4" />
                             </PagerButton>
                         </div>
-                    </div>
+                    </div>}
                 </>
             )}
         </div>

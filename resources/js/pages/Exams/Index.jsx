@@ -115,7 +115,6 @@ function ExamList({ exams, canDelete, confirm }) {
                     <table className="w-full text-left">
                         <thead>
                             <tr className="border-b border-border bg-canvas text-2xs font-semibold uppercase text-fg-muted">
-                                <th className="h-10 w-12 px-5">#</th>
                                 <th className="h-10 px-3">Examination</th>
                                 <th className="h-10 px-3">Term</th>
                                 <th className="h-10 px-3">Avg. score</th>
@@ -126,12 +125,10 @@ function ExamList({ exams, canDelete, confirm }) {
                         <tbody>
                             {shown.map((r, i) => (
                                 <tr key={r.id} onClick={() => router.visit(r.urls.show)} className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/60">
-                                    <td className="tabular px-5 py-3 text-sm text-fg-muted">{offset + i + 1}</td>
                                     <td className="px-3 py-3">
                                         <Link href={r.urls.show} className="font-semibold hover:text-primary" onClick={(e) => e.stopPropagation()}>
                                             {r.name}
                                         </Link>
-                                        <div className="text-xs text-fg-muted">{r.results ? `${r.results} student results` : 'No marks yet'}</div>
                                     </td>
                                     <td className="px-3 py-3">
                                         <span className="rounded-full bg-info-soft px-2 py-0.5 text-2xs font-semibold text-info-fg">Term {r.term}</span>

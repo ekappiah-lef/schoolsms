@@ -71,12 +71,6 @@ export default function AttendanceReport({ filters, classes, summary, days, exce
                             />
                         </div>
                     )}
-                    {students.length > 0 && (
-                        <Button className="ml-auto" onClick={() => setSendAll(true)}>
-                            <Mail />
-                            Email to parents ({students.length})
-                        </Button>
-                    )}
                 </div>
 
                 {summary.marks ? (
@@ -126,7 +120,6 @@ export default function AttendanceReport({ filters, classes, summary, days, exce
                             exportName={`attendance-${filters.from}-${filters.to}`}
                             searchText={(r) => `${r.name} ${r.class}`}
                             columns={[
-                                { key: 'sn', header: 'S/N', headerClassName: 'w-16' },
                                 {
                                     key: 'name',
                                     header: 'Student',

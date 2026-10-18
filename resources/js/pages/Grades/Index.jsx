@@ -132,7 +132,6 @@ function GradeList({ grades, types, canDelete, confirm }) {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="border-b border-border bg-canvas text-2xs font-semibold uppercase text-fg-muted">
-                                    <th className="h-10 w-12 px-5">#</th>
                                     <th className="h-10 px-3">Grade</th>
                                     <th className="h-10 px-3">Score range</th>
                                     <th className="h-10 px-3">Remark</th>
@@ -143,7 +142,6 @@ function GradeList({ grades, types, canDelete, confirm }) {
                             <tbody>
                                 {shown.map((r, i) => (
                                     <tr key={r.urls.edit} className="border-b border-border last:border-0 hover:bg-muted/60">
-                                        <td className="tabular px-5 py-3 text-sm text-fg-muted">{offset + i + 1}</td>
                                         <td className="px-3 py-3">
                                             <span className="inline-flex min-w-9 justify-center rounded-md bg-primary-soft/60 px-2 py-1 font-semibold text-primary-hover">{r.name}</span>
                                         </td>

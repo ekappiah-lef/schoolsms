@@ -64,10 +64,6 @@ export default function Dashboard(props) {
                     {auth.can.teamSA ? 'Academic and Operations Dashboard' : `Welcome, ${auth.user.name.split(' ')[0]}`}
                 </h1>
                 <div className="flex items-center gap-2">
-                    <span className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-muted px-3 text-sm font-medium shadow-xs">
-                        <CalendarDays className="size-[18px] text-fg-subtle" />
-                        {session.replace('-', ' – ')} Year
-                    </span>
                     {actions.length > 0 && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -293,7 +289,6 @@ function ClassMonitor({ classes }) {
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="text-lg font-semibold">
                             {c.name}
-                            {c.type ? <span className="font-normal text-fg-muted"> · {c.type}</span> : null}
                         </span>
                         <span className="size-1 rounded-full bg-border-strong" />
                         <span className="flex items-center gap-1 text-xs text-fg-muted">
@@ -390,9 +385,9 @@ function CapacityMetric({ c }) {
 function FinanceBreakdown({ finance, session }) {
     const { fees, cashflow, balance, urls } = finance;
     const blocks = [
-        { label: 'School Fees', v: fees.school, note: fees.school.discount ? `${formatMoney(fees.school.discount)} discounts given` : 'Tuition and termly charges' },
-        { label: 'Additional Fees', v: fees.optional, note: 'Feeding, bus, activities, books' },
-        { label: 'Overall Fees', v: fees.total, note: `Year ${session}` },
+        { label: 'School Fees', v: fees.school },
+        { label: 'Additional Fees', v: fees.optional },
+        { label: 'Overall Fees', v: fees.total },
     ];
 
     return (
@@ -401,7 +396,6 @@ function FinanceBreakdown({ finance, session }) {
                 <div className="flex flex-col gap-0.5">
                     <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">Financial overview</span>
                     <h2 className="text-2xl font-semibold tracking-tight">Finance Overview</h2>
-                    <p className="text-base text-fg-muted">A clear view of fees billed, payments received, outstanding balances, and cash flow for the academic year.</p>
                 </div>
                 <Link href={urls.dashboard} className="flex items-center gap-0.5 text-sm font-medium text-primary hover:underline">
                     Finance dashboard <ArrowRight className="size-4" />
@@ -422,7 +416,6 @@ function FinanceBreakdown({ finance, session }) {
                         <div className="h-2 overflow-hidden rounded-full bg-surface">
                             <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, percent(b.v.paid, b.v.expected))}%` }} />
                         </div>
-                        <span className="text-xs text-fg-muted">{b.note}</span>
                     </div>
                 ))}
             </div>
@@ -463,7 +456,7 @@ function FinanceBreakdown({ finance, session }) {
                                 <li key={sv.group}>
                                     <Link href={sv.url} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm hover:bg-muted/60">
                                         <span className="font-medium">
-                                            {sv.label} <span className="font-normal text-fg-muted">· {sv.students}</span>
+                                            {sv.label}
                                         </span>
                                         <span className="tabular text-xs">
                                             <span className="text-success-fg">{formatMoney(sv.paid)}</span>
@@ -614,10 +607,7 @@ function FeeIntake({ fees }) {
                     {!groups.length && <li className="py-2 text-sm text-fg-muted">No fee records this year.</li>}
                 </ul>
             </div>
-            <div className="flex items-center justify-between pt-1 text-xs text-fg-muted">
-                <span>
-                    {fees.cleared} of {fees.records} school-fee records fully paid
-                </span>
+            <div className="flex items-center justify-end pt-1 text-xs text-fg-muted">
                 <a href={fees.links.setup} className="flex items-center gap-0.5 text-sm font-medium text-primary hover:underline">
                     Fee setup <ArrowRight className="size-4" />
                 </a>

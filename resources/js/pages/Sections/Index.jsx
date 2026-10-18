@@ -98,7 +98,6 @@ export default function SectionsIndex({ session, canDelete, classes, teachers, s
                             exportName="sections"
                             searchText={(r) => `${r.class} ${r.name} ${r.teacher ?? ''}`}
                             columns={[
-                                { key: 'sn', header: 'S/N', headerClassName: 'w-16' },
                                 {
                                     key: 'name',
                                     header: 'Section',
@@ -179,11 +178,6 @@ export default function SectionsIndex({ session, canDelete, classes, teachers, s
                                 },
                             ]}
                         />
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <SummaryTile icon={Layers} label="Sections" value={sections.length} />
-                            <SummaryTile icon={UserRound} label="Without class teacher" value={unassigned} />
-                            <SummaryTile icon={Users} label="Students placed" value={sections.reduce((a, s) => a + s.students, 0)} />
-                        </div>
                     </>
                 )}
             </div>

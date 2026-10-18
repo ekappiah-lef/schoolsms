@@ -27,10 +27,10 @@ export const periodQuery = (selection) => new URLSearchParams({ periods: selecti
  */
 export function BalanceCards({ selection, invoiced, received, expenses }) {
     const cards = [
-        { label: `Total invoiced · ${selection.label}`, value: invoiced.billed },
-        { label: `Money received · ${selection.label}`, value: received, tone: 'success' },
-        { label: `Expenses · ${selection.label}`, value: expenses, tone: 'danger' },
-        { label: `${selection.balanceName} · ${selection.label}`, value: received - expenses, strong: true },
+        { label: 'Total fees', value: invoiced.billed },
+        { label: 'Money received', value: received, tone: 'success' },
+        { label: 'Expenses', value: expenses, tone: 'danger' },
+        { label: selection.balanceName, value: received - expenses, strong: true },
     ];
     return (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -207,7 +207,6 @@ export default function UsersIndex({ userTypes, users, options, editing, staffVi
                             exportName={staffView ? 'staff' : 'users'}
                             searchText={(r) => `${r.name} ${r.username ?? ''} ${r.email ?? ''} ${r.phone ?? ''} ${r.type_name} ${r.job_title ?? ''} ${(r.class_teacher ?? []).join(' ')} ${(r.subjects ?? []).join(' ')}`}
                             columns={[
-                                { key: 'sn', header: 'S/N', headerClassName: 'w-16' },
                                 {
                                     key: 'name',
                                     header: 'Name',

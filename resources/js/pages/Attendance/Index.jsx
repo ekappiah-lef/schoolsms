@@ -91,7 +91,6 @@ export default function Attendance({ sections, sectionId, date, saved, students,
 
                         <Panel
                             title={`${section?.name ?? ''} · ${formatDate(date, 'EEEE d MMMM yyyy')}`}
-                            description={counts.map((c) => `${c.n} ${c.label.toLowerCase()}`).join(' · ')}
                             actions={
                                 students.length ? (
                                     <Button size="sm" variant="ghost" onClick={() => setMarks(Object.fromEntries(students.map((s) => [s.id, { ...marks[s.id], status: 'present' }])))}>

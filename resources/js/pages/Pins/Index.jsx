@@ -55,7 +55,6 @@ export default function PinsIndex({ tab: initialTab, valid, used, max, urls }) {
                         emptyText="No unused pins. Generate some to hand out."
                         searchText={(r) => r.code}
                         columns={[
-                            { key: 'sn', header: 'S/N', headerClassName: 'w-16' },
                             { key: 'code', header: 'Pin', sort: (r) => r.code, exportValue: (r) => r.code, cell: (r) => <span className="font-mono text-sm tracking-wide">{r.code}</span> },
                         ]}
                     />
@@ -83,7 +82,6 @@ export default function PinsIndex({ tab: initialTab, valid, used, max, urls }) {
                             ) : null
                         }
                         columns={[
-                            { key: 'sn', header: 'S/N', headerClassName: 'w-16' },
                             { key: 'code', header: 'Pin', sort: (r) => r.code, exportValue: (r) => r.code, cell: (r) => <span className="font-mono text-sm">{r.code}</span> },
                             { key: 'by', header: 'Used by', sort: (r) => r.by ?? '', exportValue: (r) => r.by, cell: (r) => (r.by_url ? <Link href={r.by_url} className="font-medium hover:text-primary">{r.by}</Link> : r.by || '—') },
                             { key: 'by_type', header: 'Type', sort: (r) => r.by_type ?? '', exportValue: (r) => r.by_type, cell: (r) => r.by_type || '—' },

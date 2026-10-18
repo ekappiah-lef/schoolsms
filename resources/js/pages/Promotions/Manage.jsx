@@ -58,7 +58,6 @@ export default function PromotionsManage({ oldYear, newYear, promotions, urls })
                     emptyText={`No students have been promoted from ${oldYear} yet.`}
                     searchText={(r) => `${r.name} ${r.from} ${r.to} ${r.status_label}`}
                     columns={[
-                        { key: 'sn', header: 'S/N', headerClassName: 'w-16' },
                         {
                             key: 'name',
                             header: 'Student',

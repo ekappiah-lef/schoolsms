@@ -76,7 +76,7 @@ export default function Messages({ audiences, counts, classes, history, canAppro
                         footer={
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <span className="text-sm text-fg-muted">
-                                    {reach ? `${reach.people} ${d.audience.includes('parents') || d.audience === 'class' ? 'families' : 'people'} · ${reach.phones} phones · ${reach.emails} emails` : d.audience === 'class' ? 'Choose a class' : '…'}
+                                    {!reach && d.audience === 'class' ? 'Choose a class' : null}
                                 </span>
                                 <Button variant="primary" onClick={() => setConfirm(true)} disabled={!ready || busy}>
                                     <Send />
@@ -149,8 +149,6 @@ export default function Messages({ audiences, counts, classes, history, canAppro
 
                     <div className="flex flex-col gap-4 lg:col-span-2">
                         {isTeacher && !classes.length && <InfoCallout>You are not the class teacher of any class, so there is no class to write to.</InfoCallout>}
-                        {!whatsapp && <InfoCallout>WhatsApp is not connected yet. Once the school’s WhatsApp Business number is set up, messages can also go out on WhatsApp under the school’s name.</InfoCallout>}
-                        {demo && <InfoCallout>Demo mode is on: only the contacts in NOTICE_ALLOWLIST actually receive messages; everyone else is counted as held back.</InfoCallout>}
                     </div>
                 </div>
 

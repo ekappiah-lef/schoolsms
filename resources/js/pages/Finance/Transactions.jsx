@@ -131,9 +131,9 @@ export default function FinanceTransactions({ session, categories, usedCategorie
                             <PeriodFilter selection={selection} url={urls.index} />
                         </div>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <Tile label={`Money received · ${selection.label}`} value={totals.received} tone="success" />
-                            <Tile label={`Expenses · ${selection.label}`} value={totals.expenses} tone="danger" />
-                            <Tile label={`${selection.balanceName} · ${selection.label}`} value={totals.balance} strong />
+                            <Tile label="Money received" value={totals.received} tone="success" />
+                            <Tile label="Expenses" value={totals.expenses} tone="danger" />
+                            <Tile label={selection.balanceName} value={totals.balance} strong />
                         </div>
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <Segmented
@@ -155,7 +155,6 @@ export default function FinanceTransactions({ session, categories, usedCategorie
                             exportName="income-expenses"
                             searchText={(r) => `${r.category} ${r.description ?? ''} ${r.reference ?? ''} ${r.method ?? ''}`}
                             columns={[
-                                { key: 'sn', header: 'S/N', headerClassName: 'w-16' },
                                 {
                                     key: 'date',
                                     header: 'Date',

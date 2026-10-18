@@ -55,17 +55,6 @@ export default function PaymentsIndex({
             <PageHeader
                 breadcrumbs={[{ label: "Finance" }, { label: "Fee setup" }]}
                 title="Fee setup"
-                meta={
-                    year && (
-                        <Badge
-                            tone={year === session ? "success" : "outline"}
-                            dot={year === session}
-                        >
-                            {year}
-                            {year === session ? " · current" : ""}
-                        </Badge>
-                    )
-                }
                 actions={
                     <>
                         <Button asChild>

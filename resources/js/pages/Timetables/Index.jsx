@@ -37,16 +37,6 @@ export default function TimetablesIndex({ session, canCreate, viewer = 'staff', 
                 <ModuleHeader
                     crumbs={['Academics', 'Schedule']}
                     title="Timetables"
-                    session={session}
-                    aside={
-                        isStaff && tab === 'list' && (
-                            <span className="flex items-center gap-1.5 rounded-lg bg-surface px-3 py-1.5 shadow-card">
-                                <CalendarCheck className="size-[18px] text-success" />
-                                <span className="text-2xs font-semibold text-fg-muted">Active calendars:</span>
-                                <span className="font-mono text-xs font-bold text-fg">{published} Scheduled</span>
-                            </span>
-                        )
-                    }
                 />
 
                 {isStaff && <ModuleTabs value={tab} onChange={(t) => (editing && t === 'list' ? router.visit(urls.index) : setTab(t))} createLabel="Timetable" listLabel="Show Timetables" count={records.length} canCreate={canCreate} editing={!!editing} />}
@@ -131,7 +121,6 @@ export default function TimetablesIndex({ session, canCreate, viewer = 'staff', 
                             searchText={(r) => `${r.name} ${r.class} ${r.exam ?? ''} ${r.year}`}
                             emptyText={isStaff ? 'No timetables yet.' : 'The school has not published a timetable for this class yet.'}
                             columns={[
-                                { key: 'sn', header: 'S/N', headerClassName: 'w-16' },
                                 {
                                     key: 'name',
                                     header: 'Name',
@@ -142,9 +131,6 @@ export default function TimetablesIndex({ session, canCreate, viewer = 'staff', 
                                            
                                             <div className="min-w-0">
                                                 <div className="truncate font-semibold uppercase text-fg">{r.name}</div>
-                                                <div className="flex items-center gap-1 text-xs text-fg-muted">
-                                                    {r.periods ? `Scheduled · ${r.periods} periods` : 'Draft · no periods yet'}
-                                                </div>
                                             </div>
                                         </div>
                                     ),
@@ -179,7 +165,6 @@ export default function TimetablesIndex({ session, canCreate, viewer = 'staff', 
                                             </span>
                                         ),
                                 },
-                                { key: 'year', header: 'Year', sort: (r) => r.year, exportValue: (r) => r.year, cell: (r) => <span className="font-mono text-xs text-fg">{r.year}</span> },
                                 {
                                     key: 'action',
                                     header: 'Action',
@@ -212,13 +197,6 @@ export default function TimetablesIndex({ session, canCreate, viewer = 'staff', 
                                 },
                             ]}
                         />
-                        {isStaff && (
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                <SummaryTile icon={Clock3} label="Total periods scheduled" value={`${summary.periods} periods`} />
-                                <SummaryTile icon={UsersRound} label="Class allocation" value={`${summary.classesCovered} of ${summary.classes} classes`} />
-                                <SummaryTile icon={RefreshCcw} label="Last updated" value={summary.updated ? timeAgo(summary.updated) : '—'} />
-                            </div>
-                        )}
                     </>
                 )}
             </div>

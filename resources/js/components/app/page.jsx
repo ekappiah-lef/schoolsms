@@ -3,7 +3,7 @@ import { ChevronRight, CircleAlert, Inbox } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
- * Page title block used on every screen: eyebrow/breadcrumbs, title, meta, actions.
+ * Page title block used on every screen: eyebrow/breadcrumbs, title, meta, actions (descriptions are no longer shown).
  * `breadcrumbs`: [{ label, href? }]
  */
 export function PageHeader({ breadcrumbs, title, meta, description, actions, className, children }) {
@@ -15,7 +15,6 @@ export function PageHeader({ breadcrumbs, title, meta, description, actions, cla
                     <h1 className="truncate text-2xl font-semibold">{title}</h1>
                     {meta}
                 </div>
-                {description && <p className="mt-1 max-w-3xl text-base text-fg-muted">{description}</p>}
                 {children}
             </div>
             {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
@@ -52,7 +51,6 @@ export function Panel({ title, description, actions, children, className, bodyCl
                 <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
                     <div className="min-w-0">
                         {title && <h2 className="text-base font-semibold">{title}</h2>}
-                        {description && <p className="mt-0.5 text-sm text-fg-muted">{description}</p>}
                     </div>
                     {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
                 </header>

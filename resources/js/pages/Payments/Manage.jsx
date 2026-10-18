@@ -75,7 +75,6 @@ export default function PaymentsManage({
                     { label: "Student payments" },
                 ]}
                 title="Student payments"
-                meta={<Badge tone="outline">{session} year</Badge>}
             />
 
             <div className="mb-6 flex flex-wrap items-end gap-3">

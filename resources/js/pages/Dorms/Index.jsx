@@ -55,7 +55,6 @@ export default function DormsIndex({ session, canDelete, dorms, editing, urls })
                             exportName="dormitories"
                             searchText={(r) => `${r.name} ${r.description ?? ''}`}
                             columns={[
-                                { key: 'sn', header: 'S/N', headerClassName: 'w-16' },
                                 {
                                     key: 'name',
                                     header: 'Name',
@@ -92,10 +91,6 @@ export default function DormsIndex({ session, canDelete, dorms, editing, urls })
                                 },
                             ]}
                         />
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                            <SummaryTile icon={BedDouble} label="Dormitories" value={dorms.length} />
-                            <SummaryTile icon={Users} label="Boarding students" value={boarders} />
-                        </div>
                     </>
                 )}
             </div>

@@ -190,7 +190,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                 title={title}
                 meta={
                     <Badge tone="outline">
-                        {context.exam} · {context.year}
+                        {context.exam}
                     </Badge>
                 }
                 actions={

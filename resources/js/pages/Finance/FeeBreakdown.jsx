@@ -110,7 +110,7 @@ export default function FeeBreakdown({ selection, item, items, termly, rows, url
 FeeBreakdown.layout = withAppLayout;
 
 const TERM_COLUMNS = [
-    { key: 'invoiced', label: 'Invoiced', help: 'Bills for the term (after discounts)' },
+    { key: 'invoiced', label: 'Total fees', help: 'Bills for the term (after discounts)' },
     { key: 'paid', label: 'Paid so far', help: 'Paid against those bills, whenever it was paid', tone: 'success' },
     { key: 'outstanding', label: 'Still owed', help: 'Not yet paid', tone: 'owed' },
     { key: 'fees', label: 'Fees received', help: 'Fee payments made during the term, for any bill', tone: 'success', cash: true },

@@ -57,7 +57,6 @@ export default function FinanceDashboard({ selection, fees, cashflow, invoiced, 
                 <section className="flex flex-col gap-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                            <h2 className="text-lg font-semibold">{periodLabel}</h2>
                             <Link href={`${urls.ledger}?${periodQuery}`} className="text-sm text-primary hover:underline">
                                 See every entry in the ledger
                             </Link>
@@ -80,14 +79,14 @@ export default function FinanceDashboard({ selection, fees, cashflow, invoiced, 
                         studentsUrl={urls.feeStudents}
                         periodQuery={periodQuery}
                     />
-                    <ServicesChartCard services={fees.services} label={periodLabel} />
+                    <ServicesChartCard services={fees.services} />
                 </section>
 
                 {breakdown && <FeesByType types={fees.byType} scope={scope} onClose={() => setBreakdown(false)} />}
 
                 {/* Trends and categories */}
                 <section className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-                    <Card className="xl:col-span-3" title="Income and expenses" eyebrow={`${periodLabel} · by month`} action={<Legend items={[{ label: 'Fees', color: '#4f46e5' }, { label: 'Other income', color: '#0284c7' }, { label: 'Expenses', color: '#e11d48' }]} />}>
+                    <Card className="xl:col-span-3" title="Income and expenses" action={<Legend items={[{ label: 'Fees', color: '#4f46e5' }, { label: 'Other income', color: '#0284c7' }, { label: 'Expenses', color: '#e11d48' }]} />}>
                         {monthly.some((m) => m.income || m.expenses) ? (
                             <div className="h-72">
                                 <ResponsiveContainer width="100%" height="100%">
@@ -106,7 +105,7 @@ export default function FinanceDashboard({ selection, fees, cashflow, invoiced, 
                             <EmptyState compact title="No money recorded yet" />
                         )}
                     </Card>
-                    <Card className="xl:col-span-2" title="Expenses by category" eyebrow={periodLabel}>
+                    <Card className="xl:col-span-2" title="Expenses by category">
                         {cashflow.expensesByCategory.length ? (
                             <HorizontalBars data={cashflow.expensesByCategory} labelKey="category" valueKey="total" name="Spent" domain={[0, 'auto']} format={formatMoney} labelWidth={130} color="#e11d48" />
                         ) : (
@@ -115,18 +114,17 @@ export default function FinanceDashboard({ selection, fees, cashflow, invoiced, 
                     </Card>
                 </section>
 
-                <Card title="Mode of payment" eyebrow={periodLabel}>
+                <Card title="Mode of payment">
                     <PaymentMethods rows={byMethod} url={urls.paymentMode} periodQuery={periodQuery} periodLabel={periodLabel} />
                 </Card>
 
                 <section className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-                    <Card className="xl:col-span-2" title="Income by source" eyebrow={periodLabel}>
+                    <Card className="xl:col-span-2" title="Income by source">
                         <IncomeSources cashflow={cashflow} />
                     </Card>
                     <Card
                         className="xl:col-span-3"
                         title="Recent income & expenses"
-                        eyebrow="Outside student fees"
                         action={
                             <Link href={urls.transactions} className="flex items-center gap-0.5 text-sm font-medium text-primary hover:underline">
                                 View all <ArrowRight className="size-4" />
@@ -217,7 +215,6 @@ function FeesChartCard({ fees, f, scope, setScope, label, breakdown, onBreakdown
         <div className="flex flex-col gap-5 rounded-lg bg-surface p-6 shadow-card xl:col-span-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">{label}</span>
                     <h3 className="text-lg font-semibold tracking-tight">Fees</h3>
                 </div>
                 <div className="flex items-center gap-2">
@@ -433,13 +430,12 @@ function FeeStudents({ kind, scope, onClose, url, periodQuery, periodLabel }) {
 }
 
 /** Additional services: paid vs due per service, with the figures underneath. */
-function ServicesChartCard({ services, label }) {
+function ServicesChartCard({ services }) {
     const data = services.map((s) => ({ label: s.label, paid: s.paid, due: s.due }));
     return (
         <div className="flex flex-col gap-4 rounded-lg bg-surface p-6 shadow-card xl:col-span-2">
             <div className="flex items-start justify-between gap-3">
                 <div>
-                    <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">{label}</span>
                     <h3 className="text-lg font-semibold tracking-tight">Additional services</h3>
                 </div>
                 <Legend items={[{ label: 'Paid', color: C_PAID }, { label: 'Due', color: C_DUE }]} />
@@ -465,8 +461,7 @@ function ServicesChartCard({ services, label }) {
                                     <span className="font-medium">{s.label}</span>
                                     <span className={cn('tabular text-xs font-medium', s.due > 0 ? 'text-danger-fg' : 'text-fg-subtle')}>Due {formatMoney(s.due)}</span>
                                 </span>
-                                <span className="tabular flex items-center justify-between gap-3 text-xs text-fg-muted">
-                                    <span>{s.students} students</span>
+                                <span className="tabular flex items-center justify-end gap-3 text-xs text-fg-muted">
                                     <span>
                                         Paid <span className="font-medium text-fg">{formatMoney(s.paid)}</span> of {formatMoney(s.expected)}
                                     </span>

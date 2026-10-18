@@ -553,7 +553,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
             </FormSection>
 
             {mode === 'create' && data.my_class_id && (
-                <FormSection id="school-fees" title="School fees" description={`Year  ${options.session}`}>
+                <FormSection id="school-fees" title="School fees">
                     <div className="sm:col-span-2">
                         <SchoolFeesPreview fees={schoolFees} discountOn={discountOn} />
                     </div>

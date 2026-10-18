@@ -74,7 +74,6 @@ export default function ClassesIndex({ session, canDelete, types, classes, editi
                             exportName="classes"
                             searchText={(r) => `${r.name} ${r.type}`}
                             columns={[
-                                { key: 'sn', header: 'S/N', headerClassName: 'w-16' },
                                 {
                                     key: 'name',
                                     header: 'Name',
@@ -125,11 +124,6 @@ export default function ClassesIndex({ session, canDelete, types, classes, editi
                                 },
                             ]}
                         />
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <SummaryTile icon={Building2} label="Classes" value={classes.length} />
-                            <SummaryTile icon={Layers} label="Sections" value={classes.reduce((a, c) => a + c.sections, 0)} />
-                            <SummaryTile icon={Users} label="Enrolled students" value={students} />
-                        </div>
                     </>
                 )}
             </div>

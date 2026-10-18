@@ -91,7 +91,6 @@ export default function SubjectsIndex({ session, canDelete, classes, teachers, s
                             exportName="subjects"
                             searchText={(r) => `${r.name} ${r.slug ?? ''} ${r.class} ${r.teacher ?? ''}`}
                             columns={[
-                                { key: 'sn', header: 'S/N', headerClassName: 'w-16' },
                                 {
                                     key: 'name',
                                     header: 'Subject',
@@ -152,11 +151,6 @@ export default function SubjectsIndex({ session, canDelete, classes, teachers, s
                                 },
                             ]}
                         />
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <SummaryTile icon={BookOpen} label="Subjects" value={subjects.length} />
-                            <SummaryTile icon={School} label="Classes with subjects" value={new Set(subjects.map((s) => s.class)).size} />
-                            <SummaryTile icon={UserRound} label="Teachers assigned" value={new Set(subjects.map((s) => s.teacher).filter(Boolean)).size} />
-                        </div>
                     </>
                 )}
             </div>

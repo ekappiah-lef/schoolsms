@@ -145,27 +145,6 @@ export default function StudentsIndex({ variant, showParent = true, students, su
             <PageHeader
                 breadcrumbs={[{ label: 'Academics' }, { label: 'Students', href: urls.active }, ...(graduated ? [{ label: 'Graduated' }] : [])]}
                 title={title}
-             
-                actions={
-                    <>
-                        {urls.promotion && !graduated && (
-                            <Button asChild>
-                                <Link href={urls.promotion}>
-                                    <GraduationCap />
-                                    Promote students
-                                </Link>
-                            </Button>
-                        )}
-                        {urls.create && (
-                            <Button variant="primary" asChild>
-                                <Link href={urls.create}>
-                                    <UserPlus />
-                                    Admit student
-                                </Link>
-                            </Button>
-                        )}
-                    </>
-                }
             />
 
             {urls.graduated && (

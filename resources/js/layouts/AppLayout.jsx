@@ -145,10 +145,6 @@ export default function AppLayout({ children }) {
                             </kbd>
                         </button>
 
-                        <span className="tabular hidden items-center gap-1.5 rounded-full border border-border bg-subtle px-3 py-1 text-xs font-semibold text-fg xl:inline-flex">
-                            {app.session.replace('-', ' – ')} Year
-                        </span>
-
                         <div className="ml-auto flex items-center gap-3">
                             <div className="hidden h-5 w-px bg-border sm:block" />
 
