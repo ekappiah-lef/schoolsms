@@ -117,7 +117,10 @@ class UserController extends Controller
                 ->whereIn('st.user_id', $teacherIds)->get(['st.user_id as teacher_id', 's.name as section', 'c.name as class']))
             ->unique(function ($r) { return $r->teacher_id.'|'.$r->class.'|'.$r->section; })->sortBy('class')->groupBy('teacher_id');
         $subjectsOf = \DB::table('subjects as sb')->join('my_classes as c', 'c.id', '=', 'sb.my_class_id')->whereIn('sb.teacher_id', $teacherIds)
-            ->orderBy('c.name')->orderBy('sb.name')->get(['sb.teacher_id', 'sb.name as subject', 'c.name as class'])->groupBy('teacher_id');
+            ->orderBy('c.name')->orderBy('sb.name')->get(['sb.teacher_id', 'sb.name as subject', 'c.name as class'])
+            ->merge(\DB::table('subject_teachers as st')->join('subjects as sb', 'sb.id', '=', 'st.subject_id')->join('my_classes as c', 'c.id', '=', 'sb.my_class_id')
+                ->whereIn('st.user_id', $teacherIds)->get(['st.user_id as teacher_id', 'sb.name as subject', 'c.name as class']))
+            ->unique(function ($r) { return $r->teacher_id.'|'.$r->class.'|'.$r->subject; })->sortBy('class')->groupBy('teacher_id');
         $staff = \DB::table('staff_records')->whereIn('user_id', $users->pluck('id'))->get(['user_id', 'employment_type', 'job_title'])->keyBy('user_id');
 
         return [

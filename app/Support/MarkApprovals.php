@@ -59,6 +59,7 @@ class MarkApprovals
 
         // An HOD does not approve their own marks: those go to the academic admin.
         return $subject && $subject->department_id && (int) $subject->teacher_id !== (int) Auth::id()
+            && !in_array((int) $subjectId, SubjectTeachers::subjectIdsOf((int) Auth::id()), true)
             && in_array((int) $subject->department_id, self::headedDepartmentIds(), true);
     }
 

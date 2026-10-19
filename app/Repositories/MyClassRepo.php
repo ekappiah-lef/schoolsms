@@ -111,7 +111,7 @@ class MyClassRepo
 
     public function findSubjectByTeacher($teacher_id, $order_by = 'name')
     {
-        return $this->getSubject(['teacher_id'=> $teacher_id])->orderBy($order_by)->get();
+        return Subject::where('teacher_id', $teacher_id)->orWhereIn('id', \App\Support\SubjectTeachers::subjectIdsOf((int) $teacher_id))->orderBy($order_by)->get();
     }
 
     public function getSubject($data)

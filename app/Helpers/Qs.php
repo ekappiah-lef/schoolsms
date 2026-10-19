@@ -322,7 +322,7 @@ class Qs
 
     public static function findTeacherSubjects($teacher_id)
     {
-        return Subject::where('teacher_id', $teacher_id)->with('my_class')->get();
+        return Subject::where('teacher_id', $teacher_id)->orWhereIn('id', \App\Support\SubjectTeachers::subjectIdsOf((int) $teacher_id))->with('my_class')->get();
     }
 
     public static function findStudentRecord($user_id)

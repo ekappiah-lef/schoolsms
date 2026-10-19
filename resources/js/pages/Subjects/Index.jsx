@@ -5,13 +5,14 @@ import { Field, InfoCallout, ModuleHeader, ModuleTabs, NativeSelect, RegistryCar
 import { useConfirmAction } from '@/components/app/confirm-action';
 import { useModuleForm } from '@/lib/use-module-form';
 import { cn } from '@/lib/utils';
+import { SectionTeachers } from '@/components/app/section-teachers';
 
 /** Subjects — Create subject / Show subjects (SubjectController; JSON store & update, teacher ids are hashed). */
-export default function SubjectsIndex({ session, canDelete, classes, teachers, subjects, editing, urls, showCategory = false }) {
+export default function SubjectsIndex({ session, canDelete, classes, teachers, subjects, editing, urls, showCategory = false, perSection = false }) {
     const [tab, setTab] = useModuleTab(editing ? 'create' : 'list');
     const [confirm, confirmDialog] = useConfirmAction();
     const form = useModuleForm({
-        initial: { name: '', slug: '', category: 'core', my_class_id: '', teacher_id: '' },
+        initial: { name: '', slug: '', category: 'core', my_class_id: '', teacher_id: '', ...(editing && perSection ? { section_teachers: '{}' } : {}) },
         editing,
         storeUrl: urls.store,
         indexUrl: urls.index,
@@ -80,6 +81,11 @@ export default function SubjectsIndex({ session, canDelete, classes, teachers, s
                                     ))}
                                 </NativeSelect>
                             </Field>
+                            {editing && perSection && editing.sections?.length > 0 && (
+                                <Field label="Teachers by section" span={2}>
+                                    <SectionTeachers sections={editing.sections} teachers={teachers} value={form.data.section_teachers} onChange={(v) => form.set('section_teachers', v)} />
+                                </Field>
+                            )}
                         </SetupCard>
                     </div>
                 ) : (

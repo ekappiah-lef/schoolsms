@@ -44,6 +44,7 @@ class SubjectController extends Controller
             'session' => Qs::getCurrentSession(),
             'canDelete' => Qs::userIsSuperAdmin(),
             'showCategory' => \App\Support\School::has('core_elective_subjects'),
+            'perSection' => \App\Support\SubjectTeachers::on(),
             'classes' => $classes->map(function ($c) { return ['id' => $c->id, 'name' => $c->name]; })->values(),
             'teachers' => $this->user->getUserByType('teacher')->map(function ($t) { return ['id' => Qs::hash($t->id), 'name' => $t->name]; })->values(),
             'subjects' => $this->my_class->getAllSubjects()->sortBy(function ($s) use ($order) {
@@ -55,7 +56,7 @@ class SubjectController extends Controller
                     'slug' => $s->slug,
                     'category' => $s->category ?: 'core',
                     'class' => optional($s->my_class)->name,
-                    'teacher' => optional($s->teacher)->name,
+                    'teacher' => collect([optional($s->teacher)->name, \App\Support\SubjectTeachers::label((int) $s->id)])->filter()->implode('; ') ?: null,
                     'urls' => ['edit' => route('subjects.edit', $s->id), 'destroy' => route('subjects.destroy', $s->id)],
                 ];
             })->values(),
@@ -89,14 +90,24 @@ class SubjectController extends Controller
                 'my_class_id' => (string) $sub->my_class_id,
                 'teacher_id' => $sub->teacher_id ? Qs::hash($sub->teacher_id) : '',
                 'url' => route('subjects.update', $sub->id),
+                // Per-section teachers: every section of the class with its teachers (hashed ids).
+                'sections' => \App\Models\Section::where('my_class_id', $sub->my_class_id)->orderBy('name')->get(['id', 'name'])->map(function ($s) { return ['id' => $s->id, 'name' => $s->name]; })->values(),
+                'section_teachers' => json_encode(collect(\App\Support\SubjectTeachers::bySection((int) $sub->id))->map(function ($ids) { return array_map(function ($i) { return Qs::hash($i); }, $ids); })),
             ]);
         }, 'pages.support_team.subjects.edit', $d);
     }
 
     public function update(SubjectUpdate $req, $id)
     {
-        $data = $req->all();
+        $data = $req->except('section_teachers');
         $this->my_class->updateSubject($id, $data);
+        if (\App\Support\SubjectTeachers::on() && $req->has('section_teachers')) {
+            $map = collect((array) json_decode((string) $req->input('section_teachers'), true))->map(function ($ids) {
+                return collect((array) $ids)->map(function ($h) { return (int) Qs::decodeHash($h); })
+                    ->filter(function ($id) { return \App\User::where('id', $id)->where('user_type', 'teacher')->exists(); })->values()->all();
+            })->all();
+            \App\Support\SubjectTeachers::sync((int) $id, $map);
+        }
 
         return Qs::jsonUpdateOk();
     }

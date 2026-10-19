@@ -52,6 +52,10 @@ class TeacherScope
                 $access[(int) $id] = $mine;
             }
         }
+        // Subjects taught in particular sections only (subject_teachers).
+        foreach (SubjectTeachers::accessIn($classId, (int) $tid) as $sectionId => $ids) {
+            $access[$sectionId] = array_values(array_unique(array_merge($access[$sectionId] ?? [], $ids)));
+        }
 
         return $access;
     }
@@ -62,7 +66,7 @@ class TeacherScope
         $tid = $teacherId ?: Auth::id();
 
         return collect(Section::whereIn('id', ClassTeachers::sectionIdsOf((int) $tid))->pluck('my_class_id'))
-            ->merge(Subject::where('teacher_id', $tid)->pluck('my_class_id'))
+            ->merge(Subject::where('teacher_id', $tid)->orWhereIn('id', SubjectTeachers::subjectIdsOf((int) $tid))->pluck('my_class_id'))
             ->map(function ($v) { return (int) $v; })->unique()->values()->all();
     }
 
