@@ -203,6 +203,12 @@ class MarkController extends Controller
             return $this->noStudentRecord();
         }
 
+        // Parents and students see a report only once the HOD has approved every subject's marks.
+        $exr = $this->exam->getRecord(['student_id' => $student_id, 'exam_id' => $exam_id, 'year' => $year])->first();
+        if ($exr && !Qs::userIsTeamSAT() && \App\Support\MarkApprovals::unapproved($exam_id, $exr->my_class_id, $exr->section_id, $year)) {
+            return redirect()->route('dashboard')->with('pop_error', 'Results have not been released yet.');
+        }
+
         return view('pages.support_team.marks.print.index', $this->reportData($student_id, $exam_id, $year));
     }
 
@@ -258,6 +264,10 @@ class MarkController extends Controller
         if (!$this->exam->getRecord(['student_id' => $student_id, 'exam_id' => $exam_id, 'year' => $year])->first()) {
             return Qs::json('There is no result for this exam yet.', false);
         }
+        $exr = $this->exam->getRecord(['student_id' => $student_id, 'exam_id' => $exam_id, 'year' => $year])->first();
+        if ($waiting = \App\Support\MarkApprovals::unapproved($exam_id, $exr->my_class_id, $exr->section_id, $year)) {
+            return Qs::json('Not sent: the HOD has not approved the marks for '.implode(', ', $waiting).' yet.', false);
+        }
         if ($owed = $this->owedBeforeReport((int) $student_id)) {
             return Qs::json('Not sent: '.$sr->user->name.' still owes GHS '.\App\Support\Money::fmt($owed).'. The report can be sent once fees are paid; the bill can be sent now.', false);
         }
@@ -272,6 +282,9 @@ class MarkController extends Controller
     {
         if (TeacherScope::applies() && !in_array((int) $section_id, TeacherScope::ownSectionIds(), true)) {
             return Qs::json('You can only send reports for your own class.', false);
+        }
+        if ($waiting = \App\Support\MarkApprovals::unapproved($exam_id, $class_id, $section_id, $this->year)) {
+            return Qs::json('Not sent: the HOD has not approved the marks for '.implode(', ', $waiting).' yet.', false);
         }
         $records = $this->exam->getRecord(['exam_id' => $exam_id, 'my_class_id' => $class_id, 'section_id' => $section_id, 'year' => $this->year]);
         $sent = 0;
@@ -329,7 +342,9 @@ class MarkController extends Controller
 
     public function manage($exam_id, $class_id, $section_id, $subject_id)
     {
-        if (!TeacherScope::canMark((int) $class_id, (int) $section_id, (int) $subject_id)) {
+        // HODs may open the marks of their department's subjects (to check them; they do not edit).
+        $canMark = TeacherScope::canMark((int) $class_id, (int) $section_id, (int) $subject_id);
+        if (!$canMark && !\App\Support\MarkApprovals::canReview($subject_id)) {
             return redirect()->route('marks.index')->with('flash_danger', 'You can only enter marks for your own class, or for the subjects you teach.');
         }
         $d = ['exam_id' => $exam_id, 'my_class_id' => $class_id, 'section_id' => $section_id, 'subject_id' => $subject_id, 'year' => $this->year];
@@ -350,7 +365,7 @@ class MarkController extends Controller
         $d['selected'] = true;
         $d['class_type'] = $ct = $this->my_class->findTypeByClass($class_id);
 
-        return Ui::render('Marks/Manage', function () use ($d, $ct, $exam_id, $class_id, $section_id, $subject_id) {
+        return Ui::render('Marks/Manage', function () use ($d, $ct, $exam_id, $class_id, $section_id, $subject_id, $canMark) {
             $m = $d['m'];
             $exam = $m->exam;
             $tex = 'tex'.$exam->term;
@@ -386,8 +401,12 @@ class MarkController extends Controller
                     ];
                 }),
                 'scheme' => \App\Support\Assessment::forPage(),
+                // HOD approval (switch hod_marks_approval): submitted or approved marks are locked.
+                'approval' => \App\Support\MarkApprovals::forPage($exam_id, $class_id, $section_id, $subject_id, $this->year, $canMark),
+                'canEdit' => $canMark && !\App\Support\MarkApprovals::locked(\App\Support\MarkApprovals::sheet($exam_id, $class_id, $section_id, $subject_id, $this->year)),
                 'urls' => array_merge($this->selectorProps(collect(), null)['urls'], [
                     'update' => route('marks.update', [$exam_id, $class_id, $section_id, $subject_id]),
+                    'approval' => \App\Support\MarkApprovals::on() ? route('marks.approval', [$exam_id, $class_id, $section_id, $subject_id]) : null,
                     'register' => route('marks.register', [$exam_id, $class_id, $section_id, $subject_id]),
                     'tabulation' => Qs::userIsTeamSA() ? route('marks.tabulation', [$exam_id, $class_id, $section_id]) : null,
                 ]),
@@ -398,7 +417,7 @@ class MarkController extends Controller
     /** The subject's assessment register (the school's own layout), filled with the scores entered so far. */
     public function register($exam_id, $class_id, $section_id, $subject_id)
     {
-        if (!TeacherScope::canMark((int) $class_id, (int) $section_id, (int) $subject_id)) {
+        if (!TeacherScope::canMark((int) $class_id, (int) $section_id, (int) $subject_id) && !\App\Support\MarkApprovals::canReview($subject_id)) {
             abort(403);
         }
         $p = ['exam_id' => $exam_id, 'my_class_id' => $class_id, 'section_id' => $section_id, 'subject_id' => $subject_id, 'year' => $this->year];
@@ -422,6 +441,9 @@ class MarkController extends Controller
     {
         if (!TeacherScope::canMark((int) $class_id, (int) $section_id, (int) $subject_id)) {
             return Qs::json('You can only enter marks for your own class, or for the subjects you teach.', false);
+        }
+        if (\App\Support\MarkApprovals::locked(\App\Support\MarkApprovals::sheet($exam_id, $class_id, $section_id, $subject_id, $this->year))) {
+            return Qs::json('These marks are with the HOD (submitted or approved), so they cannot be changed. Ask the HOD to return them for correction.', false);
         }
         $p = ['exam_id' => $exam_id, 'my_class_id' => $class_id, 'section_id' => $section_id, 'subject_id' => $subject_id, 'year' => $this->year];
 
@@ -489,6 +511,54 @@ class MarkController extends Controller
         /*Exam Record End*/
 
        return Qs::jsonUpdateOk();
+    }
+
+    /** Submit to the HOD, withdraw, approve or return for correction (switch hod_marks_approval). */
+    public function approval(Request $req, $exam_id, $class_id, $section_id, $subject_id)
+    {
+        $canMark = TeacherScope::canMark((int) $class_id, (int) $section_id, (int) $subject_id);
+        $error = \App\Support\MarkApprovals::act((string) $req->input('action'), (int) $exam_id, (int) $class_id, (int) $section_id, (int) $subject_id, $this->year, $canMark, $req->input('note'));
+        if ($error) {
+            return Qs::json($error, false);
+        }
+        $done = ['submit' => 'Marks submitted to the HOD.', 'withdraw' => 'Marks withdrawn: you can correct them now.', 'approve' => 'Marks approved.', 'return' => 'Marks returned to the teacher for correction.'];
+
+        return Qs::json($done[$req->input('action')] ?? 'Done.', true);
+    }
+
+    /** Subject marks waiting for (or done by) the HOD: their department's sheets; every sheet for the academic admin and admins. */
+    public function approvals(Request $req)
+    {
+        if (!\App\Support\MarkApprovals::on() || !(Qs::userIsTeamSA() || \App\Support\MarkApprovals::isHod())) {
+            return redirect()->route('marks.index');
+        }
+        $status = in_array($req->query('status'), ['submitted', 'approved', 'returned', 'all'], true) ? $req->query('status') : 'submitted';
+        $q = \App\Models\MarkApproval::with('subject.teacher', 'subject.department')->where('year', $this->year);
+        if (!Qs::userIsTeamSA()) {
+            $q->whereHas('subject', function ($s) { $s->whereIn('department_id', \App\Support\MarkApprovals::headedDepartmentIds()); });
+        }
+        $all = $q->latest('updated_at')->get();
+        $exams = \App\Models\Exam::whereIn('id', $all->pluck('exam_id'))->pluck('name', 'id');
+        $classes = \App\Models\MyClass::pluck('name', 'id');
+        $sections = \App\Models\Section::pluck('name', 'id');
+        $users = \App\User::whereIn('id', $all->pluck('submitted_by')->merge($all->pluck('reviewed_by'))->filter())->pluck('name', 'id');
+
+        return \Inertia\Inertia::render('Marks/Approvals', [
+            'status' => $status,
+            'counts' => ['submitted' => $all->where('status', 'submitted')->count(), 'approved' => $all->where('status', 'approved')->count(), 'returned' => $all->where('status', 'returned')->count(), 'all' => $all->count()],
+            'rows' => $all->filter(function ($a) use ($status) { return $status === 'all' || $a->status === $status; })->map(function ($a) use ($exams, $classes, $sections, $users) {
+                return [
+                    'id' => $a->id, 'status' => $a->status, 'note' => $a->note,
+                    'subject' => optional($a->subject)->name, 'department' => optional(optional($a->subject)->department)->name,
+                    'class' => trim(($classes[$a->my_class_id] ?? '').' '.($sections[$a->section_id] ?? '')), 'exam' => $exams[$a->exam_id] ?? '',
+                    'teacher' => $users[$a->submitted_by] ?? optional(optional($a->subject)->teacher)->name,
+                    'reviewer' => $users[$a->reviewed_by] ?? null,
+                    'submitted_at' => optional($a->submitted_at)->toDateTimeString(), 'reviewed_at' => optional($a->reviewed_at)->toDateTimeString(),
+                    'url' => route('marks.manage', [$a->exam_id, $a->my_class_id, $a->section_id, $a->subject_id]),
+                ];
+            })->values(),
+            'urls' => ['self' => route('marks.approvals')],
+        ]);
     }
 
     public function comment_update(Request $req, $exr_id)

@@ -98,6 +98,10 @@ Route::group(['middleware' => 'auth'], function () {
         });
         Route::get('staff', 'UserController@staff')->name('staff.index');
         Route::get('staff/attendance', 'StaffAttendanceController@index')->name('staff.attendance');
+        Route::get('departments', 'DepartmentController@index')->name('departments.index');
+        Route::post('departments', 'DepartmentController@store')->name('departments.store');
+        Route::put('departments/{id}', 'DepartmentController@update')->name('departments.update');
+        Route::delete('departments/{id}', 'DepartmentController@destroy')->name('departments.destroy');
         Route::post('staff/attendance', 'StaffAttendanceController@save')->name('staff.attendance.save');
         Route::get('teachers', function () { return redirect()->route('staff.index', ['tab' => 'teaching']); })->name('teachers.index');
 
@@ -227,6 +231,8 @@ Route::group(['middleware' => 'auth'], function () {
                 Route::get('manage/{exam}/{class}/{section}/{subject}', 'MarkController@manage')->name('marks.manage');
                 Route::put('update/{exam}/{class}/{section}/{subject}', 'MarkController@update')->name('marks.update');
                 Route::get('register/{exam}/{class}/{section}/{subject}', 'MarkController@register')->name('marks.register');
+                Route::post('approval/{exam}/{class}/{section}/{subject}', 'MarkController@approval')->name('marks.approval');
+                Route::get('approvals', 'MarkController@approvals')->name('marks.approvals');
                 Route::put('comment_update/{exr_id}', 'MarkController@comment_update')->name('marks.comment_update');
                 Route::put('skills_update/{skill}/{exr_id}', 'MarkController@skills_update')->name('marks.skills_update');
                 Route::post('selector', 'MarkController@selector')->name('marks.selector');

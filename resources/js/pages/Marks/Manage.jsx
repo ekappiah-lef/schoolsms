@@ -5,6 +5,7 @@ import { Check, Download, Info, Printer, RotateCcw, Table2 } from 'lucide-react'
 import { withAppLayout } from '@/layouts/AppLayout';
 import { PageHeader, Panel } from '@/components/app/page';
 import { MarkSelector } from '@/components/marks/mark-selector';
+import { ApprovalBar } from '@/components/marks/approval-bar';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,7 +31,7 @@ function gradeTone(name = '') {
     return 'danger';
 }
 
-export default function MarksManage({ context, rows, grades, generalGrades, exams, classes, current, scheme, urls }) {
+export default function MarksManage({ context, rows, grades, generalGrades, exams, classes, current, scheme, approval, canEdit = true, urls }) {
     // The school's assessment scheme decides the score boxes (App\Support\Assessment).
     const COLUMNS = scheme.parts;
     const weights = scheme.weights;
@@ -233,6 +234,8 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                 <MarkSelector compact exams={exams} classes={classes} current={current} urls={urls} />
             </div>
 
+            {approval && <ApprovalBar approval={approval} url={urls.approval} dirty={dirty} />}
+
             <Panel flush className="relative">
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-border px-4 py-2.5 text-sm">
                     <span className="text-fg-muted">
@@ -346,6 +349,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                                                             title={err ? `Enter ${err}` : undefined}
                                                             value={values[r.id]?.[c.key] ?? ''}
                                                             onChange={(e) => setCell(r.id, c.key, e.target.value)}
+                                                            readOnly={!canEdit}
                                                             onKeyDown={(e) => onKeyDown(e, ri, ci)}
                                                             onFocus={(e) => e.target.select()}
                                                             inputMode="numeric"
@@ -354,6 +358,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                                                             className={cn(
                                                                 'tabular h-8 w-full rounded-md border bg-surface text-center text-base transition-colors focus:border-primary focus:shadow-focus focus:outline-none',
                                                                 groups && 'min-w-[2.75rem]',
+                                                                !canEdit && 'cursor-default border-transparent bg-transparent',
                                                                 err ? 'border-danger bg-danger-soft text-danger-fg' : 'border-border hover:border-border-strong',
                                                             )}
                                                         />
@@ -386,7 +391,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                 </div>
 
                 {/* Save bar */}
-                <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 rounded-b-lg border-t border-border bg-surface/95 px-4 py-3 backdrop-blur">
+                {canEdit && <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 rounded-b-lg border-t border-border bg-surface/95 px-4 py-3 backdrop-blur">
                     <span className="text-sm text-fg-muted">
                         {hasErrors ? (
                             <span className="text-danger-fg">Some scores are out of range.</span>
@@ -411,7 +416,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                             {saving ? 'Saving…' : 'Save marks'}
                         </Button>
                     </div>
-                </div>
+                </div>}
             </Panel>
             <ConfirmDialog
                 open={confirming}

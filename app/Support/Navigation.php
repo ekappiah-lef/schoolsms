@@ -57,6 +57,10 @@ class Navigation
                 $exams[] = self::item('Tabulation sheet', null, 'marks.tabulation');
             }
             $exams[] = self::item('Marks entry', null, 'marks.index', ['marks.index', 'marks.manage']);
+            // Heads of department (and the academic admin / admins) check and approve submitted marks.
+            if (\App\Support\MarkApprovals::on() && (Qs::userIsTeamSA() || \App\Support\MarkApprovals::isHod())) {
+                $exams[] = self::item('Marks approval', null, 'marks.approvals');
+            }
             $exams[] = self::item('Results by class', null, 'marks.bulk', ['marks.bulk', 'marks.show']);
             // Admins, the academic admin and class teachers (for their own class type) design the report card.
             // Remarks are written on each student's results (Results by class): the class teacher's by the
@@ -149,6 +153,7 @@ class Navigation
                 self::item('Classes', 'school', 'classes.index', ['classes.index', 'classes.edit']),
                 self::item('Sections', 'layers', 'sections.index', ['sections.index', 'sections.edit']),
                 self::item('Subjects', 'book-open', 'subjects.index', ['subjects.index', 'subjects.edit']),
+                \App\Support\MarkApprovals::on() ? self::item('Departments', 'layers', 'departments.index') : null,
                 // Only for schools with boarding (Settings → Boarding facility).
                 Qs::getSetting('has_boarding') ? self::item('Dormitories', 'bed-double', 'dorms.index', ['dorms.index', 'dorms.edit']) : null,
             ]);
