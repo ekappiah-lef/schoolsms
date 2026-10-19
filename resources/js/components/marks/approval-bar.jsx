@@ -17,10 +17,10 @@ const STATUS = {
 };
 
 const ASK = {
-    submit: { title: 'Submit these marks to the HOD?', label: 'Submit to HOD', note: 'Note for the HOD (optional)', tone: 'primary', text: 'The marks are locked while the HOD checks them. You can withdraw them to correct a mistake until they are approved.' },
-    withdraw: { title: 'Withdraw these marks?', label: 'Withdraw', note: 'What will you correct? (optional)', tone: 'primary', text: 'The marks open again so you can correct them. Submit them again when you are done.' },
-    approve: { title: 'Approve these marks?', label: 'Approve', note: 'Note (optional)', tone: 'primary', text: 'Approved marks are locked and can go on report cards.' },
-    return: { title: 'Return for correction?', label: 'Return to teacher', note: 'What needs to be corrected?', tone: 'danger', text: 'The teacher can change the marks again and must submit them again.', required: true },
+    submit: { title: 'Submit these marks to the HOD?', label: 'Submit to HOD', note: 'Note for the HOD (optional)', tone: 'primary' },
+    withdraw: { title: 'Withdraw these marks?', label: 'Withdraw', note: 'What will you correct? (optional)', tone: 'primary' },
+    approve: { title: 'Approve these marks?', label: 'Approve', note: 'Note (optional)', tone: 'primary' },
+    return: { title: 'Return for correction?', label: 'Return to teacher', note: 'What needs to be corrected?', tone: 'danger', required: true },
 };
 
 /**
@@ -62,7 +62,6 @@ export function ApprovalBar({ approval, url, dirty }) {
                     {label}
                 </Badge>
                 {approval.hod && <span className="text-sm text-fg-muted">HOD: {approval.hod}</span>}
-                {!approval.department && <span className="text-sm text-warning-fg">This subject is not in a department yet.</span>}
                 <div className="ml-auto flex flex-wrap gap-2">
                     {approval.history.length > 0 && (
                         <Button size="sm" variant="ghost" onClick={() => setShowHistory(true)}>
@@ -106,7 +105,6 @@ export function ApprovalBar({ approval, url, dirty }) {
                 open={!!a}
                 onOpenChange={(o) => !o && !busy && setAsk(null)}
                 title={a?.title}
-                description={a?.text}
                 footer={
                     <>
                         <Button variant="secondary" onClick={() => setAsk(null)} disabled={busy}>

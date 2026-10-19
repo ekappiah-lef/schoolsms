@@ -142,7 +142,6 @@ export default function Departments({ departments, subjects, teachers, urls }) {
                 open={!!removing}
                 onOpenChange={(o) => !o && setRemoving(null)}
                 title={`Delete ${removing?.name}?`}
-                description="Its subjects stay; they just no longer belong to a department."
                 confirmLabel="Delete"
                 loading={busy}
                 onConfirm={remove}

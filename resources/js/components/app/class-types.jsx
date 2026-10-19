@@ -102,9 +102,8 @@ export function ClassTypes({ types, urls, canDelete }) {
                         <input className={fieldInput} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Lower Grade" aria-invalid={errors.name ? true : undefined} autoFocus />
                     </Field>
                     <Field label="Short code" error={errors.code}>
-                        <input className={fieldInput} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="e.g. LG (left empty: the initials)" maxLength={5} aria-invalid={errors.code ? true : undefined} />
+                        <input className={fieldInput} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="e.g. LG" maxLength={5} aria-invalid={errors.code ? true : undefined} />
                     </Field>
-                    <p className="text-xs text-fg-muted">The short code goes into new admission numbers. Admission numbers already given do not change.</p>
                 </div>
             </Modal>
 
@@ -112,7 +111,6 @@ export function ClassTypes({ types, urls, canDelete }) {
                 open={!!removing}
                 onOpenChange={(o) => !o && setRemoving(null)}
                 title={`Delete ${removing?.name}?`}
-                description="Its grade bands and report-card design are deleted with it."
                 confirmLabel="Delete"
                 loading={busy}
                 onConfirm={remove}
