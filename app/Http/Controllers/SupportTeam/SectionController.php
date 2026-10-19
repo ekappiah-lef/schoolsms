@@ -47,6 +47,7 @@ class SectionController extends Controller
             'canDelete' => Qs::userIsSuperAdmin(),
             'classes' => $classes->map(function ($c) { return ['id' => $c->id, 'name' => $c->name]; })->values(),
             'teachers' => $this->user->getUserByType('teacher')->map(function ($t) { return ['id' => Qs::hash($t->id), 'name' => $t->name]; })->values(),
+            'multipleTeachers' => \App\Support\ClassTeachers::multiple(),
             'sections' => $this->my_class->getAllSections()->sortBy(function ($s) use ($order) {
                 return sprintf('%05d-%s', $order[$s->my_class_id] ?? 99999, $s->name);
             })->map(function ($s) use ($students) {
@@ -54,7 +55,7 @@ class SectionController extends Controller
                     'id' => $s->id,
                     'name' => $s->name,
                     'class' => optional($s->my_class)->name,
-                    'teacher' => optional($s->teacher)->name,
+                    'teacher' => \App\Support\ClassTeachers::names((int) $s->id),
                     'default' => (bool) $s->active,
                     'students' => (int) ($students[$s->id] ?? 0),
                     'capacity' => $s->capacity ? (int) $s->capacity : null,
@@ -74,7 +75,10 @@ class SectionController extends Controller
     {
         $data = $req->all();
         $data['capacity'] = $req->capacity ?: null;
-        $this->my_class->createSection($data);
+        $section = $this->my_class->createSection($data);
+        if (\App\Support\ClassTeachers::multiple()) {
+            \App\Support\ClassTeachers::sync((int) $section->id, $this->teacherIds($req));
+        }
 
         return Qs::jsonStoreOk();
     }
@@ -92,6 +96,7 @@ class SectionController extends Controller
                 'name' => $s->name,
                 'class' => optional($s->my_class)->name,
                 'teacher_id' => $s->teacher_id ? Qs::hash($s->teacher_id) : '',
+                'teacher_ids' => collect(\App\Support\ClassTeachers::idsBySection([(int) $s->id])[$s->id] ?? [])->map(function ($id) { return Qs::hash($id); })->implode(','),
                 'capacity' => $s->capacity ?: '',
                 'url' => route('sections.update', $s->id),
             ]);
@@ -103,8 +108,18 @@ class SectionController extends Controller
         $data = $req->only(['name', 'teacher_id', 'capacity']);
         $data['capacity'] = $req->capacity ?: null;
         $this->my_class->updateSection($id, $data);
+        if (\App\Support\ClassTeachers::multiple()) {
+            \App\Support\ClassTeachers::sync((int) $id, $this->teacherIds($req));
+        }
 
         return Qs::jsonUpdateOk();
+    }
+
+    /** Class teachers sent as comma-separated hashed ids (several class teachers per section). */
+    protected function teacherIds($req): array
+    {
+        return collect(explode(',', (string) $req->input('teacher_ids')))->map(function ($h) { return trim($h); })->filter()->map(function ($h) { return Qs::decodeHash($h); })
+            ->filter(function ($id) { return \App\User::where('id', $id)->where('user_type', 'teacher')->exists(); })->values()->all();
     }
 
     public function destroy($id)

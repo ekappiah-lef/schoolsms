@@ -143,7 +143,7 @@ class HomeController extends Controller
                 'subjects' => Qs::findTeacherSubjects($user->id)->map(function ($s) {
                     return ['id' => $s->id, 'name' => $s->name, 'class' => optional($s->my_class)->name];
                 })->values(),
-                'sections' => Section::where('teacher_id', $user->id)->with('my_class')->get()->map(function ($s) {
+                'sections' => Section::whereIn('id', \App\Support\ClassTeachers::sectionIdsOf((int) $user->id))->with('my_class')->get()->map(function ($s) {
                     return [
                         'id' => $s->id,
                         'name' => optional($s->my_class)->name.' '.$s->name,
@@ -238,7 +238,7 @@ class HomeController extends Controller
                 'sections' => $c->section->sortBy('name')->map(function ($s) use ($perSection) {
                     return [
                         'name' => $s->name,
-                        'teacher' => optional($s->teacher)->name,
+                        'teacher' => \App\Support\ClassTeachers::names((int) $s->id),
                         'students' => (int) ($perSection[$s->id] ?? 0),
                         'capacity' => $s->capacity ? (int) $s->capacity : null,
                     ];

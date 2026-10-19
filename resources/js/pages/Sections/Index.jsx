@@ -5,13 +5,14 @@ import { Field, InfoCallout, ModuleHeader, ModuleTabs, NativeSelect, RegistryCar
 import { useConfirmAction } from '@/components/app/confirm-action';
 import { useModuleForm } from '@/lib/use-module-form';
 import { cn } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox';
 
 /** Sections — Create section / Show sections (SectionController; JSON store & update, teacher ids are hashed). */
-export default function SectionsIndex({ session, canDelete, classes, teachers, sections, editing, urls }) {
+export default function SectionsIndex({ session, canDelete, classes, teachers, sections, editing, urls, multipleTeachers = false }) {
     const [tab, setTab] = useModuleTab(editing ? 'create' : 'list');
     const [confirm, confirmDialog] = useConfirmAction();
     const form = useModuleForm({
-        initial: editing ? { name: '', teacher_id: '', capacity: '' } : { name: '', my_class_id: '', teacher_id: '', capacity: '' },
+        initial: editing ? { name: '', teacher_id: '', teacher_ids: '', capacity: '' } : { name: '', my_class_id: '', teacher_id: '', teacher_ids: '', capacity: '' },
         editing,
         storeUrl: urls.store,
         indexUrl: urls.index,
@@ -78,16 +79,33 @@ export default function SectionsIndex({ session, canDelete, classes, teachers, s
                                     aria-invalid={!!form.errors.capacity || undefined}
                                 />
                             </Field>
-                            <Field label="Class Teacher" error={form.errors.teacher_id} hint="Optional — can be assigned later.">
-                                <NativeSelect value={form.data.teacher_id} onChange={(v) => form.set('teacher_id', v)}>
-                                    <option value="">No class teacher</option>
-                                    {teachers.map((t) => (
-                                        <option key={t.id} value={t.id}>
-                                            {t.name}
-                                        </option>
-                                    ))}
-                                </NativeSelect>
-                            </Field>
+                            {multipleTeachers ? (
+                                <Field label="Class Teachers" error={form.errors.teacher_ids}>
+                                    <div className="grid max-h-64 grid-cols-1 gap-1 overflow-y-auto rounded-lg bg-surface p-2 shadow-field sm:grid-cols-2">
+                                        {teachers.map((t) => {
+                                            const picked = (form.data.teacher_ids || '').split(',').filter(Boolean);
+                                            const on = picked.includes(t.id);
+                                            return (
+                                                <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
+                                                    <Checkbox checked={on} onCheckedChange={() => form.set('teacher_ids', (on ? picked.filter((x) => x !== t.id) : [...picked, t.id]).join(','))} />
+                                                    <span>{t.name}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </Field>
+                            ) : (
+                                <Field label="Class Teacher" error={form.errors.teacher_id} hint="Optional — can be assigned later.">
+                                    <NativeSelect value={form.data.teacher_id} onChange={(v) => form.set('teacher_id', v)}>
+                                        <option value="">No class teacher</option>
+                                        {teachers.map((t) => (
+                                            <option key={t.id} value={t.id}>
+                                                {t.name}
+                                            </option>
+                                        ))}
+                                    </NativeSelect>
+                                </Field>
+                            )}
                         </SetupCard>
                     </div>
                 ) : (

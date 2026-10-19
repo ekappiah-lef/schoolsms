@@ -18,6 +18,7 @@ return [
         'discount_to_youngest_sibling' => 'When a student with a discount graduates, the discount moves to their youngest sibling still in school.',
         'report_after_fees_cleared' => 'A report sheet is not sent to parents while the student owes fees (bills still can be).',
         'core_elective_subjects' => 'Subjects are core or elective: report cards, result sheets and mark entry group them.',
+        'multiple_class_teachers' => 'A section can have several class teachers (each sees the class, takes the register and writes comments).',
         'hod_marks_approval' => 'Heads of department check and approve the marks of their subjects; approved marks are locked and reports wait for approval.',
     ],
 

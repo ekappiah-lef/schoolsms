@@ -32,7 +32,7 @@ class TeacherScope
     /** Sections this teacher is class teacher of. */
     public static function ownSectionIds(?int $teacherId = null): array
     {
-        return Section::where('teacher_id', $teacherId ?: Auth::id())->pluck('id')->map(function ($v) { return (int) $v; })->all();
+        return ClassTeachers::sectionIdsOf((int) ($teacherId ?: Auth::id()));
     }
 
     /**
@@ -61,7 +61,7 @@ class TeacherScope
     {
         $tid = $teacherId ?: Auth::id();
 
-        return collect(Section::where('teacher_id', $tid)->pluck('my_class_id'))
+        return collect(Section::whereIn('id', ClassTeachers::sectionIdsOf((int) $tid))->pluck('my_class_id'))
             ->merge(Subject::where('teacher_id', $tid)->pluck('my_class_id'))
             ->map(function ($v) { return (int) $v; })->unique()->values()->all();
     }

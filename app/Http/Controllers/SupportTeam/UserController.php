@@ -112,7 +112,10 @@ class UserController extends Controller
         // What each teacher is assigned to: the sections they are class teacher of, and their subjects per class.
         $teacherIds = $users->where('user_type', 'teacher')->pluck('id');
         $classTeacherOf = \DB::table('sections as s')->join('my_classes as c', 'c.id', '=', 's.my_class_id')->whereIn('s.teacher_id', $teacherIds)
-            ->orderBy('c.name')->get(['s.teacher_id', 's.name as section', 'c.name as class'])->groupBy('teacher_id');
+            ->orderBy('c.name')->get(['s.teacher_id', 's.name as section', 'c.name as class'])
+            ->merge(\DB::table('section_teachers as st')->join('sections as s', 's.id', '=', 'st.section_id')->join('my_classes as c', 'c.id', '=', 's.my_class_id')
+                ->whereIn('st.user_id', $teacherIds)->get(['st.user_id as teacher_id', 's.name as section', 'c.name as class']))
+            ->unique(function ($r) { return $r->teacher_id.'|'.$r->class.'|'.$r->section; })->sortBy('class')->groupBy('teacher_id');
         $subjectsOf = \DB::table('subjects as sb')->join('my_classes as c', 'c.id', '=', 'sb.my_class_id')->whereIn('sb.teacher_id', $teacherIds)
             ->orderBy('c.name')->orderBy('sb.name')->get(['sb.teacher_id', 'sb.name as subject', 'c.name as class'])->groupBy('teacher_id');
         $staff = \DB::table('staff_records')->whereIn('user_id', $users->pluck('id'))->get(['user_id', 'employment_type', 'job_title'])->keyBy('user_id');
