@@ -84,7 +84,7 @@
                                     <td>{{ $s->my_class->name }}</td>
 
                                     @if($s->teacher_id)
-                                    <td><a target="_blank" href="{{ route('users.show', Qs::hash($s->teacher_id)) }}">{{ $s->teacher->name }}</a></td>
+                                    <td><a target="_blank" href="{{ route('users.show', Qs::hash($s->teacher_id)) }}">{{ optional($s->teacher)->name }}</a></td>
                                         @else
                                         <td> - </td>
                                     @endif

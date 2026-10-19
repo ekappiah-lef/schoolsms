@@ -19,9 +19,8 @@ export default function SubjectsIndex({ session, canDelete, classes, teachers, s
         onCreated: () => setTab('list'),
         validate: (d) => ({
             ...(d.name.trim().length < 3 ? { name: 'Enter a subject name of at least 3 characters.' } : {}),
-            ...(d.slug && d.slug.trim().length < 3 ? { slug: 'The short name must be at least 3 characters.' } : {}),
+            ...(d.slug && d.slug.trim().length < 2 ? { slug: 'The short name must be at least 2 characters.' } : {}),
             ...(!d.my_class_id ? { my_class_id: 'Choose a class.' } : {}),
-            ...(!editing && !d.teacher_id ? { teacher_id: 'Choose the subject teacher.' } : {}),
         }),
     });
 
@@ -69,10 +68,10 @@ export default function SubjectsIndex({ session, canDelete, classes, teachers, s
                                     </NativeSelect>
                                 </Field>
                             )}
-                            <Field label="Subject Teacher" required={!editing} error={form.errors.teacher_id}>
+                            <Field label="Subject Teacher" error={form.errors.teacher_id}>
                                 <NativeSelect value={form.data.teacher_id} onChange={(v) => form.set('teacher_id', v)} invalid={!!form.errors.teacher_id}>
-                                    <option value="" disabled={!editing}>
-                                        {editing ? 'No teacher' : 'Select teacher'}
+                                    <option value="">
+                                        No teacher
                                     </option>
                                     {teachers.map((t) => (
                                         <option key={t.id} value={t.id}>
