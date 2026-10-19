@@ -8,19 +8,18 @@ import { ConfirmDialog, Modal } from '@/components/ui/dialog';
 import { submitForm } from '@/lib/http';
 
 /**
- * The school's class types (Preschool, Lower Grade, Junior High …): add, rename, change the short code
- * used in admission numbers, delete when no class uses it.
+ * The school's class types (Preschool, Lower Grade, Junior High …): add, rename, delete when no class uses it.
  */
 export function ClassTypes({ types, urls, canDelete }) {
     const [editing, setEditing] = useState(null); // null closed, {} new, {id…} edit
-    const [form, setForm] = useState({ name: '', code: '' });
+    const [form, setForm] = useState({ name: '' });
     const [errors, setErrors] = useState({});
     const [busy, setBusy] = useState(false);
     const [removing, setRemoving] = useState(null);
 
     const open = (t) => {
         setEditing(t ?? {});
-        setForm({ name: t?.name ?? '', code: t?.code ?? '' });
+        setForm({ name: t?.name ?? '' });
         setErrors({});
     };
 
@@ -60,7 +59,6 @@ export function ClassTypes({ types, urls, canDelete }) {
                 <thead>
                     <tr className="bg-canvas text-2xs font-semibold uppercase tracking-wider text-fg-muted">
                         <th className="px-6 py-2">Name</th>
-                        <th className="px-4 py-2">Short code</th>
                         <th className="px-4 py-2">Classes</th>
                         <th className="px-6 py-2 text-right">Action</th>
                     </tr>
@@ -69,7 +67,6 @@ export function ClassTypes({ types, urls, canDelete }) {
                     {types.map((t) => (
                         <tr key={t.id} className="hover:bg-muted/60">
                             <td className="px-6 py-3 font-semibold">{t.name}</td>
-                            <td className="px-4 py-3 font-mono text-xs">{t.code}</td>
                             <td className="tabular px-4 py-3">{t.classes}</td>
                             <td className="px-6 py-3">
                                 <div className="flex justify-end gap-0.5">
@@ -100,9 +97,6 @@ export function ClassTypes({ types, urls, canDelete }) {
                 <div className="flex flex-col gap-4">
                     <Field label="Name" required error={errors.name}>
                         <input className={fieldInput} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Lower Grade" aria-invalid={errors.name ? true : undefined} autoFocus />
-                    </Field>
-                    <Field label="Short code" error={errors.code}>
-                        <input className={fieldInput} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="e.g. LG" maxLength={5} aria-invalid={errors.code ? true : undefined} />
                     </Field>
                 </div>
             </Modal>
