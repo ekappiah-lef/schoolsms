@@ -10,10 +10,10 @@ import { ConfirmDialog, Modal } from '@/components/ui/dialog';
 import { Select } from '@/components/ui/select';
 import { submitForm } from '@/lib/http';
 
-const blank = { name: '', hod_id: '', subjects: [] };
+const blank = { name: '', hod_id: '', subjects: [], class_types: [] };
 
 /** Departments, their head (HOD) and their subjects; the HOD approves the marks of these subjects. */
-export default function Departments({ departments, subjects, teachers, urls }) {
+export default function Departments({ departments, subjects, teachers, urls, byClassType = false, classTypes = [] }) {
     const [editing, setEditing] = useState(null); // null: closed, {}: new, {id…}: edit
     const [form, setForm] = useState(blank);
     const [errors, setErrors] = useState({});
@@ -25,14 +25,15 @@ export default function Departments({ departments, subjects, teachers, urls }) {
 
     const open = (d) => {
         setEditing(d ?? {});
-        setForm(d ? { name: d.name, hod_id: d.hod_id, subjects: d.subjects } : blank);
+        setForm(d ? { name: d.name, hod_id: d.hod_id, subjects: d.subjects, class_types: d.class_types ?? [] } : blank);
         setErrors({});
     };
     const toggle = (s) => setForm((f) => ({ ...f, subjects: f.subjects.includes(s) ? f.subjects.filter((x) => x !== s) : [...f.subjects, s] }));
+    const toggleType = (t) => setForm((f) => ({ ...f, class_types: f.class_types.includes(t) ? f.class_types.filter((x) => x !== t) : [...f.class_types, t] }));
 
     const save = async () => {
         setBusy(true);
-        const r = await submitForm(editing?.id ? urls.update.replace(':id', editing.id) : urls.store, { ...form, subjects: form.subjects.join(',') }, { method: editing?.id ? 'put' : 'post' });
+        const r = await submitForm(editing?.id ? urls.update.replace(':id', editing.id) : urls.store, { ...form, subjects: form.subjects.join(','), class_types: form.class_types.join(',') }, { method: editing?.id ? 'put' : 'post' });
         setBusy(false);
         if (!r.ok) {
             setErrors(r.errors ?? {});
@@ -71,13 +72,15 @@ export default function Departments({ departments, subjects, teachers, urls }) {
                 <RegistryCard
                     title="Departments"
                     rows={departments}
-                    searchText={(r) => `${r.name} ${r.hod ?? ''} ${r.subjects.join(' ')}`}
+                    searchText={(r) => `${r.name} ${r.hod ?? ''} ${r.subjects.join(' ')} ${(r.class_type_names ?? []).join(' ')}`}
                     exportName="departments"
                     emptyText="No departments yet."
                     columns={[
                         { key: 'name', header: 'Department', sort: (r) => r.name, exportValue: (r) => r.name, cell: (r) => <span className="font-semibold">{r.name}</span> },
                         { key: 'hod', header: 'Head of department', sort: (r) => r.hod, exportValue: (r) => r.hod, cell: (r) => r.hod ?? <span className="text-warning-fg">Not chosen</span> },
-                        { key: 'subjects', header: 'Subjects', exportValue: (r) => r.subjects.join(', '), cell: (r) => <span className="text-sm text-fg-muted">{r.subjects.join(', ') || '—'}</span> },
+                        byClassType
+                            ? { key: 'types', header: 'Class types', exportValue: (r) => r.class_type_names.join(', '), cell: (r) => <span className="text-sm text-fg-muted">{r.class_type_names.join(', ') || '—'}</span> }
+                            : { key: 'subjects', header: 'Subjects', exportValue: (r) => r.subjects.join(', '), cell: (r) => <span className="text-sm text-fg-muted">{r.subjects.join(', ') || '—'}</span> },
                         {
                             key: 'actions',
                             header: '',
@@ -120,6 +123,18 @@ export default function Departments({ departments, subjects, teachers, urls }) {
                     <Field label="Head of department" error={errors.hod_id}>
                         <Select value={form.hod_id} onChange={(v) => setForm({ ...form, hod_id: v })} options={teachers} placeholder="Choose a teacher" clearable clearLabel="No head yet" />
                     </Field>
+{byClassType ? (
+                    <Field label="Class types">
+                        <div className="grid grid-cols-1 gap-1 rounded-lg border border-border p-2 sm:grid-cols-2">
+                            {classTypes.map((t) => (
+                                <label key={t.value} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
+                                    <Checkbox checked={form.class_types.includes(t.value)} onCheckedChange={() => toggleType(t.value)} />
+                                    <span>{t.label}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </Field>
+                    ) : (
                     <Field label="Subjects">
                         <div className="grid max-h-64 grid-cols-1 gap-1 overflow-y-auto rounded-lg border border-border p-2 sm:grid-cols-2">
                             {subjects.map((s) => {
@@ -135,6 +150,7 @@ export default function Departments({ departments, subjects, teachers, urls }) {
                             {!subjects.length && <p className="p-2 text-sm text-fg-muted">Add subjects first.</p>}
                         </div>
                     </Field>
+                    )}
                 </div>
             </Modal>
 

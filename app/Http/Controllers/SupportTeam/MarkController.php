@@ -535,7 +535,9 @@ class MarkController extends Controller
         $status = in_array($req->query('status'), ['submitted', 'approved', 'returned', 'all'], true) ? $req->query('status') : 'submitted';
         $q = \App\Models\MarkApproval::with('subject.teacher', 'subject.department')->where('year', $this->year);
         if (!Qs::userIsTeamSA()) {
-            $q->whereHas('subject', function ($s) { $s->whereIn('department_id', \App\Support\MarkApprovals::headedDepartmentIds()); });
+            \App\Support\MarkApprovals::byClassType()
+                ? $q->whereHas('subject.my_class', function ($c) { $c->whereIn('class_type_id', \App\Support\MarkApprovals::headedClassTypeIds()); })
+                : $q->whereHas('subject', function ($s) { $s->whereIn('department_id', \App\Support\MarkApprovals::headedDepartmentIds()); });
         }
         $all = $q->latest('updated_at')->get();
         $exams = \App\Models\Exam::whereIn('id', $all->pluck('exam_id'))->pluck('name', 'id');
@@ -549,7 +551,7 @@ class MarkController extends Controller
             'rows' => $all->filter(function ($a) use ($status) { return $status === 'all' || $a->status === $status; })->map(function ($a) use ($exams, $classes, $sections, $users) {
                 return [
                     'id' => $a->id, 'status' => $a->status, 'note' => $a->note,
-                    'subject' => optional($a->subject)->name, 'department' => optional(optional($a->subject)->department)->name,
+                    'subject' => optional($a->subject)->name, 'department' => optional(\App\Support\MarkApprovals::departmentFor($a->subject))->name,
                     'class' => trim(($classes[$a->my_class_id] ?? '').' '.($sections[$a->section_id] ?? '')), 'exam' => $exams[$a->exam_id] ?? '',
                     'teacher' => $users[$a->submitted_by] ?? optional(optional($a->subject)->teacher)->name,
                     'reviewer' => $users[$a->reviewed_by] ?? null,

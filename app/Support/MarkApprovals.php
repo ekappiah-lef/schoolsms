@@ -9,6 +9,7 @@ use App\Models\Mark;
 use App\Models\MarkApproval;
 use App\Models\Subject;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Heads of department check and approve marks (schools with the hod_marks_approval switch).
@@ -45,6 +46,30 @@ class MarkApprovals
         return Department::where('hod_id', $userId ?: Auth::id())->pluck('id')->map(function ($v) { return (int) $v; })->all();
     }
 
+    /** Schools whose departments cover class types (Lower Grade, Upper Grade …) rather than subjects. */
+    public static function byClassType(): bool
+    {
+        return School::has('departments_by_class_type');
+    }
+
+    /** Class types covered by the departments the user heads. */
+    public static function headedClassTypeIds(?int $userId = null): array
+    {
+        return Department::where('hod_id', $userId ?: Auth::id())->get()->flatMap(function ($d) { return (array) $d->class_type_ids; })
+            ->map(function ($v) { return (int) $v; })->unique()->values()->all();
+    }
+
+    /** The department a subject's marks go to: by its class type, or by the subject. */
+    public static function departmentFor($subject): ?Department
+    {
+        if (!$subject) return null;
+        if (self::byClassType()) {
+            $type = (int) DB::table('my_classes')->where('id', $subject->my_class_id)->value('class_type_id');
+            return Department::with('hod')->get()->first(function ($d) use ($type) { return in_array($type, array_map('intval', (array) $d->class_type_ids), true); });
+        }
+        return $subject->department_id ? Department::with('hod')->find($subject->department_id) : null;
+    }
+
     public static function isHod(?int $userId = null): bool
     {
         return self::on() && count(self::headedDepartmentIds($userId)) > 0;
@@ -55,12 +80,12 @@ class MarkApprovals
     {
         if (!self::on()) return false;
         if (Qs::userIsTeamSA()) return true;
-        $subject = Subject::find($subjectId, ['department_id', 'teacher_id']);
+        $subject = Subject::find($subjectId, ['id', 'department_id', 'teacher_id', 'my_class_id']);
+        $dept = self::departmentFor($subject);
 
         // An HOD does not approve their own marks: those go to the academic admin.
-        return $subject && $subject->department_id && (int) $subject->teacher_id !== (int) Auth::id()
-            && !in_array((int) $subjectId, SubjectTeachers::subjectIdsOf((int) Auth::id()), true)
-            && in_array((int) $subject->department_id, self::headedDepartmentIds(), true);
+        return $subject && $dept && (int) $dept->hod_id === (int) Auth::id() && (int) $subject->teacher_id !== (int) Auth::id()
+            && !in_array((int) $subjectId, SubjectTeachers::subjectIdsOf((int) Auth::id()), true);
     }
 
     /** Submitted or approved sheets cannot be changed. */
@@ -74,14 +99,14 @@ class MarkApprovals
     {
         if (!self::on()) return null;
         $s = self::sheet($examId, $classId, $sectionId, $subjectId, $year);
-        $subject = Subject::with('department.hod')->find($subjectId);
+        $dept = self::departmentFor(Subject::find($subjectId));
         $status = $s->status ?? 'draft';
 
         return [
             'status' => $status,
             'note' => $s->note ?? null,
-            'department' => optional(optional($subject)->department)->name,
-            'hod' => optional(optional(optional($subject)->department)->hod)->name,
+            'department' => optional($dept)->name,
+            'hod' => optional(optional($dept)->hod)->name,
             'history' => array_reverse((array) ($s->history ?? [])),
             'canSubmit' => $canMark && in_array($status, ['draft', self::RETURNED], true),
             'canWithdraw' => $canMark && $status === self::SUBMITTED,

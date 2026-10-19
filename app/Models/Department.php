@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class Department extends Model
 {
-    protected $fillable = ['name', 'hod_id'];
+    protected $fillable = ['name', 'hod_id', 'class_type_ids'];
+
+    protected $casts = ['class_type_ids' => 'array'];
 
     public function hod()
     {
