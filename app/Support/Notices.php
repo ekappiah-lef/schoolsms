@@ -425,7 +425,8 @@ class Notices
         if (!$list) {
             return null;
         }
-        $norm = function ($v) { return filter_var($v, FILTER_VALIDATE_EMAIL) ? strtolower($v) : (self::normalisePhone($v) ?? $v); };
+        // name+anything@domain counts as name@domain, so test accounts can share one inbox (every login needs its own email).
+        $norm = function ($v) { return filter_var($v, FILTER_VALIDATE_EMAIL) ? strtolower(preg_replace('/\+[^@]*@/', '@', $v)) : (self::normalisePhone($v) ?? $v); };
         $allowed = array_map($norm, $list);
 
         return in_array($norm($recipient), $allowed, true) ? null : 'Demo mode: not sent. Only contacts in NOTICE_ALLOWLIST receive messages.';
