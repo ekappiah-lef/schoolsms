@@ -62,10 +62,10 @@ export function TimetableGrid({ isExam, slots, rows }) {
                             {r.cells.map((c, i) =>
                                 c.kind === 'break' ? (
                                     <td key={i} rowSpan={c.rowspan} className="border border-border bg-muted/50 p-0 text-center align-middle">
-                                        <span className="inline-block py-2 text-xs font-semibold uppercase tracking-[0.3em] text-fg-muted [writing-mode:vertical-rl]">{c.text}</span>
+                                        <span className="inline-block py-2 text-xs font-semibold tracking-[0.15em] text-fg-muted [writing-mode:vertical-rl]">{c.text}</span>
                                     </td>
                                 ) : (
-                                    <td key={i} colSpan={c.colspan} className={cn('h-16 border border-border px-2 text-center text-xs font-medium uppercase leading-tight', c.kind === 'subject' ? COLOURS[c.colour % COLOURS.length] : '')}>
+                                    <td key={i} colSpan={c.colspan} className={cn('h-16 border border-border px-2 text-center text-xs font-medium leading-tight', c.kind === 'subject' ? COLOURS[c.colour % COLOURS.length] : '')}>
                                         {c.text ?? ''}
                                     </td>
                                 ),

@@ -20,6 +20,7 @@ class ClassUpdate extends FormRequest
     public function rules()
     {
         return [
+            'class_type_id' => 'sometimes|nullable|exists:class_types,id',
             'name' => ['required', 'string', 'min:3', function ($attr, $value, $fail) {
                 $id = $this->route('id');
                 $id = is_numeric($id) ? (int) $id : \App\Helpers\Qs::decodeHash($id);

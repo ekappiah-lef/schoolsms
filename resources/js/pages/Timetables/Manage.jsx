@@ -167,7 +167,7 @@ export default function TimetableManage({ record, isExam, days, slots, entries, 
                                             <tr key={s.id} className="border-b border-border last:border-0">
                                                 <td className="tabular px-4 py-1.5 text-xs text-fg-muted">{s.full}</td>
                                                 {s.label ? (
-                                                    <td colSpan={columns.length} className="bg-muted/50 px-2 py-2.5 text-center text-xs font-semibold uppercase tracking-[0.3em] text-fg-muted">
+                                                    <td colSpan={columns.length} className="bg-muted/50 px-2 py-2.5 text-center text-xs font-semibold tracking-[0.15em] text-fg-muted">
                                                         {s.label}
                                                     </td>
                                                 ) : columns.map((c) => {

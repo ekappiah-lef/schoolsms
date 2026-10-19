@@ -100,8 +100,8 @@ Route::group(['middleware' => 'auth'], function () {
         Route::get('staff/attendance', 'StaffAttendanceController@index')->name('staff.attendance');
         Route::get('departments', 'DepartmentController@index')->name('departments.index');
         Route::post('departments', 'DepartmentController@store')->name('departments.store');
-        Route::put('departments/{id}', 'DepartmentController@update')->name('departments.update');
-        Route::delete('departments/{id}', 'DepartmentController@destroy')->name('departments.destroy');
+        Route::put('departments/{department}', 'DepartmentController@update')->name('departments.update');
+        Route::delete('departments/{department}', 'DepartmentController@destroy')->name('departments.destroy');
         Route::post('staff/attendance', 'StaffAttendanceController@save')->name('staff.attendance.save');
         Route::get('teachers', function () { return redirect()->route('staff.index', ['tab' => 'teaching']); })->name('teachers.index');
 
@@ -275,6 +275,9 @@ Route::group(['middleware' => 'auth'], function () {
         Route::resource('students', 'StudentRecordController');
         Route::resource('users', 'UserController');
         Route::resource('classes', 'MyClassController');
+        Route::post('class-types', 'ClassTypeController@store')->name('class_types.store');
+        Route::put('class-types/{type}', 'ClassTypeController@update')->name('class_types.update');
+        Route::delete('class-types/{type}', 'ClassTypeController@destroy')->name('class_types.destroy');
         Route::resource('sections', 'SectionController');
         Route::resource('subjects', 'SubjectController');
         Route::resource('grades', 'GradeController');

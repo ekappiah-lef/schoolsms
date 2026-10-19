@@ -3,6 +3,7 @@ import { Building2, Layers, Pencil, School, Trash2, Users } from 'lucide-react';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { Field, InfoCallout, ModuleHeader, ModuleTabs, NativeSelect, RegistryCard, RowIconButton, SetupCard, SummaryTile, fieldInput, useModuleTab } from '@/components/app/module';
 import { useConfirmAction } from '@/components/app/confirm-action';
+import { ClassTypes } from '@/components/app/class-types';
 import { useModuleForm } from '@/lib/use-module-form';
 import { cn } from '@/lib/utils';
 
@@ -19,7 +20,7 @@ export default function ClassesIndex({ session, canDelete, types, classes, editi
         onCreated: () => setTab('list'),
         validate: (d) => ({
             ...(d.name.trim().length < 3 ? { name: 'Enter a class name of at least 3 characters.' } : {}),
-            ...(!editing && !d.class_type_id ? { class_type_id: 'Choose the class type.' } : {}),
+            ...(!d.class_type_id ? { class_type_id: 'Choose the class type.' } : {}),
         }),
     });
     const students = classes.reduce((a, c) => a + c.students, 0);
@@ -46,23 +47,17 @@ export default function ClassesIndex({ session, canDelete, types, classes, editi
                             <Field label="Class Name" required aside="e.g. JHS 1, Primary 4" error={form.errors.name} span={2}>
                                 <input className={fieldInput} value={form.data.name} onChange={(e) => form.set('name', e.target.value)} placeholder="e.g., JHS 1" aria-invalid={!!form.errors.name || undefined} autoFocus />
                             </Field>
-                            <Field label="Class Type" required={!editing} error={form.errors.class_type_id} hint={editing ? 'Fixed after creation.' : undefined} span={2}>
-                                {editing ? (
-                                    <NativeSelect value="x" onChange={() => {}} disabled>
-                                        <option value="x">{editing.type}</option>
-                                    </NativeSelect>
-                                ) : (
-                                    <NativeSelect value={form.data.class_type_id} onChange={(v) => form.set('class_type_id', v)} invalid={!!form.errors.class_type_id}>
-                                        <option value="" disabled>
-                                            Select class type
+                            <Field label="Class Type" required error={form.errors.class_type_id} span={2}>
+                                <NativeSelect value={form.data.class_type_id} onChange={(v) => form.set('class_type_id', v)} invalid={!!form.errors.class_type_id}>
+                                    <option value="" disabled>
+                                        Select class type
+                                    </option>
+                                    {types.map((t) => (
+                                        <option key={t.id} value={t.id}>
+                                            {t.name}
                                         </option>
-                                        {types.map((t) => (
-                                            <option key={t.id} value={t.id}>
-                                                {t.name}
-                                            </option>
-                                        ))}
-                                    </NativeSelect>
-                                )}
+                                    ))}
+                                </NativeSelect>
                             </Field>
                         </SetupCard>
                     </div>
@@ -124,6 +119,7 @@ export default function ClassesIndex({ session, canDelete, types, classes, editi
                                 },
                             ]}
                         />
+                        <ClassTypes types={types} urls={urls} canDelete={canDelete} />
                     </>
                 )}
             </div>

@@ -44,7 +44,9 @@ class MyClassController extends Controller
         return [
             'session' => Qs::getCurrentSession(),
             'canDelete' => Qs::userIsSuperAdmin(),
-            'types' => $this->my_class->getTypes()->map(function ($t) { return ['id' => $t->id, 'name' => $t->name]; })->values(),
+            'types' => $this->my_class->getTypes()->map(function ($t) {
+                return ['id' => $t->id, 'name' => $t->name, 'code' => $t->code, 'classes' => DB::table('my_classes')->where('class_type_id', $t->id)->count()];
+            })->values(),
             'classes' => ClassOrder::sort(MyClass::withCount('section')->with('class_type')->get())->map(function ($c) use ($students, $subjects) {
                 return [
                     'id' => $c->id,
@@ -61,7 +63,8 @@ class MyClassController extends Controller
                 ];
             })->values(),
             'editing' => $editing,
-            'urls' => ['store' => route('classes.store'), 'index' => route('classes.index')],
+            'urls' => ['store' => route('classes.store'), 'index' => route('classes.index'),
+                'typeStore' => route('class_types.store'), 'typeUpdate' => route('class_types.update', ':id'), 'typeDestroy' => route('class_types.destroy', ':id')],
         ];
     }
 
@@ -92,6 +95,7 @@ class MyClassController extends Controller
         return Ui::render('Classes/Index', function () use ($c) {
             return $this->pageProps([
                 'name' => $c->name,
+                'class_type_id' => (string) $c->class_type_id,
                 'type' => optional($c->class_type)->name,
                 'url' => route('classes.update', $c->id),
             ]);
@@ -100,8 +104,9 @@ class MyClassController extends Controller
 
     public function update(ClassUpdate $req, $id)
     {
-        $data = $req->only(['name']);
-        $this->my_class->update($id, $data);
+        // The class type can be changed too (its grade bands and report-card design then apply).
+        $data = $req->only(['name', 'class_type_id']);
+        $this->my_class->update($id, array_filter($data, function ($v) { return $v !== null && $v !== ''; }));
 
         return Qs::jsonUpdateOk();
     }
