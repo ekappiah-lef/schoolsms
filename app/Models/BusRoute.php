@@ -12,7 +12,7 @@ class BusRoute extends Eloquent
 
     protected $casts = ['active' => 'boolean', 'amount_both' => 'float', 'amount_one_way' => 'float'];
 
-    public function priceFor(string $direction): int
+    public function priceFor(string $direction): float
     {
         return \App\Support\Money::r(($direction === 'both' ? $this->amount_both : $this->amount_one_way));
     }

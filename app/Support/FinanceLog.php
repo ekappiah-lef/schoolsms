@@ -32,7 +32,7 @@ class FinanceLog
     }
 
     /** Reverse every payment on a school-fee bill: receipts go to the trail, the bill returns to unpaid. Returns the amount reversed. */
-    public static function voidSchoolBill(PaymentRecord $pr, string $reason): int
+    public static function voidSchoolBill(PaymentRecord $pr, string $reason): float
     {
         return DB::transaction(function () use ($pr, $reason) {
             $pr->loadMissing('payment');
@@ -55,7 +55,7 @@ class FinanceLog
     }
 
     /** Same for an optional-service or shop charge. */
-    public static function voidCharge(OptionalFeeCharge $c, string $reason): int
+    public static function voidCharge(OptionalFeeCharge $c, string $reason): float
     {
         return DB::transaction(function () use ($c, $reason) {
             $total = 0;
