@@ -193,7 +193,7 @@ class Fees
             return;
         }
         $discount = Money::r(self::tuitionBase($pr->payment) * $percent / 100);
-        $owed = max(Money::r($pr->payment->amount) - $discount, 0);
+        $owed = max($pr->billAmount() - $discount, 0);
         $paid = Money::r($pr->amt_paid);
         $pr->update(['discount' => $discount, 'balance' => max($owed - $paid, 0), 'paid' => $paid >= $owed ? 1 : 0]);
     }
@@ -399,7 +399,7 @@ class Fees
             ->filter(function ($pr) { return $pr->payment; });
 
         $school = $records->map(function ($pr) use ($withUrls) {
-            $gross = Money::r($pr->payment->amount);
+            $gross = $pr->billAmount();
             $discount = Money::r($pr->discount);
             $amount = max($gross - $discount, 0);
             $paid = Money::r($pr->amt_paid);
@@ -488,7 +488,7 @@ class Fees
             if (!$pr->payment) continue;
             $lines->push(['at' => $pr->created_at, 'student' => $names[$pr->student_id] ?? '', 'ref' => $pr->ref_no,
                 'text' => $pr->payment->title.' · '.str_replace('-', '–', $pr->year).($pr->payment->term ? ' · Term '.$pr->payment->term : ''),
-                'debit' => Money::r($pr->payment->amount), 'credit' => 0.0]);
+                'debit' => max($pr->billAmount(), 0.0), 'credit' => max(-$pr->billAmount(), 0.0)]);
             if ($pr->discount > 0) {
                 $lines->push(['at' => $pr->created_at, 'student' => $names[$pr->student_id] ?? '', 'ref' => $pr->ref_no,
                     'text' => 'Discount · '.$pr->payment->title, 'debit' => 0.0, 'credit' => Money::r($pr->discount)]);
@@ -550,13 +550,15 @@ class Fees
         };
         $records = $records->reject($isLater);
         $line = function ($label, $amount, $paid) {
+            // A negative amount is a credit (e.g. brought forward): it lowers what is due.
+            if (Money::r($amount) < 0) return ['label' => $label, 'amount' => Money::r($amount), 'paid' => 0.0, 'balance' => Money::r($amount)];
             $amount = max(Money::r($amount), 0);
             return ['label' => $label, 'amount' => $amount, 'paid' => Money::r($paid), 'balance' => max($amount - Money::r($paid), 0)];
         };
         $termName = function ($pr) { return ($pr->payment->term ? 'Term '.$pr->payment->term.' · ' : '').str_replace('-', ' – ', $pr->year); };
 
         $current = $records->filter($isCurrent)->map(function ($pr) use ($line) {
-            return $line($pr->payment->title, Money::r($pr->payment->amount) - Money::r($pr->discount), $pr->amt_paid);
+            return $line($pr->payment->title, $pr->billAmount() - Money::r($pr->discount), $pr->amt_paid);
         })->values();
         // Services of this term and shop sales made this term are current; earlier ones unpaid are brought forward.
         $charges = OptionalFeeCharge::where('student_id', $studentId)->get();
@@ -573,8 +575,8 @@ class Fees
 
         $forward = $records->reject($isCurrent)
             ->sortBy(function ($pr) { return $pr->year.'-'.(int) $pr->payment->term; })
-            ->map(function ($pr) use ($line, $termName) { return $line($pr->payment->title.' · '.$termName($pr), Money::r($pr->payment->amount) - Money::r($pr->discount), $pr->amt_paid); })
-            ->filter(function ($l) { return $l['balance'] > 0; })->values();
+            ->map(function ($pr) use ($line, $termName) { return $line($pr->payment->title.' · '.$termName($pr), $pr->billAmount() - Money::r($pr->discount), $pr->amt_paid); })
+            ->filter(function ($l) { return $l['balance'] != 0; })->values();
         foreach ($charges->reject($chargeNow)->sortBy(function ($c) { return $c->year.'-'.self::chargeTerm($c); }) as $c) {
             $group = OptionalFeeCharge::GROUPS[$c->group] ?? ucfirst($c->group);
             $name = $c->group === 'sales' ? $group.': '.$c->label : (strpos($c->label, $group) === 0 ? $c->label : $group.' ('.$c->label.')');
@@ -588,12 +590,16 @@ class Fees
 
         // The short table parents see: school fees for the term, one line per service, one line for
         // everything brought forward, and the total.
-        $schoolNow = $records->filter($isCurrent);
+        $schoolNow = $records->filter($isCurrent)->filter(function ($pr) { return $pr->amount === null; });
         $table = [];
         if ($schoolNow->isNotEmpty()) {
-            $amt = Money::r($schoolNow->sum(function ($pr) { return max(Money::r($pr->payment->amount) - Money::r($pr->discount), 0); }));
+            $amt = Money::r($schoolNow->sum(function ($pr) { return max($pr->billAmount() - Money::r($pr->discount), 0); }));
             $paid = Money::r($schoolNow->sum('amt_paid'));
             $table[] = ['label' => 'School fees'.($term ? ' · Term '.$term : ''), 'amount' => $amt, 'paid' => $paid, 'balance' => max($amt - $paid, 0)];
+        }
+        foreach ($records->filter($isCurrent)->filter(function ($pr) { return $pr->amount !== null; }) as $pr) {
+            $l = $line($pr->payment->title, $pr->billAmount() - Money::r($pr->discount), $pr->amt_paid);
+            if ($l['balance'] != 0) $table[] = $l;
         }
         foreach (OptionalFeeCharge::GROUPS as $g => $label) {
             $cs = $charges->filter($chargeNow)->where('group', $g);
@@ -637,7 +643,7 @@ class Fees
         $records = PaymentRecord::where('student_id', $sr->user_id)->with('payment.items')->get()->filter(function ($pr) { return $pr->payment; });
         $billedNext = $records->filter(function ($pr) use ($nKey) { return $pr->year.':'.$pr->payment->term === $nKey; });
         if ($billedNext->isNotEmpty()) {
-            $school = Money::r($billedNext->sum(function ($pr) { return max(Money::r($pr->payment->amount) - Money::r($pr->discount) - Money::r($pr->amt_paid), 0); }));
+            $school = Money::r($billedNext->sum(function ($pr) { return max($pr->billAmount() - Money::r($pr->discount) - Money::r($pr->amt_paid), 0); }));
             $set = true;
         } else {
             $percent = $sr->fee_discount_id ? (int) optional(FeeDiscount::find($sr->fee_discount_id))->percent : 0;
@@ -648,7 +654,7 @@ class Fees
 
         // Unpaid school fees up to this term.
         $owed = Money::r($records->filter(function ($pr) use ($upTo) { return $pr->year.':'.$pr->payment->term <= $upTo; })
-            ->sum(function ($pr) { return max(Money::r($pr->payment->amount) - Money::r($pr->discount) - Money::r($pr->amt_paid), 0); }));
+            ->sum(function ($pr) { return max($pr->billAmount() - Money::r($pr->discount) - Money::r($pr->amt_paid), 0); }));
 
         // Services and sales: unpaid up to this term are owed; next term's services are billed when it
         // starts, so they are what the student takes now at the prices in Fee setup (or already billed).
@@ -703,11 +709,11 @@ class Fees
         foreach ($queue as [$kind, , , $bill]) {
             if ($left <= 0) break;
             if ($kind === 'school') {
-                $owed = Money::r(max($bill->payment->amount - $bill->discount - $bill->amt_paid, 0));
+                $owed = Money::r(max($bill->billAmount() - $bill->discount - $bill->amt_paid, 0));
                 if ($owed <= 0) continue;
                 $pay = min($owed, $left);
                 $paid = Money::r($bill->amt_paid + $pay);
-                $balance = Money::r($bill->payment->amount - $bill->discount - $paid);
+                $balance = Money::r($bill->billAmount() - $bill->discount - $paid);
                 $bill->update(['amt_paid' => $paid, 'balance' => max($balance, 0), 'paid' => $balance <= 0 ? 1 : 0]);
                 $r = \App\Models\Receipt::create(['pr_id' => $bill->id, 'amt_paid' => $pay, 'balance' => max($balance, 0), 'year' => $bill->year, 'method' => $method, 'reference' => $reference]);
                 $applied[] = ['kind' => 'school', 'id' => $r->id, 'label' => $bill->payment->title.' ('.$bill->year.')', 'amount' => $pay];

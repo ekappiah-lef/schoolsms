@@ -233,7 +233,7 @@ class PaymentController extends Controller
         $pr = $this->pay->findRecord($pr_id);
         $payment = $this->pay->find($pr->payment_id);
         // A payment is at least 0.01 (cedis and pesewas) and no more than what is still owed on the bill.
-        $owed = Money::r(max($payment->amount - $pr->discount - $pr->amt_paid, 0));
+        $owed = Money::r(max($pr->billAmount() - $pr->discount - $pr->amt_paid, 0));
         $this->validate($req, [
             'amt_paid' => 'required|'.Money::rule().'|min:0.01|max:'.max($owed, 0.01),
             'method' => 'nullable|in:'.implode(',', Fees::METHODS),
@@ -244,7 +244,7 @@ class PaymentController extends Controller
         }
         $d['amt_paid'] = $amt_p = Money::r($pr->amt_paid + $req->amt_paid);
         // Amount owed is the fee less the student's tuition discount.
-        $d['balance'] = $bal = Money::r($payment->amount - $pr->discount - $amt_p);
+        $d['balance'] = $bal = Money::r($pr->billAmount() - $pr->discount - $amt_p);
         $d['paid'] = $bal <= 0 ? 1 : 0;
 
         $this->pay->updateRecord($pr_id, $d);
@@ -285,7 +285,7 @@ class PaymentController extends Controller
                     ->where('pr.year', $this->year)
                     ->whereIn('pr.student_id', $d['students']->pluck('user_id'))
                     ->groupBy('pr.student_id')
-                    ->select('pr.student_id', DB::raw('sum(p.amount - pr.discount) as amount'), DB::raw('sum(coalesce(pr.amt_paid,0)) as paid'), DB::raw('count(*) as items'))
+                    ->select('pr.student_id', DB::raw('sum(coalesce(pr.amount, p.amount) - pr.discount) as amount'), DB::raw('sum(coalesce(pr.amt_paid,0)) as paid'), DB::raw('count(*) as items'))
                     ->get()->keyBy('student_id');
                 $optional = OptionalFeeCharge::where('year', $this->year)
                     ->whereIn('student_id', $d['students']->pluck('user_id'))

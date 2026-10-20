@@ -83,7 +83,7 @@ class FinanceSummary
     {
         return DB::table('payment_records as pr')->join('payments as p', 'p.id', '=', 'pr.payment_id')
             ->where('pr.year', $session)->whereIn('p.term', $terms)
-            ->select('pr.student_id', 'p.my_class_id', 'p.amount', 'pr.discount', DB::raw('coalesce(pr.amt_paid,0) as paid'))->get();
+            ->select('pr.student_id', 'p.my_class_id', DB::raw('coalesce(pr.amount, p.amount) as amount'), 'pr.discount', DB::raw('coalesce(pr.amt_paid,0) as paid'))->get();
     }
 
     /**
@@ -416,7 +416,7 @@ class FinanceSummary
             if ($scope !== 'optional') {
                 $rows = DB::table('payment_records as pr')->join('payments as p', 'p.id', '=', 'pr.payment_id')
                     ->where('pr.year', $session)->whereIn('p.term', $terms)
-                    ->select('pr.student_id', 'p.title', 'p.term', 'p.amount', 'pr.discount', DB::raw('coalesce(pr.amt_paid,0) as paid'))->get();
+                    ->select('pr.student_id', 'p.title', 'p.term', DB::raw('coalesce(pr.amount, p.amount) as amount'), 'pr.discount', DB::raw('coalesce(pr.amt_paid,0) as paid'))->get();
                 foreach ($rows as $r) {
                     $billed = \App\Support\Money::r($r->amount) - \App\Support\Money::r($r->discount);
                     $add($r->student_id, ['label' => $r->title.' · Term '.$r->term.' · '.$year, 'billed' => $billed, 'discount' => \App\Support\Money::r($r->discount),

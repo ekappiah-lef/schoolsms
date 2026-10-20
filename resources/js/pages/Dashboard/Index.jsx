@@ -210,15 +210,21 @@ function Pill({ icon: Icon, children, tone = 'default' }) {
 }
 
 function HeroStats({ stats, links, enrolment }) {
-    const girls = (enrolment ?? []).reduce((a, r) => a + r.female, 0);
     const ratio = stats.teachers ? (stats.students / stats.teachers).toFixed(1) : null;
     return (
-        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">
             <HeroCard
                 label="Total students"
                 value={formatNumber(stats.students)}
                 footLeft="Active students"
                 footRight={`${stats.sections} sections`}
+                href={links.students}
+            />
+            <HeroCard
+                label="Male / Female"
+                value={`${formatNumber(stats.male ?? 0)} / ${formatNumber(stats.female ?? 0)}`}
+                footLeft={`${formatNumber(stats.male ?? 0)} male`}
+                footRight={`${formatNumber(stats.female ?? 0)} female`}
                 href={links.students}
             />
             {stats.attendance && (
@@ -235,7 +241,7 @@ function HeroStats({ stats, links, enrolment }) {
                 label="Teaching staff"
                 value={formatNumber(stats.teachers)}
                 footLeft="Faculty ratio"
-                footRight={`${girls} girls`}
+                footRight={ratio ? `1 : ${ratio}` : 'View staff'}
                 href={links.staff ? `${links.staff}?tab=teaching` : links.users}
             />
             <HeroCard

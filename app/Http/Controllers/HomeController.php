@@ -93,6 +93,8 @@ class HomeController extends Controller
 
             $d['stats'] = [
                 'students' => StudentRecord::where('grad', 0)->count(),
+                'male' => StudentRecord::where('grad', 0)->whereHas('user', function ($q) { $q->where('gender', 'Male'); })->count(),
+                'female' => StudentRecord::where('grad', 0)->whereHas('user', function ($q) { $q->where('gender', 'Female'); })->count(),
                 'graduated' => StudentRecord::where('grad', 1)->count(),
                 'teachers' => (int) ($counts['teacher'] ?? 0),
                 'parents' => (int) ($counts['parent'] ?? 0),
@@ -314,7 +316,7 @@ class HomeController extends Controller
             ->join('payments as p', 'p.id', '=', 'pr.payment_id')
             ->where('pr.year', $session)
             ->groupBy('p.title')
-            ->select('p.title', DB::raw('sum(p.amount - pr.discount) as expected'), DB::raw('sum(coalesce(pr.amt_paid, 0)) as collected'))
+            ->select('p.title', DB::raw('sum(coalesce(pr.amount, p.amount) - pr.discount) as expected'), DB::raw('sum(coalesce(pr.amt_paid, 0)) as collected'))
             ->orderBy('p.title')->get()
             ->map(function ($r) use ($row) { return $row($r->title, $r->expected, $r->collected); })->values();
 
@@ -336,7 +338,7 @@ class HomeController extends Controller
             ->groupBy('p.id', 'p.title')
             ->select(
                 'p.title',
-                DB::raw('sum(p.amount - pr.discount) as expected'),
+                DB::raw('sum(coalesce(pr.amount, p.amount) - pr.discount) as expected'),
                 DB::raw('sum(coalesce(pr.amt_paid, 0)) as collected'),
                 DB::raw('count(*) as records'),
                 DB::raw('sum(pr.paid) as cleared')

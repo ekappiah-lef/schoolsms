@@ -124,11 +124,23 @@ class SectionController extends Controller
 
     public function destroy($id)
     {
-        if($this->my_class->isActiveSection($id)){
-            return back()->with('pop_warning', 'Every class must have a default section, You Cannot Delete It');
+        $section = \App\Models\Section::findOrFail($id);
+        if (DB::table('student_records')->where('section_id', $section->id)->exists()) {
+            return back()->with('pop_warning', 'Move the students in this section to another section first.');
         }
-
-        $this->my_class->deleteSection($id);
+        $others = \App\Models\Section::where('my_class_id', $section->my_class_id)->where('id', '!=', $section->id)->orderBy('name');
+        if (!$others->exists()) {
+            return back()->with('pop_warning', 'A class needs at least one section.');
+        }
+        // The class's default section moves to another of its sections.
+        if ($section->active) {
+            $others->first()->update(['active' => 1]);
+        }
+        DB::transaction(function () use ($section) {
+            DB::table('section_teachers')->where('section_id', $section->id)->delete();
+            DB::table('subject_teachers')->where('section_id', $section->id)->delete();
+            $this->my_class->deleteSection($section->id);
+        });
         return back()->with('flash_success', __('msg.del_ok'));
     }
 

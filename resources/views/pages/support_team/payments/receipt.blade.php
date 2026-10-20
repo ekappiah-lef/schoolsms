@@ -83,7 +83,7 @@
                 </tr>
                 <tr>
                     <td class="bold">AMOUNT:</td>
-                    <td>{{ $payment->amount }}</td>
+                    <td>{{ $pr->billAmount() }}</td>
                     <td class="bold">DESCRIPTION:</td>
                     <td>{{ $payment->description }}</td>
                 </tr>

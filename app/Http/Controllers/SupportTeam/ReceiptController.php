@@ -77,7 +77,7 @@ class ReceiptController extends Controller
             if (!$rc || !$rc->pr || !$rc->pr->payment || !$rc->pr->student) return null;
             $pr = $rc->pr;
             $item = $pr->payment->title;
-            $owed = max(\App\Support\Money::r($pr->payment->amount) - \App\Support\Money::r($pr->discount), 0);
+            $owed = max($pr->billAmount() - \App\Support\Money::r($pr->discount), 0);
             $studentId = $pr->student_id;
             $ref = $pr->ref_no;
             $number = 'SF-'.str_pad($rc->id, 6, '0', STR_PAD_LEFT);
