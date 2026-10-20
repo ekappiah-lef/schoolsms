@@ -543,7 +543,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                 </FormField>
                 {mode === 'create' ? (
                     <FormField label="Admission number" error={err('adm_no')} hint="Optional. Leave blank to generate one automatically.">
-                        <Input id="field-adm_no" value={data.adm_no} onChange={(e) => set('adm_no', e.target.value)} placeholder="e.g. 1042" />
+                        <Input id="field-adm_no" value={data.adm_no} onChange={(e) => set('adm_no', e.target.value)} placeholder={options.nextAdmNo ?? 'e.g. 1042'} />
                     </FormField>
                 ) : (
                     <FormField label="Admission number" hint="Set at admission and used as the login ID.">
@@ -659,7 +659,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
         ['Enrolment', 1, [
             ['Class', placement],
             ['Date of admission', data.admission_date ? formatDate(data.admission_date, 'dd/MM/yyyy') : ''],
-            ['Admission number', data.adm_no || 'Generated automatically'],
+            ['Admission number', data.adm_no || options.nextAdmNo || 'Generated automatically'],
             ['Dormitory', data.dorm_id ? `${label(opt.dorms, data.dorm_id)}${data.dorm_room_no ? ` · Room ${data.dorm_room_no}` : ''}` : 'Day student'],
         ]],
         ['Parent / guardian', 2, [

@@ -125,6 +125,13 @@ class StudentRecordController extends Controller
         $data['photo'] = Qs::getDefaultUserImage();
         $adm_no = $req->adm_no;
         $data['username'] = $adm_no ? strtoupper(Qs::getAppCode().'/'.$ct.'/'.$sr['year_admitted'].'/'.$adm_no) : Qs::uniqueUsername(Qs::getAppCode().'/'.$ct.'/'.$sr['year_admitted'].'/', 1000, 99999);
+        // Schools with their own student numbers (e.g. DESVY1163): the number typed in, or the next one.
+        if (self::studentNumberPrefix()) {
+            $data['username'] = $adm_no ? strtoupper($adm_no) : self::nextStudentNumber();
+            if (User::where('username', $data['username'])->exists()) {
+                return response()->json(['message' => 'The given data was invalid.', 'errors' => ['adm_no' => ['This student number is already used.']]], 422);
+            }
+        }
 
         if($req->hasFile('photo')) {
             $photo = $req->file('photo');
@@ -754,7 +761,8 @@ class StudentRecordController extends Controller
             'discounts' => Fees::discountOptions(),
             'clearEnroll' => \App\Support\ClearEnroll::enabled() ? route('clearenroll.search') : null,
             // School fees for this session, so the form can preview what will be billed.
-            'fees' => \App\Models\Payment::where('year', Qs::getCurrentSession())->with('items')->get()->map(function ($p) {
+            'nextAdmNo' => self::nextStudentNumber(),
+            'fees' => \App\Models\Payment::where('year', Qs::getCurrentSession())->where('student_category', '!=', 'opening')->with('items')->get()->map(function ($p) {
                 return [
                     'class_id' => $p->my_class_id,
                     'category' => $p->student_category ?: 'all',
@@ -769,6 +777,24 @@ class StudentRecordController extends Controller
                 'lgas' => route('get_lga', ':id'),
             ],
         ];
+    }
+
+    /** The school's own student-number prefix (school_config student_number_prefix), or null. */
+    public static function studentNumberPrefix(): ?string
+    {
+        $p = \App\Support\SchoolConfig::get('student_number_prefix');
+        return is_string($p) && $p !== '' ? strtoupper($p) : null;
+    }
+
+    /** The prefix followed by one more than the highest number used so far (DESVY1162 -> DESVY1163). */
+    public static function nextStudentNumber(): ?string
+    {
+        $prefix = self::studentNumberPrefix();
+        if (!$prefix) return null;
+        $max = DB::table('student_records')->where('adm_no', 'like', $prefix.'%')->pluck('adm_no')
+            ->map(function ($a) use ($prefix) { $n = substr($a, strlen($prefix)); return ctype_digit($n) ? (int) $n : 0; })->max();
+
+        return $prefix.((int) $max + 1);
     }
 
     /** Admission-form details; names fall back to splitting the stored full name. */
