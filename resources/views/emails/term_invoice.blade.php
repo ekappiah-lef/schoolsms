@@ -20,11 +20,14 @@
                 @endif
                 <tr style="{{ !empty($r['forward']) ? 'color:#b91c1c;' : '' }}">
                     <td style="{{ $cell }}">{{ $r['label'] }}</td>
-                    <td align="right" style="{{ $cell }}">{{ \App\Support\Money::fmt($r['amount']) }}</td>
+                    <td align="right" style="{{ $cell }}">{{ empty($r['credit']) ? \App\Support\Money::fmt($r['amount']) : '' }}</td>
                     <td align="right" style="{{ $cell }}">{{ $r['paid'] ? \App\Support\Money::fmt($r['paid']) : '' }}</td>
-                    <td align="right" style="{{ $cell }}">{{ \App\Support\Money::fmt($r['balance']) }}</td>
+                    <td align="right" style="{{ $cell }}">{{ empty($r['credit']) ? \App\Support\Money::fmt($r['balance']) : 'Credit '.\App\Support\Money::fmt($r['credit']) }}</td>
                 </tr>
             @endforeach
+            @if(($invoice['credit'] ?? 0) > 0)
+                <tr><td colspan="3" style="{{ $cell }}">Credit</td><td align="right" style="{{ $cell }}">GH₵ {{ \App\Support\Money::fmt($invoice['credit']) }}</td></tr>
+            @endif
             <tr><td colspan="3" style="padding:12px;border-top:2px solid #131b2e;font-weight:bold;color:#131b2e;font-size:16px;">Total due</td><td align="right" style="padding:12px;border-top:2px solid #131b2e;font-weight:bold;color:#131b2e;font-size:16px;white-space:nowrap;">GH₵ {{ \App\Support\Money::fmt($invoice['total']) }}</td></tr>
         </table>
         <p style="margin:20px 0;"><a href="{{ $url }}" style="display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:bold;">View and pay online</a></p>

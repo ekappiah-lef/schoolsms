@@ -551,7 +551,7 @@ class Fees
         $records = $records->reject($isLater);
         $line = function ($label, $amount, $paid) {
             // A negative amount is a credit (e.g. brought forward): it lowers what is due.
-            if (Money::r($amount) < 0) return ['label' => $label, 'amount' => Money::r($amount), 'paid' => 0.0, 'balance' => Money::r($amount)];
+            if (Money::r($amount) < 0) return ['label' => 'Credit', 'amount' => 0.0, 'paid' => 0.0, 'balance' => Money::r($amount), 'credit' => Money::r(-$amount)];
             $amount = max(Money::r($amount), 0);
             return ['label' => $label, 'amount' => $amount, 'paid' => Money::r($paid), 'balance' => max($amount - Money::r($paid), 0)];
         };
@@ -620,7 +620,9 @@ class Fees
             'term' => $term,
             'current' => ['lines' => $current, 'amount' => $sum($current, 'amount'), 'paid' => $sum($current, 'paid'), 'balance' => $currentDue],
             'forward' => ['lines' => $forward, 'total' => $forwardDue],
-            'total' => $currentDue + $forwardDue,
+            // What is due never goes below 0; a credit left over is shown on its own.
+            'total' => max(Money::r($currentDue + $forwardDue), 0.0),
+            'credit' => max(Money::r(-($currentDue + $forwardDue)), 0.0),
         ];
     }
 

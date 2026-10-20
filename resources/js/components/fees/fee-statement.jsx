@@ -471,14 +471,22 @@ export function TermInvoice({ invoice, sendUrl }) {
                         )}
                         <tr className={cn('border-b border-border', r.forward && 'text-danger-fg')}>
                             <td className="px-4 py-2">{r.label}</td>
-                            <td className="px-3 py-2 text-right">{formatMoney(r.amount)}</td>
+                            <td className="px-3 py-2 text-right">{r.credit ? '' : formatMoney(r.amount)}</td>
                             <td className="px-3 py-2 text-right text-success-fg">{r.paid ? formatMoney(r.paid) : ''}</td>
-                            <td className={cn('px-4 py-2 text-right', r.balance > 0 ? 'font-medium' : 'text-fg-subtle')}>{formatMoney(r.balance)}</td>
+                            <td className={cn('px-4 py-2 text-right', r.credit ? 'text-success-fg' : r.balance > 0 ? 'font-medium' : 'text-fg-subtle')}>{r.credit ? `Credit ${formatMoney(r.credit)}` : formatMoney(r.balance)}</td>
                         </tr>
                         </Fragment>
                     ))}
                 </tbody>
                 <tfoot>
+                    {invoice.credit > 0 && (
+                        <tr className="border-b border-border">
+                            <td colSpan={3} className="px-4 py-2 font-medium">
+                                Credit
+                            </td>
+                            <td className="px-4 py-2 text-right font-medium text-success-fg">{formatMoney(invoice.credit)}</td>
+                        </tr>
+                    )}
                     <tr className="bg-canvas">
                         <td colSpan={3} className="px-4 py-3 font-semibold">
                             Total due
