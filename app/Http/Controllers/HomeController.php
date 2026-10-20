@@ -314,7 +314,7 @@ class HomeController extends Controller
 
         $byFee = DB::table('payment_records as pr')
             ->join('payments as p', 'p.id', '=', 'pr.payment_id')
-            ->where('pr.year', $session)
+            ->where('pr.year', $session)->whereRaw('coalesce(pr.amount, p.amount) >= 0')
             ->groupBy('p.title')
             ->select('p.title', DB::raw('sum(coalesce(pr.amount, p.amount) - pr.discount) as expected'), DB::raw('sum(coalesce(pr.amt_paid, 0)) as collected'))
             ->orderBy('p.title')->get()
@@ -334,7 +334,7 @@ class HomeController extends Controller
     {
         $items = DB::table('payment_records as pr')
             ->join('payments as p', 'p.id', '=', 'pr.payment_id')
-            ->where('pr.year', $session)
+            ->where('pr.year', $session)->whereRaw('coalesce(pr.amount, p.amount) >= 0')
             ->groupBy('p.id', 'p.title')
             ->select(
                 'p.title',

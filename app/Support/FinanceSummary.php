@@ -81,8 +81,9 @@ class FinanceSummary
     /** School-fee bills of a school year in the given terms: one row per student bill. */
     protected static function schoolLines(string $session, array $terms)
     {
+        // A credit brought forward (negative amount) is not a bill: it is reported on its own (credits()).
         return DB::table('payment_records as pr')->join('payments as p', 'p.id', '=', 'pr.payment_id')
-            ->where('pr.year', $session)->whereIn('p.term', $terms)
+            ->where('pr.year', $session)->whereIn('p.term', $terms)->whereRaw('coalesce(pr.amount, p.amount) >= 0')
             ->select('pr.student_id', 'p.my_class_id', DB::raw('coalesce(pr.amount, p.amount) as amount'), 'pr.discount', DB::raw('coalesce(pr.amt_paid,0) as paid'))->get();
     }
 
@@ -107,8 +108,14 @@ class FinanceSummary
             }
         }
         $billed = $out['school'] + $out['services'] + $out['sales'];
+        $credit = 0;
+        foreach ($sel->periods() as $session => $terms) {
+            $credit += (float) DB::table('payment_records as pr')->join('payments as p', 'p.id', '=', 'pr.payment_id')
+                ->where('pr.year', $session)->whereIn('p.term', $terms)->where('pr.amount', '<', 0)->sum('pr.amount');
+        }
 
         return [
+            'credit' => Money::r(-$credit),
             'students' => count($out['students']), 'gross' => $out['gross'], 'discount' => $out['discount'],
             'school' => $out['school'], 'services' => $out['services'], 'sales' => $out['sales'], 'optional' => $out['services'] + $out['sales'],
             'billed' => $billed, 'paid' => $out['paid'], 'outstanding' => $billed - $out['paid'],

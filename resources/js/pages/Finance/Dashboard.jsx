@@ -78,6 +78,7 @@ export default function FinanceDashboard({ selection, fees, cashflow, invoiced, 
                         onBreakdown={() => (breakdown ? setBreakdown(false) : openBreakdown())}
                         studentsUrl={urls.feeStudents}
                         periodQuery={periodQuery}
+                        credit={invoiced.credit ?? 0}
                     />
                     <ServicesChartCard services={fees.services} />
                 </section>
@@ -201,7 +202,7 @@ function MoneyTip({ active, payload, label }) {
 }
 
 /** Fees: donut (paid / owed / discounts) and paid vs owed per class type. */
-function FeesChartCard({ fees, f, scope, setScope, label, breakdown, onBreakdown, studentsUrl, periodQuery }) {
+function FeesChartCard({ fees, f, scope, setScope, label, breakdown, onBreakdown, studentsUrl, periodQuery, credit = 0 }) {
     const [list, setList] = useState(null);
     const discount = scope === 'optional' ? 0 : fees.school.discount;
     const slices = [
@@ -240,6 +241,7 @@ function FeesChartCard({ fees, f, scope, setScope, label, breakdown, onBreakdown
                 <LegendRow color={C_PAID} label="Paid" value={f.paid} onClick={() => setList('paid')} />
                 <LegendRow color={C_DUE} label="Still owed" value={f.due} tone="danger" onClick={() => setList('owed')} />
                 {scope !== 'optional' && <LegendRow color={C_DISC} label="Discounts given" value={discount} onClick={() => setList('discount')} />}
+                {scope !== 'optional' && credit > 0 && <LegendRow color={C_DISC} label="Credit" value={credit} onClick={() => {}} />}
             </ul>
             <FeeStudents kind={list} scope={scope} onClose={() => setList(null)} url={studentsUrl} periodQuery={periodQuery} periodLabel={label} />
 
