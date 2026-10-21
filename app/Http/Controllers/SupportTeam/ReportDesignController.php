@@ -84,7 +84,7 @@ class ReportDesignController extends Controller
             'my_class' => (object) ['name' => optional($class)->name ?? $ct->name], 'class_type' => $ct,
             'ex' => (object) ['id' => 0, 'term' => 1, 'year' => Qs::getCurrentSession()], 'tex' => 'tex1',
             'subjects' => $subjects, 'marks' => $marks,
-            'exr' => (object) ['total' => $marks->sum('tex1'), 'ave' => round($marks->avg('tex1'), 1), 'class_ave' => 72.4,
+            'exr' => (object) ['total' => $marks->sum('tex1'), 'ave' => round($marks->avg('tex1'), 1), 'class_ave' => 72.4, 'pos' => 3,
                 'af' => $vals(count(optional($groups['af'] ?? null)['items'] ?? [])), 'ps' => $vals(count(optional($groups['ps'] ?? null)['items'] ?? [])),
                 't_comment' => 'A hardworking pupil. Keep it up.', 'p_comment' => 'Good result.'],
             'nextFees' => ['set' => true, 'label' => '2nd Term '.str_replace('-', ' – ', Qs::getCurrentSession()), 'school' => 1750, 'services' => 500, 'owed' => 0, 'total' => 2250],

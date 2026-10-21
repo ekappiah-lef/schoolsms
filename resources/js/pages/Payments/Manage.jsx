@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Head, Link, router } from "@inertiajs/react";
 import { ArrowRight, Download, Search, Send, Wallet } from "lucide-react";
 import { toast } from "sonner";
-import { ConfirmDialog } from "@/components/ui/dialog";
+import { ConfirmDialog, Modal } from "@/components/ui/dialog";
 import { submitForm } from "@/lib/http";
 import { usePaged } from "@/components/app/data-table";
 import { withAppLayout } from "@/layouts/AppLayout";
@@ -99,6 +99,7 @@ export default function PaymentsManage({
                     </span>
                 )}
                 {classId && urls.sendInvoices && <SendClassInvoices url={urls.sendInvoices} className={className} count={students.length} />}
+                {urls.sendAll && <SendAllBills url={urls.sendAll} />}
             </div>
 
             {!classId ? (
@@ -384,6 +385,79 @@ function Figure({ label, value, note, tone }) {
                 {value}
             </div>
         </div>
+    );
+}
+
+/** Bills to every parent in the school, sent a few at a time: this term's, or next term's (at vacation). */
+function SendAllBills({ url }) {
+    const [open, setOpen] = useState(false);
+    const [kind, setKind] = useState('next');
+    const [progress, setProgress] = useState(null);
+    const run = async () => {
+        let offset = 0;
+        const sum = { sent: 0, held: 0, not_set: 0, total: 0 };
+        setProgress({ ...sum, next: 0 });
+        for (;;) {
+            const r = await submitForm(url, { kind, offset });
+            if (!r.ok) {
+                toast.error(r.message);
+                break;
+            }
+            const d = r.data;
+            sum.sent += d.sent;
+            sum.held += d.held;
+            sum.not_set += d.not_set;
+            sum.total = d.total;
+            setProgress({ ...sum, next: d.next });
+            if (d.done) {
+                toast.success(`Bills sent for ${sum.sent} of ${sum.total} students${sum.held ? ` (${sum.held} not sent: demo mode or no contact)` : ''}${sum.not_set ? ` (${sum.not_set}: next term's fees not set up)` : ''}.`);
+                break;
+            }
+            offset = d.next;
+        }
+        setProgress(null);
+        setOpen(false);
+    };
+    const busy = progress !== null;
+    return (
+        <>
+            <Button onClick={() => setOpen(true)}>
+                <Send />
+                Send bills to all parents
+            </Button>
+            <Modal
+                open={open}
+                onOpenChange={(o) => !busy && setOpen(o)}
+                title="Send bills to all parents"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setOpen(false)} disabled={busy}>
+                            Cancel
+                        </Button>
+                        <Button variant="primary" onClick={run} loading={busy}>
+                            Send
+                        </Button>
+                    </>
+                }
+            >
+                <div className="flex flex-col gap-2">
+                    {[
+                        ['next', "Next term's bill"],
+                        ['current', "This term's bill"],
+                    ].map(([v, label]) => (
+                        <label key={v} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
+                            <input type="radio" name="bill-kind" checked={kind === v} onChange={() => setKind(v)} disabled={busy} />
+                            {label}
+                        </label>
+                    ))}
+                    {busy && (
+                        <p className="tabular text-sm text-fg-muted">
+                            {progress.next} / {progress.total || '…'}
+                        </p>
+                    )}
+                </div>
+            </Modal>
+        </>
     );
 }
 

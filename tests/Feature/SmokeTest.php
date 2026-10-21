@@ -45,6 +45,21 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testReportCardPreviewRendersForEveryClassType()
+    {
+        $admin = $this->user('admin');
+        foreach (\Illuminate\Support\Facades\DB::table('class_types')->pluck('id') as $type) {
+            $this->actingAs($admin)->get(route('reports.design.preview', $type))->assertOk()->assertSee('Sample Student');
+        }
+    }
+
+    public function testAnalyticsAndDashboardOpenForAdmins()
+    {
+        foreach (['/analytics', '/dashboard', '/students/create', '/finance/config'] as $url) {
+            $this->actingAs($this->user('admin'))->get($url)->assertOk();
+        }
+    }
+
     public function testAccountantCanOpenFinanceButNotExamSetup()
     {
         $accountant = $this->user('accountant');

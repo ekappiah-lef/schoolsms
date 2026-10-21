@@ -143,11 +143,11 @@ class Notices
     }
 
     /** Email and SMS the current term's invoice (with any balance brought forward) to the parent. */
-    public static function sendInvoice(StudentRecord $sr): array
+    public static function sendInvoice(StudentRecord $sr, ?array $invoice = null): array
     {
         $sr->loadMissing(['user', 'my_parent']);
         $to = self::recipients($sr);
-        $invoice = Fees::termInvoice($sr->user_id);
+        $invoice = $invoice ?: Fees::termInvoice($sr->user_id);
         $url = self::statementUrl($sr->user_id);
         $school = Qs::getSystemName();
         $student = $sr->user->name;

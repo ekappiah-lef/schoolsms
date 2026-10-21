@@ -157,6 +157,7 @@ Route::group(['middleware' => 'auth'], function () {
             Route::post('invoice/{id}/send', 'PaymentController@sendInvoice')->name('payments.send_invoice');
             Route::post('invoice/{id}/momo', '\App\Http\Controllers\MomoController@staffStart')->name('payments.momo');
             Route::post('manage/{class_id}/send-invoices', 'PaymentController@sendClassInvoices')->name('payments.send_class_invoices');
+            Route::post('send-bills', 'PaymentController@sendAllBills')->name('payments.send_all_bills');
         });
 
         /*************** Single payment receipts (view / PDF / send to parent) *****************/

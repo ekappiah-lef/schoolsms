@@ -658,6 +658,26 @@ class Fees
      *   plus everything still unpaid up to and including ($year, $term). set = false when the next
      *   term's school fees are not in Fee setup yet.
      */
+    /**
+     * Next term's bill in the shape of termInvoice() (for sending at vacation): next term's school fees and
+     * services from Fee setup, plus what is still owed. null when next term's fees are not in Fee setup yet.
+     */
+    public static function nextTermBill(StudentRecord $sr): ?array
+    {
+        $year = Qs::getCurrentSession();
+        $n = self::nextTermFees($sr, $year, self::termNow($year));
+        if (!$n['set']) return null;
+        $owed = max(Money::r(self::termInvoice($sr->user_id)['total']), 0.0);
+        $line = function ($label, $amount, $forward = false) { return ['label' => $label, 'amount' => $amount, 'paid' => 0.0, 'balance' => $amount] + ($forward ? ['forward' => true] : []); };
+        $table = [$line('School fees · '.$n['label'], Money::r($n['school']))];
+        if ($n['services'] > 0) $table[] = $line('Services · '.$n['label'], Money::r($n['services']));
+        if ($owed > 0) $table[] = $line('Still owed', $owed, true);
+        $current = Money::r($n['school'] + $n['services']);
+
+        return ['table' => $table, 'label' => $n['label'], 'current' => ['balance' => $current], 'forward' => ['total' => $owed],
+            'total' => Money::r($current + $owed), 'credit' => 0.0];
+    }
+
     public static function nextTermFees(StudentRecord $sr, string $year, int $term): array
     {
         $start = (int) substr($year, 0, 4);

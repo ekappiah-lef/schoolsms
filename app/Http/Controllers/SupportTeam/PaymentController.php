@@ -178,6 +178,27 @@ class PaymentController extends Controller
         return Qs::json("Invoices sent for {$sent} of {$students->count()} students".($held ? " ({$held} not sent: demo mode or no contact)" : '').'.', true);
     }
 
+    /**
+     * Bills to every parent, a few students per request (the page calls it until done):
+     * kind "current" = this term's invoice, "next" = next term's bill (for the week the school vacates).
+     */
+    public function sendAllBills(Request $req)
+    {
+        $kind = $req->input('kind') === 'next' ? 'next' : 'current';
+        $offset = max((int) $req->input('offset'), 0);
+        $all = \App\Models\StudentRecord::where('grad', 0)->orderBy('id');
+        $total = (clone $all)->count();
+        $sent = $held = $notSet = 0;
+        foreach ((clone $all)->skip($offset)->take(15)->get() as $sr) {
+            $bill = $kind === 'next' ? Fees::nextTermBill($sr) : null;
+            if ($kind === 'next' && !$bill) { $notSet++; continue; }
+            collect(Notices::sendInvoice($sr, $bill))->where('status', 'sent')->count() ? $sent++ : $held++;
+        }
+        $next = min($offset + 15, $total);
+
+        return response()->json(['ok' => true, 'sent' => $sent, 'held' => $held, 'not_set' => $notSet, 'next' => $next, 'total' => $total, 'done' => $next >= $total]);
+    }
+
     public function receipts($pr_id)
     {
         if(!$pr_id) {return Qs::goWithDanger();}
@@ -325,7 +346,7 @@ class PaymentController extends Controller
                     return ['id' => $c->id, 'name' => $c->name];
                 })->values(),
                 'students' => $students,
-                'urls' => ['select' => route('payments.select_class'), 'sendInvoices' => $class_id ? route('payments.send_class_invoices', $class_id) : null],
+                'urls' => ['select' => route('payments.select_class'), 'sendInvoices' => $class_id ? route('payments.send_class_invoices', $class_id) : null, 'sendAll' => route('payments.send_all_bills')],
             ];
         }, 'pages.support_team.payments.manage', $d);
     }

@@ -110,6 +110,11 @@ class MarkController extends Controller
             return $this->noStudentRecord();
         }
 
+        // Schools with report_after_fees_cleared: parents and students see results once fees are paid.
+        if (!Qs::userIsTeamSAT() && $this->owedBeforeReport((int) $student_id) > 0) {
+            return redirect()->route('dashboard')->with('pop_error', 'The report is available once the fees are paid.');
+        }
+
         $wh = ['student_id' => $student_id, 'year' => $year ];
         $d['marks'] = $this->exam->getMark($wh);
         $d['exam_records'] = $exr = $this->exam->getRecord($wh);
@@ -201,6 +206,10 @@ class MarkController extends Controller
 
         if(!$this->verifyStudentExamYear($student_id, $year)){
             return $this->noStudentRecord();
+        }
+
+        if (!Qs::userIsTeamSAT() && $this->owedBeforeReport((int) $student_id) > 0) {
+            return redirect()->route('dashboard')->with('pop_error', 'The report is available once the fees are paid.');
         }
 
         // Parents and students see a report only once the HOD has approved every subject's marks.
