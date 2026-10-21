@@ -96,9 +96,9 @@ export default function MarkTools({ tool, year, exams, classes, sections, select
                     </div>
                 </Panel>
 
-                {tool === 'tabulation' && sheet && <ResultCharts sheet={sheet} />}
                 {tool === 'tabulation' && sheet && <Tabulation sheet={sheet} />}
                 {tool === 'tabulation' && sheet && sheet.leaders?.length > 0 && <SubjectLeaders leaders={sheet.leaders} />}
+                {tool === 'tabulation' && sheet && <ResultCharts sheet={sheet} />}
                 {tool === 'sheets' && selected && results && (
                     <>
                         {results.exams.length > 1 && (

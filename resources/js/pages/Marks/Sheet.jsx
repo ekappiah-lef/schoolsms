@@ -67,8 +67,7 @@ function ExamCard({ ex, skills, scoreColumns, canComment, canHeadComment }) {
     const hasSkills = skills.af.length > 0 || skills.ps.length > 0;
     return (
         <Panel
-            title={ex.name}
-            description={`Total ${dash(ex.total)} · Average ${dash(ex.ave)} · Class average ${dash(ex.class_ave)}${ex.pos ? ` · Position ${ordinal(ex.pos)}` : ''}`}
+            title={ex.pos ? `${ex.name} · Position ${ordinal(ex.pos)}` : ex.name}
             flush
             actions={
                 <div className="flex gap-2">

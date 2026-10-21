@@ -84,6 +84,9 @@
             <td colspan="{{ $span }}"><strong>FINAL AVERAGE: </strong> {{ $exr->ave }}</td>
             <td colspan="{{ $cols->count() + 1 - 2 * $span }}"><strong>CLASS AVERAGE: </strong> {{ $exr->class_ave }}</td>
         </tr>
+        @unless(\App\Support\School::has('subject_positions_only'))
+            <tr><td colspan="{{ $cols->count() + 1 }}"><strong>POSITION IN CLASS: </strong> {!! $exr->pos ? Mk::getSuffix($exr->pos) : '-' !!}</td></tr>
+        @endunless
     @endif
     </tbody>
 </table>

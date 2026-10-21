@@ -98,6 +98,7 @@ Route::group(['middleware' => 'auth'], function () {
         });
         Route::get('staff', 'UserController@staff')->name('staff.index');
         Route::get('staff/attendance', 'StaffAttendanceController@index')->name('staff.attendance');
+        Route::get('analytics', 'AnalyticsController@index')->name('analytics');
         Route::get('departments', 'DepartmentController@index')->name('departments.index');
         Route::post('departments', 'DepartmentController@store')->name('departments.store');
         Route::put('departments/{department}', 'DepartmentController@update')->name('departments.update');

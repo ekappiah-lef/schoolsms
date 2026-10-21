@@ -33,6 +33,7 @@ class Navigation
 
         $sections[] = self::section(null, [
             self::item('Dashboard', 'dashboard', 'dashboard', ['dashboard', 'home']),
+            Qs::userIsTeamSA() ? self::item('Analytics', 'chart', 'analytics') : null,
         ]);
 
         /* Academics */
@@ -172,7 +173,7 @@ class Navigation
 
     protected static function section(?string $label, array $items): array
     {
-        return ['label' => $label, 'items' => $items];
+        return ['label' => $label, 'items' => array_values(array_filter($items))];
     }
 
     protected static function group(string $label, string $icon, array $children): array
