@@ -33,7 +33,6 @@ class Navigation
 
         $sections[] = self::section(null, [
             self::item('Dashboard', 'dashboard', 'dashboard', ['dashboard', 'home']),
-            Qs::userIsTeamSA() ? self::item('Analytics', 'chart', 'analytics') : null,
         ]);
 
         /* Academics */
@@ -147,6 +146,7 @@ class Navigation
         /* Administration */
         if (Qs::userIsTeamSA()) {
             $admin = array_filter([
+                self::item('Analytics', 'chart', 'analytics'),
                 Qs::userIsTeamAdmin() ? self::item('Users', 'user-cog', 'users.index', ['users.index', 'users.show', 'users.edit']) : null,
                 // Teaching and non-teaching staff (admins: every staff role; the academic admin: teachers and non-teaching staff).
                 self::item('Staff', 'graduation-cap', 'staff.index', Qs::userIsTeamAdmin() ? ['staff.index'] : ['staff.index', 'users.index', 'users.show', 'users.edit']),
