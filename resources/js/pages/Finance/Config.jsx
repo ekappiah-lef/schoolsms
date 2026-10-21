@@ -25,7 +25,7 @@ const GROUP_HINTS = {
  * Finance configuration: prices for additional services and bus routes, the
  * school-fee breakdowns, and what the admission notices contain.
  */
-export default function FinanceConfig({ session, groups, options, routes, discounts, schoolFees, notices, urls }) {
+export default function FinanceConfig({ session, groups, options, routes, discounts, schoolFees, notices, urls, byLevel = false, classTypes = [], termDays = '' }) {
     const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get('tab') || 'services');
     const [confirm, confirmDialog] = useConfirmAction();
     const reload = (only) => router.reload({ only, preserveScroll: true });
@@ -65,6 +65,7 @@ export default function FinanceConfig({ session, groups, options, routes, discou
                     </TabsList>
 
                     <TabsContent value="services">
+                        {byLevel && <TermDays value={termDays} url={urls.termDays} />}
                         <div className="grid gap-6 lg:grid-cols-3">
                             {groups.map((g) => (
                                 <OptionGroup
@@ -74,12 +75,11 @@ export default function FinanceConfig({ session, groups, options, routes, discou
                                     urls={urls}
                                     confirm={confirm}
                                     onSaved={() => reload(['options'])}
+                                    byLevel={byLevel}
+                                    classTypes={classTypes}
                                 />
                             ))}
                         </div>
-                        <p className="mt-4 text-sm text-fg-muted">
-                            Prices apply to new selections. Students already billed keep the price they were billed at; change a student’s services from their edit page to re-bill.
-                        </p>
                     </TabsContent>
 
                     <TabsContent value="bus">
@@ -108,7 +108,7 @@ FinanceConfig.layout = withAppLayout;
 
 /* ------------------------------------------------------------------ */
 
-function OptionGroup({ group, rows, urls, confirm, onSaved }) {
+function OptionGroup({ group, rows, urls, confirm, onSaved, byLevel = false, classTypes = [] }) {
     const Icon = GROUP_ICONS[group.key];
     const [editing, setEditing] = useState(null);
     const [adding, setAdding] = useState({ name: '', amount: '' });
@@ -122,7 +122,7 @@ function OptionGroup({ group, rows, urls, confirm, onSaved }) {
         setErrors(errs);
         if (Object.keys(errs).length) return false;
         setBusy(true);
-        const payload = { group: group.key, name: values.name.trim(), amount: Number(values.amount), active: values.active === false ? 0 : 1 };
+        const payload = { group: group.key, name: values.name.trim(), amount: Number(values.amount), active: values.active === false ? 0 : 1, ...(byLevel ? { prices: JSON.stringify(values.prices ?? {}) } : {}) };
         const r = row ? await submitForm(urls.option.replace(':id', row.id), payload, { method: 'put' }) : await submitForm(urls.options, payload);
         setBusy(false);
         if (r.ok) {
@@ -151,6 +151,7 @@ function OptionGroup({ group, rows, urls, confirm, onSaved }) {
                     editing?.id === o.id ? (
                         <li key={o.id} className="px-4 py-3">
                             <InlineFields values={editing} onChange={setEditing} errors={errors} />
+                            {byLevel && <LevelPrices classTypes={classTypes} values={editing.prices ?? {}} onChange={(prices) => setEditing({ ...editing, prices })} />}
                             <label className="mt-2 flex items-center gap-2 text-sm">
                                 <Checkbox checked={editing.active} onCheckedChange={(v) => setEditing({ ...editing, active: v === true })} />
                                 Available for new selections
@@ -171,9 +172,14 @@ function OptionGroup({ group, rows, urls, confirm, onSaved }) {
                                 <div className="text-xs text-fg-muted">
                                     {o.students} {o.students === 1 ? 'student' : 'students'} this year{!o.active && ' · inactive'}
                                 </div>
+                                {byLevel && Object.keys(o.prices ?? {}).length > 0 && (
+                                    <div className="text-xs text-fg-muted">
+                                        {classTypes.filter((t) => o.prices[t.id] !== undefined).map((t) => `${t.name} ${formatMoney(o.prices[t.id])}`).join(' · ')}
+                                    </div>
+                                )}
                             </div>
                             <span className="tabular text-sm font-semibold">{formatMoney(o.amount)}</span>
-                            <RowIconButton icon={Pencil} title="Edit" onClick={() => setEditing({ id: o.id, name: o.name, amount: String(o.amount), active: o.active })} />
+                            <RowIconButton icon={Pencil} title="Edit" onClick={() => setEditing({ id: o.id, name: o.name, amount: String(o.amount), active: o.active, prices: { ...(o.prices ?? {}) } })} />
                             <RowIconButton
                                 icon={Trash2}
                                 title="Delete"
@@ -211,6 +217,44 @@ function OptionGroup({ group, rows, urls, confirm, onSaved }) {
                 </div>
             </form>
         </Panel>
+    );
+}
+
+function LevelPrices({ classTypes, values, onChange }) {
+    return (
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {classTypes.map((t) => (
+                <label key={t.id} className="flex flex-col gap-1 text-xs font-medium text-fg-muted">
+                    {t.name}
+                    <Input className="tabular h-9 text-right" type="number" step="0.01" min={0} value={values[t.id] ?? ''} onChange={(e) => onChange({ ...values, [t.id]: e.target.value })} />
+                </label>
+            ))}
+        </div>
+    );
+}
+
+function TermDays({ value, url }) {
+    const [days, setDays] = useState(value ?? '');
+    const [busy, setBusy] = useState(false);
+    return (
+        <div className="mb-6 flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+                School days this term
+                <Input className="tabular h-9 w-32" type="number" min={1} max={200} value={days} onChange={(e) => setDays(e.target.value)} />
+            </label>
+            <Button
+                size="sm"
+                loading={busy}
+                onClick={async () => {
+                    setBusy(true);
+                    const r = await submitForm(url, { term_days: days }, { method: 'put' });
+                    setBusy(false);
+                    r.ok ? toast.success('Saved') : toast.error(r.message);
+                }}
+            >
+                Save
+            </Button>
+        </div>
     );
 }
 

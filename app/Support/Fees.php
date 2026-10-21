@@ -231,15 +231,16 @@ class Fees
      * Input: feeding[] / extracurricular[] / books[] (fee option ids), bus_route_id, bus_direction.
      * Returns the charge rows (group, label, amount, keys) they produce.
      */
-    public static function chargesFromSelection(array $sel): array
+    public static function chargesFromSelection(array $sel, ?int $studentId = null): array
     {
+        $classType = $studentId ? (int) DB::table('student_records as sr')->join('my_classes as c', 'c.id', '=', 'sr.my_class_id')->where('sr.user_id', $studentId)->value('c.class_type_id') : null;
         $ids = collect(['feeding', 'extracurricular'])
             ->flatMap(function ($g) use ($sel) { return (array) ($sel[$g] ?? []); })
             ->filter()->map(function ($v) { return (int) $v; })->unique();
 
         $rows = FeeOption::whereIn('id', $ids)->where('active', true)->orderBy('sort')->orderBy('id')->get()
-            ->map(function (FeeOption $o) {
-                return ['group' => $o->group, 'label' => $o->name, 'amount' => Money::r($o->amount), 'fee_option_id' => $o->id, 'bus_route_id' => null, 'bus_direction' => null];
+            ->map(function (FeeOption $o) use ($classType) {
+                return ['group' => $o->group, 'label' => $o->name, 'amount' => $o->priceFor($classType), 'fee_option_id' => $o->id, 'bus_route_id' => null, 'bus_direction' => null];
             })->all();
 
         $routeId = (int) ($sel['bus_route_id'] ?? 0);
@@ -259,16 +260,38 @@ class Fees
     }
 
     /**
+     * Share of the term's service price still to pay when a service starts today (schools with
+     * service_prices_by_level and the school days of the term set): school days left ÷ school days in
+     * the term, counting Monday–Friday up to Term ends. 1 when not set up or before the term starts.
+     */
+    public static function termShareLeft(): float
+    {
+        $days = (int) Qs::getSetting('term_days');
+        $ends = Qs::getSetting('term_ends');
+        $begins = Qs::getSetting('term_begins');
+        if (!School::has('service_prices_by_level') || $days < 1 || !$ends) return 1.0;
+        try { $end = \Carbon\Carbon::parse($ends)->startOfDay(); $start = $begins ? \Carbon\Carbon::parse($begins)->startOfDay() : null; } catch (\Throwable $e) { return 1.0; }
+        $from = today()->max($start ?: today());
+        if ($from->gt($end)) return 0.0;
+        $left = 0;
+        for ($d = $from->copy(); $d->lte($end); $d->addDay()) if ($d->isWeekday()) $left++;
+
+        return min(1.0, $left / $days);
+    }
+
+    /**
      * Make the student's feeding, bus and extra-curricular charges for this term
      * match the selection (services are billed term by term at that term's price).
      * Unpaid charges that were deselected are removed; charges with payments are
      * kept (they must be reset first) and reported. Earlier terms are not touched.
      * Shop sales are never touched here: they are sold and returned under Sales.
      */
-    public static function syncOptional(int $studentId, string $year, array $sel): array
+    public static function syncOptional(int $studentId, string $year, array $sel, bool $byDays = false): array
     {
         $term = self::termNow($year);
-        $wanted = collect(self::chargesFromSelection($sel));
+        $wanted = collect(self::chargesFromSelection($sel, $studentId));
+        // Started mid-term (admission or a new service): only the school days left are charged.
+        $share = $byDays ? self::termShareLeft() : 1.0;
         $existing = OptionalFeeCharge::where(['student_id' => $studentId, 'year' => $year, 'term' => $term])->where('group', '!=', 'sales')->get();
         $key = function ($r) { return ($r['fee_option_id'] ?? '').'|'.($r['bus_route_id'] ?? '').'|'.($r['bus_direction'] ?? ''); };
 
@@ -288,6 +311,7 @@ class Fees
         $have = $existing->map(function ($c) use ($key) { return $key($c->toArray()); });
         foreach ($wanted as $w) {
             if (!$have->contains($key($w))) {
+                if ($share < 1) $w['amount'] = Money::r($w['amount'] * $share);
                 OptionalFeeCharge::create($w + ['student_id' => $studentId, 'year' => $year, 'term' => $term, 'amt_paid' => 0]);
             }
         }

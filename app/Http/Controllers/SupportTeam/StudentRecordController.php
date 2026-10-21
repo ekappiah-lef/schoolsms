@@ -188,7 +188,7 @@ class StudentRecordController extends Controller
             $record = $this->student->createRecord($sr); // Create Student
 
             StudentDetail::create(['user_id' => $user->id, 'terms_accepted_at' => now()] + $req->only(StudentDetail::FIELDS));
-            Fees::syncOptional($user->id, $year, (array) json_decode((string) $req->services, true));
+            Fees::syncOptional($user->id, $year, (array) json_decode((string) $req->services, true), true);
             Fees::billSchoolFees($record, $year);
 
             return [$record, $parentLogin];
@@ -414,7 +414,7 @@ class StudentRecordController extends Controller
 
             $kept = [];
             if ($req->has('services')) {
-                $kept = Fees::syncOptional($sr->user_id, Qs::getCurrentSession(), (array) json_decode((string) $req->services, true));
+                $kept = Fees::syncOptional($sr->user_id, Qs::getCurrentSession(), (array) json_decode((string) $req->services, true), true);
             }
             if ($discountChanged || $req->has('services')) {
                 \App\Support\ClearEnroll::studentChanged((int) $sr->user_id);

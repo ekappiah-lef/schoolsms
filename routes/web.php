@@ -195,6 +195,7 @@ Route::group(['middleware' => 'auth'], function () {
         Route::group(['prefix' => 'finance'], function(){
             Route::get('config', 'FinanceConfigController@index')->name('finance.config');
             Route::post('options', 'FinanceConfigController@storeOption')->name('finance.options.store');
+            Route::put('term-days', 'FinanceConfigController@termDays')->name('finance.term_days');
             Route::put('options/{fee_option}', 'FinanceConfigController@updateOption')->name('finance.options.update');
             Route::delete('options/{fee_option}', 'FinanceConfigController@destroyOption')->name('finance.options.destroy');
             Route::post('routes', 'FinanceConfigController@storeRoute')->name('finance.routes.store');

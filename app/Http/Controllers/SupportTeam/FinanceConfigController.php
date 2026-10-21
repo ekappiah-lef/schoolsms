@@ -47,12 +47,16 @@ class FinanceConfigController extends Controller
         return Inertia::render('Finance/Config', [
             'session' => $year,
             'groups' => collect(FeeOption::GROUPS)->map(function ($label, $key) { return ['key' => $key, 'label' => $label]; })->values(),
+            'byLevel' => \App\Support\School::has('service_prices_by_level'),
+            'classTypes' => DB::table('class_types')->orderBy('id')->get(['id', 'name'])->map(function ($t) { return ['id' => $t->id, 'name' => $t->name]; })->values(),
+            'termDays' => (string) (Qs::getSetting('term_days') ?: ''),
             'options' => FeeOption::orderBy('group')->orderBy('sort')->orderBy('id')->get()->map(function ($o) use ($optionUse) {
                 return [
                     'id' => $o->id,
                     'group' => $o->group,
                     'name' => $o->name,
                     'amount' => \App\Support\Money::r($o->amount),
+                    'prices' => DB::table('fee_option_prices')->where('fee_option_id', $o->id)->pluck('amount', 'class_type_id')->map(function ($a) { return (string) \App\Support\Money::r($a); }),
                     'active' => $o->active,
                     'students' => (int) ($optionUse[$o->id] ?? 0),
                 ];
@@ -96,6 +100,7 @@ class FinanceConfigController extends Controller
             ],
             'urls' => [
                 'options' => route('finance.options.store'),
+                'termDays' => route('finance.term_days'),
                 'option' => route('finance.options.update', ':id'),
                 'routes' => route('finance.routes.store'),
                 'route' => route('finance.routes.update', ':id'),
@@ -112,7 +117,8 @@ class FinanceConfigController extends Controller
     {
         $d = $this->validateOption($req);
         $d['sort'] = (int) FeeOption::where('group', $d['group'])->max('sort') + 1;
-        FeeOption::create($d);
+        $o = FeeOption::create($d);
+        $this->savePrices($o->id, $req);
 
         return Qs::jsonStoreOk();
     }
@@ -120,8 +126,29 @@ class FinanceConfigController extends Controller
     public function updateOption(Request $req, $fee_option)
     {
         FeeOption::findOrFail($fee_option)->update($this->validateOption($req));
+        $this->savePrices((int) $fee_option, $req);
 
         return Qs::jsonUpdateOk();
+    }
+
+    /** Prices per class type, sent as JSON {class_type_id: amount}; an empty amount uses the service's own price. */
+    protected function savePrices(int $optionId, Request $req): void
+    {
+        if (!\App\Support\School::has('service_prices_by_level') || !$req->has('prices')) return;
+        DB::table('fee_option_prices')->where('fee_option_id', $optionId)->delete();
+        foreach ((array) json_decode((string) $req->input('prices'), true) as $type => $amount) {
+            if ($amount === '' || $amount === null || !is_numeric($amount) || $amount < 0) continue;
+            DB::table('fee_option_prices')->insert(['fee_option_id' => $optionId, 'class_type_id' => (int) $type, 'amount' => \App\Support\Money::r($amount), 'created_at' => now(), 'updated_at' => now()]);
+        }
+    }
+
+    /** School days in the current term (charging services by the days left). */
+    public function termDays(Request $req)
+    {
+        $d = $req->validate(['term_days' => 'nullable|integer|min:1|max:200'], [], ['term_days' => 'school days']);
+        DB::table('settings')->updateOrInsert(['type' => 'term_days'], ['description' => (string) ($d['term_days'] ?? '')]);
+
+        return Qs::json('Saved.', true);
     }
 
     public function destroyOption($fee_option)
