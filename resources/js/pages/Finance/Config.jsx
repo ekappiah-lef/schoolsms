@@ -122,7 +122,7 @@ function OptionGroup({ group, rows, urls, confirm, onSaved, byLevel = false, cla
         setErrors(errs);
         if (Object.keys(errs).length) return false;
         setBusy(true);
-        const payload = { group: group.key, name: values.name.trim(), amount: Number(values.amount), active: values.active === false ? 0 : 1, ...(byLevel ? { prices: JSON.stringify(values.prices ?? {}) } : {}) };
+        const payload = { group: group.key, name: values.name.trim(), amount: Number(values.amount), active: values.active === false ? 0 : 1 };
         const r = row ? await submitForm(urls.option.replace(':id', row.id), payload, { method: 'put' }) : await submitForm(urls.options, payload);
         setBusy(false);
         if (r.ok) {
@@ -151,7 +151,6 @@ function OptionGroup({ group, rows, urls, confirm, onSaved, byLevel = false, cla
                     editing?.id === o.id ? (
                         <li key={o.id} className="px-4 py-3">
                             <InlineFields values={editing} onChange={setEditing} errors={errors} />
-                            {byLevel && <LevelPrices classTypes={classTypes} values={editing.prices ?? {}} onChange={(prices) => setEditing({ ...editing, prices })} />}
                             <label className="mt-2 flex items-center gap-2 text-sm">
                                 <Checkbox checked={editing.active} onCheckedChange={(v) => setEditing({ ...editing, active: v === true })} />
                                 Available for new selections
@@ -172,11 +171,6 @@ function OptionGroup({ group, rows, urls, confirm, onSaved, byLevel = false, cla
                                 <div className="text-xs text-fg-muted">
                                     {o.students} {o.students === 1 ? 'student' : 'students'} this year{!o.active && ' · inactive'}
                                 </div>
-                                {byLevel && Object.keys(o.prices ?? {}).length > 0 && (
-                                    <div className="text-xs text-fg-muted">
-                                        {classTypes.filter((t) => o.prices[t.id] !== undefined).map((t) => `${t.name} ${formatMoney(o.prices[t.id])}`).join(' · ')}
-                                    </div>
-                                )}
                             </div>
                             <span className="tabular text-sm font-semibold">{formatMoney(o.amount)}</span>
                             <RowIconButton icon={Pencil} title="Edit" onClick={() => setEditing({ id: o.id, name: o.name, amount: String(o.amount), active: o.active, prices: { ...(o.prices ?? {}) } })} />
@@ -217,19 +211,6 @@ function OptionGroup({ group, rows, urls, confirm, onSaved, byLevel = false, cla
                 </div>
             </form>
         </Panel>
-    );
-}
-
-function LevelPrices({ classTypes, values, onChange }) {
-    return (
-        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {classTypes.map((t) => (
-                <label key={t.id} className="flex flex-col gap-1 text-xs font-medium text-fg-muted">
-                    {t.name}
-                    <Input className="tabular h-9 text-right" type="number" step="0.01" min={0} value={values[t.id] ?? ''} onChange={(e) => onChange({ ...values, [t.id]: e.target.value })} />
-                </label>
-            ))}
-        </div>
     );
 }
 
