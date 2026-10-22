@@ -22,6 +22,33 @@ class ServiceRosterController extends Controller
         $this->middleware('teamAccount');
     }
 
+    /** Admins: give a service to the chosen students for this term (charged by the days left where the school uses that). */
+    public function add(Request $req, $group)
+    {
+        if (!Qs::userIsTeamAdmin() || $group === 'sales') abort(403);
+        $year = Qs::getCurrentSession();
+        $ids = collect(explode(',', (string) $req->input('students')))->map(function ($h) { return (int) Qs::decodeHash(trim($h)); })->filter()->unique();
+        if ($ids->isEmpty()) return Qs::json('Choose at least one student.', false);
+        if ($group === 'bus') {
+            $route = BusRoute::where('active', true)->find((int) $req->input('route'));
+            if (!$route || !isset(BusRoute::DIRECTIONS[$req->input('direction')])) return Qs::json('Choose the route and direction.', false);
+        } elseif (!DB::table('fee_options')->where(['id' => (int) $req->input('option'), 'group' => $group, 'active' => 1])->exists()) {
+            return Qs::json('Choose the service.', false);
+        }
+        $added = 0;
+        foreach ($ids as $sid) {
+            if (!DB::table('student_records')->where(['user_id' => $sid, 'grad' => 0])->exists()) continue;
+            $sel = \App\Support\Fees::selectionFor($sid, $year);
+            if ($group === 'bus') { $sel['bus_route_id'] = $route->id; $sel['bus_direction'] = $req->input('direction'); }
+            else { $sel[$group] = array_values(array_unique(array_merge((array) ($sel[$group] ?? []), [(int) $req->input('option')]))); }
+            $before = OptionalFeeCharge::where(['student_id' => $sid, 'year' => $year])->count();
+            \App\Support\Fees::syncOptional($sid, $year, $sel, true);
+            if (OptionalFeeCharge::where(['student_id' => $sid, 'year' => $year])->count() > $before) $added++;
+        }
+
+        return Qs::json($added ? "Added for {$added} student".($added === 1 ? '' : 's').'.' : 'They already have it this term.', true);
+    }
+
     public function show(Request $req, $group)
     {
         $years = OptionalFeeCharge::where('group', $group)->distinct()->orderByDesc('year')->pluck('year');
@@ -98,7 +125,12 @@ class ServiceRosterController extends Controller
             'routes' => $group === 'bus' ? $routes : [],
             'directions' => collect(BusRoute::DIRECTIONS)->map(function ($label, $value) { return compact('value', 'label'); })->values(),
             'classes' => ClassOrder::sort(DB::table('my_classes')->select('id', 'name', 'class_type_id')->get())->map(function ($c) { return ['value' => $c->id, 'label' => $c->name]; })->values(),
-            'urls' => ['self' => route('finance.services', $group), 'config' => route('finance.config')],
+            'urls' => ['self' => route('finance.services', $group), 'config' => route('finance.config'),
+                'add' => $group !== 'sales' && Qs::userIsTeamAdmin() ? route('finance.services.add', $group) : null],
+            'pupils' => $group !== 'sales' && Qs::userIsTeamAdmin() && $year === $current
+                ? DB::table('student_records as sr')->join('users as u', 'u.id', '=', 'sr.user_id')->where('sr.grad', 0)->orderBy('u.name')
+                    ->get(['sr.user_id', 'u.name', 'sr.my_class_id'])->map(function ($s) { return ['id' => Qs::hash($s->user_id), 'name' => $s->name, 'class' => (int) $s->my_class_id]; })->values()
+                : [],
         ]);
     }
 }

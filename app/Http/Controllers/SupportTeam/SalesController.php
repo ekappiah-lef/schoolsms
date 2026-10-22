@@ -74,7 +74,7 @@ class SalesController extends Controller
                     'label' => $c->label, 'qty' => (int) $c->qty, 'amount' => \App\Support\Money::r($c->amount), 'paid' => \App\Support\Money::r($c->amt_paid),
                     'balance' => $c->balance, 'handed_down' => (bool) $c->handed_down_from,
                     'invoice_url' => route('payments.invoice', Qs::hash($c->student_id)),
-                    'return_url' => \App\Support\Money::r($c->amt_paid) <= 0 ? route('finance.sales.return', Qs::hash($c->id)) : null,
+                    'return_url' => \App\Support\Money::r($c->amt_paid) <= 0 && Qs::userIsSuperAdmin() ? route('finance.sales.return', Qs::hash($c->id)) : null,
                 ];
             })->values(),
             'movements' => StockMovement::with(['item', 'user'])->orderByDesc('date')->orderByDesc('id')->limit(100)->get()->map(function ($m) {
@@ -193,6 +193,9 @@ class SalesController extends Controller
     public function returnSale($id)
     {
         $c = OptionalFeeCharge::where('group', 'sales')->findOrFail($id);
+        if (!Qs::userIsSuperAdmin()) {
+            return back()->with('flash_danger', 'Only the super admin can return a sale.');
+        }
         if (\App\Support\Money::r($c->amt_paid) > 0) {
             return back()->with('flash_danger', 'This sale has payments. Reset the payment on the student\'s payments page first.');
         }

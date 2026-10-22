@@ -301,11 +301,14 @@ class Fees
             if ($wanted->contains(function ($w) use ($key, $k) { return $key($w) === $k; })) {
                 continue;
             }
-            if (Money::r($c->amt_paid) > 0) {
-                $kept[] = $c->label;
+            // A billed service stays billed: it is marked stopped (not carried into next term).
+            // Only the super admin can take an unpaid charge off completely.
+            if (Money::r($c->amt_paid) <= 0 && Qs::userIsSuperAdmin()) {
+                $c->delete();
                 continue;
             }
-            $c->delete();
+            if (!$c->stopped) $c->update(['stopped' => true]);
+            $kept[] = $c->label;
         }
 
         $have = $existing->map(function ($c) use ($key) { return $key($c->toArray()); });
@@ -367,6 +370,7 @@ class Fees
     /** A set of service charges as a form selection. */
     public static function selectionOf(Collection $charges): array
     {
+        $charges = $charges->reject(function ($c) { return !empty($c->stopped); });
         $bus = $charges->firstWhere('group', 'bus');
         $ids = function ($g) use ($charges) {
             return $charges->where('group', $g)->pluck('fee_option_id')->filter()->map(function ($v) { return (int) $v; })->values()->all();
@@ -449,7 +453,7 @@ class Fees
                 })->values(),
                 'urls' => $withUrls ? [
                     'pay' => route('payments.pay_now', Qs::hash($pr->id)),
-                    'reset' => Qs::userIsTeamAdmin() ? route('payments.reset_record', Qs::hash($pr->id)) : null,
+                    'reset' => Qs::userIsSuperAdmin() ? route('payments.reset_record', Qs::hash($pr->id)) : null,
                     'receipt' => route('payments.receipts', Qs::hash($pr->id)),
                 ] : null,
             ];
@@ -477,7 +481,7 @@ class Fees
                 })->values(),
                 'urls' => $withUrls ? [
                     'pay' => route('optional_fees.pay', Qs::hash($c->id)),
-                    'reset' => Qs::userIsTeamAdmin() ? route('optional_fees.reset', Qs::hash($c->id)) : null,
+                    'reset' => Qs::userIsSuperAdmin() ? route('optional_fees.reset', Qs::hash($c->id)) : null,
                 ] : null,
             ];
         })->values();

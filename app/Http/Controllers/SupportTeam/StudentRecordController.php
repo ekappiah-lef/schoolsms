@@ -420,7 +420,7 @@ class StudentRecordController extends Controller
                 \App\Support\ClearEnroll::studentChanged((int) $sr->user_id);
             }
             if ($kept) {
-                return Qs::json(rtrim(__('msg.update_ok'), '.').'. Kept because payments were recorded: '.implode(', ', $kept).'. Reset those payments first to remove them.');
+                return Qs::json(rtrim(__('msg.update_ok'), '.').'. Stopped from next term (this term stays billed): '.implode(', ', $kept).'.');
             }
         }
 

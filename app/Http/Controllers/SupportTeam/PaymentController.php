@@ -504,6 +504,9 @@ class PaymentController extends Controller
 
     public function destroy($id)
     {
+        if (!Qs::userIsSuperAdmin() && \App\Models\PaymentRecord::where('payment_id', $id)->exists()) {
+            return back()->with('flash_danger', 'Students have been billed this fee: only the super admin can delete it.');
+        }
         $this->pay->find($id)->delete();
 
         return Qs::deleteOk('payments.index');
@@ -515,8 +518,8 @@ class PaymentController extends Controller
      */
     public function reset_record(Request $req, $id)
     {
-        if (!Qs::userIsTeamAdmin()) {
-            return Qs::json('Only an administrator can reverse payments.', false);
+        if (!Qs::userIsSuperAdmin()) {
+            return Qs::json('Only the super admin can reverse payments.', false);
         }
         $reason = trim((string) $req->input('reason'));
         if (mb_strlen($reason) < 5) {

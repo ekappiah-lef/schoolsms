@@ -45,8 +45,8 @@ class OptionalFeeController extends Controller
     /** Reverse every payment on a charge (administrators only, with a reason); receipts go to the audit trail. */
     public function reset(Request $req, $id)
     {
-        if (!Qs::userIsTeamAdmin()) {
-            return Qs::json('Only an administrator can reverse payments.', false);
+        if (!Qs::userIsSuperAdmin()) {
+            return Qs::json('Only the super admin can reverse payments.', false);
         }
         $reason = trim((string) $req->input('reason'));
         if (mb_strlen($reason) < 5) {

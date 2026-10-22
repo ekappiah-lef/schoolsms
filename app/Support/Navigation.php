@@ -160,6 +160,7 @@ class Navigation
             ]);
 
             if (Qs::userIsSuperAdmin()) {
+                $admin[] = self::item('Activity log', 'scroll-text', 'activity_log');
                 $admin[] = self::item('Settings', 'settings', 'settings');
             }
 

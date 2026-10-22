@@ -60,6 +60,12 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testOnlyTheSuperAdminOpensTheActivityLog()
+    {
+        $this->actingAs($this->user('super_admin'))->get('/activity-log')->assertOk();
+        $this->assertNotEquals(200, $this->actingAs($this->user('admin'))->get('/activity-log')->getStatusCode());
+    }
+
     public function testAccountantCanOpenFinanceButNotExamSetup()
     {
         $accountant = $this->user('accountant');

@@ -72,8 +72,8 @@ class FinanceTransactionController extends Controller
     public function destroy($id)
     {
         // Entries stay on record: only an admin or super admin may delete one (not accountants).
-        if (!Qs::userIsTeamAdmin()) {
-            return back()->with('flash_danger', 'Only an administrator can delete income or expense entries.');
+        if (!Qs::userIsSuperAdmin()) {
+            return back()->with('flash_danger', 'Only the super admin can delete income or expense entries.');
         }
         $t = FinanceTransaction::findOrFail($id);
         FinanceLog::add('delete_entry', 'finance_transaction', $t->id, ['amount' => \App\Support\Money::r($t->amount),
@@ -129,7 +129,7 @@ class FinanceTransactionController extends Controller
                     'reference' => $t->reference,
                     'description' => $t->description,
                     'by' => optional($t->recorder)->name,
-                    'urls' => array_filter(['edit' => route('finance.transactions.edit', $hash), 'destroy' => Qs::userIsTeamAdmin() ? route('finance.transactions.destroy', $hash) : null]),
+                    'urls' => array_filter(['edit' => route('finance.transactions.edit', $hash), 'destroy' => Qs::userIsSuperAdmin() ? route('finance.transactions.destroy', $hash) : null]),
                 ];
             })->values(),
             'editing' => $editing,

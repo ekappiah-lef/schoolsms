@@ -19,6 +19,10 @@ import { SearchInput, usePaged } from "@/components/app/data-table";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Modal } from "@/components/ui/dialog";
+import { submitForm } from "@/lib/http";
+import { toast } from "sonner";
 import { Select } from "@/components/ui/select";
 import { Segmented } from "@/components/ui/tabs";
 import { downloadCsv } from "@/lib/use-visit-state";
@@ -47,6 +51,7 @@ export default function ServiceRoster({
     directions,
     classes,
     urls,
+    pupils = [],
 }) {
     const isBus = group === "bus";
     const [q, setQ] = useState("");
@@ -174,6 +179,7 @@ export default function ServiceRoster({
                                     }))}
                                 />
                             )}
+                            {urls.add && <AddToService url={urls.add} group={group} label={label} options={options} routes={routes} directions={directions} classes={classes} pupils={pupils} />}
                         </div>
                     }
                 />
@@ -561,5 +567,79 @@ function Card({ label, value, tone }) {
                 {value}
             </span>
         </div>
+    );
+}
+
+/** Admins: give this service to chosen students (pick a class, tick the students). */
+function AddToService({ url, group, label, options, routes, directions, classes, pupils }) {
+    const [open, setOpen] = useState(false);
+    const [cls, setCls] = useState("");
+    const [picked, setPicked] = useState([]);
+    const [option, setOption] = useState("");
+    const [route, setRoute] = useState("");
+    const [direction, setDirection] = useState("both");
+    const [busy, setBusy] = useState(false);
+    const isBus = group === "bus";
+    const list = pupils.filter((p) => String(p.class) === String(cls));
+    const toggle = (id) => setPicked((x) => (x.includes(id) ? x.filter((y) => y !== id) : [...x, id]));
+    const save = async () => {
+        setBusy(true);
+        const r = await submitForm(url, { students: picked.join(","), option, route, direction });
+        setBusy(false);
+        if (!r.ok) return toast.error(r.message);
+        toast.success(r.message);
+        setOpen(false);
+        setPicked([]);
+        router.reload({ preserveScroll: true });
+        return undefined;
+    };
+    return (
+        <>
+            <Button size="sm" variant="primary" onClick={() => setOpen(true)}>
+                Add students
+            </Button>
+            <Modal
+                open={open}
+                onOpenChange={(o) => !busy && setOpen(o)}
+                title={`Add to ${label}`}
+                className="max-w-xl"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setOpen(false)} disabled={busy}>
+                            Cancel
+                        </Button>
+                        <Button variant="primary" onClick={save} loading={busy} disabled={!picked.length || (isBus ? !route : !option)}>
+                            Add {picked.length || ""}
+                        </Button>
+                    </>
+                }
+            >
+                <div className="flex flex-col gap-3">
+                    {isBus ? (
+                        <div className="grid grid-cols-2 gap-2">
+                            <Select value={route} onChange={setRoute} options={routes.map((r) => ({ value: String(r.value), label: r.label }))} placeholder="Route" />
+                            <Select value={direction} onChange={setDirection} options={directions} />
+                        </div>
+                    ) : (
+                        <Select value={option} onChange={setOption} options={options.map((o) => ({ value: String(o.value), label: o.label }))} placeholder="Service" />
+                    )}
+                    <Select value={cls} onChange={(v) => { setCls(v); setPicked([]); }} options={classes.map((c) => ({ value: String(c.value), label: c.label }))} placeholder="Class" />
+                    {cls && (
+                        <div className="max-h-72 overflow-y-auto rounded-lg border border-border p-2">
+                            <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium hover:bg-muted">
+                                <Checkbox checked={list.length > 0 && picked.length === list.length} onCheckedChange={(v) => setPicked(v ? list.map((p) => p.id) : [])} />
+                                All
+                            </label>
+                            {list.map((p) => (
+                                <label key={p.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
+                                    <Checkbox checked={picked.includes(p.id)} onCheckedChange={() => toggle(p.id)} />
+                                    {p.name}
+                                </label>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </Modal>
+        </>
     );
 }

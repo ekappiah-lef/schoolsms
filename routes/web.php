@@ -99,6 +99,7 @@ Route::group(['middleware' => 'auth'], function () {
         Route::get('staff', 'UserController@staff')->name('staff.index');
         Route::get('staff/attendance', 'StaffAttendanceController@index')->name('staff.attendance');
         Route::get('analytics', 'AnalyticsController@index')->name('analytics');
+        Route::get('activity-log', 'ActivityLogController@index')->name('activity_log');
         Route::get('departments', 'DepartmentController@index')->name('departments.index');
         Route::post('departments', 'DepartmentController@store')->name('departments.store');
         Route::put('departments/{department}', 'DepartmentController@update')->name('departments.update');
@@ -187,6 +188,7 @@ Route::group(['middleware' => 'auth'], function () {
         Route::put('finance/transactions/{id}', 'FinanceTransactionController@update')->name('finance.transactions.update');
         Route::delete('finance/transactions/{id}', 'FinanceTransactionController@destroy')->name('finance.transactions.destroy');
         Route::get('finance/services/{group}', 'ServiceRosterController@show')->where('group', 'feeding|bus|extracurricular|sales')->name('finance.services');
+        Route::post('finance/services/{group}/add', 'ServiceRosterController@add')->where('group', 'feeding|bus|extracurricular')->name('finance.services.add');
 
         /*************** Optional fees (feeding, bus, extra-curricular, books) *****************/
         Route::post('optional_fees/pay/{id}', 'OptionalFeeController@pay')->name('optional_fees.pay');
