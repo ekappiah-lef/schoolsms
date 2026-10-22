@@ -31,7 +31,7 @@ class ActivityLogController extends Controller
                 ->map(function ($u) { return ['value' => (string) $u->user_id, 'label' => $u->user_name]; })->values(),
             'rows' => collect($page->items())->map(function ($r) {
                 return ['id' => $r->id, 'at' => $r->created_at, 'user' => $r->user_name, 'role' => $r->role ? ucwords(str_replace('_', ' ', $r->role)) : null,
-                    'action' => $r->action, 'details' => $r->details, 'status' => $r->status, 'ip' => $r->ip];
+                    'action' => $r->action, 'details' => \App\Support\ActivityLog::readable($r->route, $r->details), 'status' => $r->status];
             }),
             'meta' => ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'total' => $page->total(), 'from' => $page->firstItem(), 'to' => $page->lastItem(), 'per_page' => 50],
             'urls' => ['self' => route('activity_log')],

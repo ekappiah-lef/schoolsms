@@ -15,7 +15,8 @@ class LogActivity
         $user = Auth::user();
         $response = $next($request);
         if (!in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true) && ($user = $user ?: Auth::user())
-            && !in_array(optional($request->route())->getName(), ['login', 'logout'], true)) {
+            && !in_array(optional($request->route())->getName(), ['login', 'logout'], true)
+            && !preg_match('/(^|\.|_)(select|selector|preview|search|verify)(_|$)/', (string) optional($request->route())->getName())) {
             // Refused or failed (an error status, or {"ok": false}): logged as not done, with the reason.
             $details = ActivityLog::inputOf($request);
             $action = ActivityLog::describe($request);

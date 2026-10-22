@@ -12,7 +12,6 @@ import { formatDate } from '@/lib/utils';
 /** Who did what and when (super admin). */
 export default function ActivityLog({ filters, users, rows, meta, urls }) {
     const [search, setSearch] = useState(filters.search ?? '');
-    const [open, setOpen] = useState(null);
     const go = (change) => router.get(urls.self, { ...filters, page: undefined, ...change }, { preserveScroll: true, preserveState: true });
 
     return (
@@ -55,8 +54,7 @@ export default function ActivityLog({ filters, users, rows, meta, urls }) {
                                         <th className="h-9 px-4">When</th>
                                         <th className="h-9 px-3">Who</th>
                                         <th className="h-9 px-3">Action</th>
-                                        <th className="h-9 px-3">Details</th>
-                                        <th className="h-9 px-4">IP</th>
+                                        <th className="h-9 px-4">Details</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -71,14 +69,7 @@ export default function ActivityLog({ filters, users, rows, meta, urls }) {
                                                 {r.action}
                                                 {r.status >= 400 && <span className="ml-1.5 text-xs text-danger-fg">({r.status})</span>}
                                             </td>
-                                            <td className="max-w-md px-3 py-2.5">
-                                                {r.details && (
-                                                    <button type="button" onClick={() => setOpen(open === r.id ? null : r.id)} className={open === r.id ? 'whitespace-pre-wrap break-all text-left font-mono text-xs' : 'block max-w-md truncate text-left font-mono text-xs text-fg-muted'}>
-                                                        {r.details}
-                                                    </button>
-                                                )}
-                                            </td>
-                                            <td className="tabular px-4 py-2.5 text-xs text-fg-muted">{r.ip}</td>
+                                            <td className="max-w-xl px-4 py-2.5 text-fg-muted">{r.details}</td>
                                         </tr>
                                     ))}
                                 </tbody>
