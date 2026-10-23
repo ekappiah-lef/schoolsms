@@ -679,7 +679,7 @@ class Fees
         $current = Money::r($n['school'] + $n['services']);
 
         return ['table' => $table, 'label' => $n['label'], 'current' => ['balance' => $current], 'forward' => ['total' => $owed],
-            'total' => Money::r($current + $owed), 'credit' => 0.0];
+            'total' => Money::r($current + $owed), 'credit' => 0.0, 'next' => true];
     }
 
     public static function nextTermFees(StudentRecord $sr, string $year, int $term): array
