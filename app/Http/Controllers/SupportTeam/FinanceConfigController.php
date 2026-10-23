@@ -56,6 +56,7 @@ class FinanceConfigController extends Controller
                     'group' => $o->group,
                     'name' => $o->name,
                     'amount' => \App\Support\Money::r($o->amount),
+                    'levels' => array_map('intval', (array) $o->class_type_ids),
                     'prices' => DB::table('fee_option_prices')->where('fee_option_id', $o->id)->pluck('amount', 'class_type_id')->map(function ($a) { return (string) \App\Support\Money::r($a); }),
                     'active' => $o->active,
                     'students' => (int) ($optionUse[$o->id] ?? 0),
@@ -270,8 +271,12 @@ class FinanceConfigController extends Controller
             'name' => 'required|string|max:100',
             'amount' => 'required|'.Money::rule().'|min:0',
             'active' => 'nullable|boolean',
+            'levels' => 'nullable|string|max:200',
         ], [], ['group' => 'Service type', 'amount' => 'Price']);
         $d['active'] = $req->boolean('active', true);
+        $levels = array_filter(array_map('intval', explode(',', (string) ($d['levels'] ?? ''))));
+        $d['class_type_ids'] = DB::table('class_types')->whereIn('id', $levels)->orderBy('id')->pluck('id')->map(function ($v) { return (int) $v; })->all() ?: null;
+        unset($d['levels']);
 
         return $d;
     }

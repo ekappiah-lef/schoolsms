@@ -394,7 +394,7 @@ class Fees
                 'key' => $g,
                 'label' => $label,
                 'options' => $options->where('group', $g)->map(function ($o) {
-                    return ['id' => $o->id, 'name' => $o->name, 'amount' => Money::r($o->amount)];
+                    return ['id' => $o->id, 'name' => $o->name, 'amount' => Money::r($o->amount), 'levels' => array_map('intval', (array) $o->class_type_ids)];
                 })->values(),
             ];
         })->values();
@@ -412,6 +412,8 @@ class Fees
                 return ['id' => $r->id, 'name' => $r->name, 'both' => Money::r($r->amount_both), 'one_way' => Money::r($r->amount_one_way)];
             })->values(),
             'directions' => collect(BusRoute::DIRECTIONS)->map(function ($label, $k) { return ['value' => $k, 'label' => $label]; })->values(),
+            // Each class's level, so the form shows only the services offered to it.
+            'classLevels' => DB::table('my_classes')->pluck('class_type_id', 'id'),
         ];
     }
 

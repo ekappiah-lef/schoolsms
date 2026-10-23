@@ -34,9 +34,14 @@ export const servicesTotal = (catalogue, value) => selectedServiceLines(catalogu
  * Additional services on the admission/edit form: feeding, bus, extra-curricular
  * and books. Every choice is optional; prices come from Finance configuration.
  */
-export function ServicesPicker({ catalogue, value, onChange, mode = 'create' }) {
+export function ServicesPicker({ catalogue, value, onChange, mode = 'create', classId }) {
+    // Only the services offered to the class's level (plus anything already chosen).
+    const level = classId ? Number(catalogue?.classLevels?.[classId] ?? 0) : 0;
+    const offered = (g, o) => !level || !o.levels?.length || o.levels.includes(level) || (value[g.key] ?? []).map(Number).includes(o.id);
     // Shop items are sold at admission; afterwards they are sold and returned under Sales & inventory.
-    const groups = (catalogue?.groups ?? []).filter((g) => mode === 'create' || g.key !== 'sales');
+    const groups = (catalogue?.groups ?? [])
+        .filter((g) => mode === 'create' || g.key !== 'sales')
+        .map((g) => ({ ...g, options: g.options.filter((o) => offered(g, o)) }));
     const routes = catalogue?.routes ?? [];
     const toggle = (key, id, on) => {
         const list = (value[key] ?? []).map(Number).filter((v) => v !== id);
@@ -53,7 +58,7 @@ export function ServicesPicker({ catalogue, value, onChange, mode = 'create' }) 
                 {g.options.length === 0 ? (
                     <Empty>Nothing configured yet.</Empty>
                 ) : (
-                    <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                         {g.options.map((o) => {
                             const on = (value[g.key] ?? []).map(Number).includes(o.id);
                             return (
@@ -65,11 +70,11 @@ export function ServicesPicker({ catalogue, value, onChange, mode = 'create' }) 
                                     )}
                                 >
                                     <Checkbox checked={on} onCheckedChange={(v) => toggle(g.key, o.id, v === true)} />
-                                    <span className="min-w-0 flex-1 truncate font-medium">
+                                    <span className="min-w-0 flex-1 font-medium leading-snug">
                                         {o.name}
                                         {o.stock !== undefined && <span className="ml-1 text-xs font-normal text-fg-subtle">{o.stock} in stock</span>}
                                     </span>
-                                    <span className="tabular text-fg-muted">{formatMoney(o.amount)}</span>
+                                    <span className="tabular shrink-0 text-fg-muted">{formatMoney(o.amount)}</span>
                                 </label>
                             );
                         })}

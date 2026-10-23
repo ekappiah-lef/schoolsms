@@ -47,7 +47,7 @@ class ActivityLog
 
     /** Field names shown to people (anything not listed and not an id is shown with its own name tidied). */
     const LABELS = [
-        'amt_paid' => 'Amount', 'amount' => 'Amount', 'method' => 'Paid by', 'reference' => 'Reference', 'reason' => 'Reason', 'note' => 'Note',
+        'amt_paid' => 'Amount', 'amount' => 'Amount', 'method' => 'Paid by', 'reference' => 'Transaction ID', 'reason' => 'Reason', 'note' => 'Note',
         'name' => 'Name', 'title' => 'Title', 'term' => 'Term', 'year' => 'Year', 'type' => 'Type', 'category' => 'Category', 'description' => 'Description',
         'date' => 'Date', 'gender' => 'Gender', 'dob' => 'Date of birth', 'phone' => 'Phone', 'email' => 'Email', 'username' => 'Username',
         'job_title' => 'Job title', 'address' => 'Address', 'capacity' => 'Capacity', 'slug' => 'Short name', 'direction' => 'Direction',
@@ -96,6 +96,7 @@ class ActivityLog
             if ($v === '' || $v === null || in_array($k, ['identity', 'form_version', 'terms_accepted', 'send_notices', 'offset'], true)) continue;
             if (isset(self::SUMMARY[$k])) { $parts[] = self::SUMMARY[$k].' changed'; continue; }
             $label = self::LABELS[$k] ?? null;
+            if ($k === 'student') { $parts[] = 'Student '.$student($id($v)); continue; }
             if ($k === 'my_class_id') { $parts[] = 'Class '.$name('my_classes', $v); continue; }
             if ($k === 'section_id') { $parts[] = 'Section '.$name('sections', $v); continue; }
             if ($k === 'subject_id') { $parts[] = 'Subject '.$name('subjects', $v); continue; }
@@ -104,6 +105,7 @@ class ActivityLog
             if ($k === 'option') { $parts[] = 'Service '.$name('fee_options', $v); continue; }
             if ($k === 'route') { $parts[] = 'Bus route '.$name('bus_routes', $v); continue; }
             if ($k === 'students') { $n = count(array_filter(explode(',', (string) $v))); $parts[] = $n.($n === 1 ? ' student' : ' students'); continue; }
+            if ($k === 'levels') { $parts[] = 'Levels '.(DB::table('class_types')->whereIn('id', array_filter(array_map('intval', explode(',', (string) $v))))->pluck('name')->implode(', ') ?: 'all'); continue; }
             if ($k === 'class_type_id') { $parts[] = 'Class type '.$name('class_types', $v); continue; }
             if ($k === 'user_type') { $parts[] = 'Role '.ucwords(str_replace('_', ' ', (string) (DB::table('user_types')->where('id', $id($v))->value('title') ?: $v))); continue; }
             if (preg_match('/^(t1|t2|t3|t4|exm|a\d|e\d|ct\d|pw)_\d+$/', $k)) continue;   // individual mark boxes: summarised below
@@ -133,7 +135,7 @@ class ActivityLog
             'finance.sales.return' => 'Returned a sale', 'settings.update' => 'Changed school settings', 'messages.send' => 'Sent a message',
             'payments.send_all_bills' => 'Sent bills to parents', 'finance.term_days' => 'Changed school days this term', 'finance.options.store' => 'Added a service',
             'finance.options.update' => 'Edited a service', 'finance.routes.store' => 'Added a bus route', 'finance.routes.update' => 'Edited a bus route', 'marks.comment_update' => 'Wrote a report comment',
-            'class_types.store' => 'Added a class type', 'class_types.update' => 'Renamed a class type', 'departments.store' => 'Added a department', 'departments.update' => 'Edited a department', 'payments.send_invoice' => 'Sent an invoice', 'finance.services.add' => 'Added students to a service',
+            'class_types.store' => 'Added a class type', 'class_types.update' => 'Renamed a class type', 'departments.store' => 'Added a department', 'departments.update' => 'Edited a department', 'payments.send_invoice' => 'Sent an invoice', 'finance.services.add' => 'Added students to a service', 'finance.assign.save' => 'Assigned services',
         ];
         if ($name && isset($labels[$name])) return $labels[$name];
         if (!$name) return $req->method().' '.$req->path();

@@ -73,6 +73,8 @@
         <tr><td class="muted">Category</td><td class="r">{{ $r['category'] }}</td></tr>
         <tr><td class="muted">Year</td><td class="r">{{ $r['year'] }}</td></tr>
         @if($r['ref'])<tr><td class="muted">Reference</td><td class="r">{{ $r['ref'] }}</td></tr>@endif
+        @if(!empty($r['method']))<tr><td class="muted">Paid by</td><td class="r">{{ $r['method'] }}</td></tr>@endif
+        @if(!empty($r['txn']))<tr><td class="muted">Transaction ID</td><td class="r">{{ $r['txn'] }}</td></tr>@endif
         <tr><td class="muted">Amount due</td><td class="r">{{ $money($r['owed']) }}</td></tr>
         <tr><td class="muted">Paid to date</td><td class="r">{{ $money($r['paid_to_date']) }}</td></tr>
         <tr><td style="font-weight: bold;">Balance</td><td class="r bal">{{ $r['balance'] > 0 ? $money($r['balance']) : 'Fully paid' }}</td></tr>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowDownLeft, ArrowUpRight, Landmark, Pencil, Trash2, Wallet } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Landmark, Pencil, Printer, Trash2, Wallet } from 'lucide-react';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { Field, InfoCallout, ModuleHeader, ModuleTabs, NativeSelect, RegistryCard, RowIconButton, SetupCard, SummaryTile, fieldInput, useModuleTab } from '@/components/app/module';
 import { useConfirmAction } from '@/components/app/confirm-action';
@@ -202,6 +202,7 @@ export default function FinanceTransactions({ session, categories, usedCategorie
                                     className: 'text-right',
                                     cell: (r) => (
                                         <div className="flex justify-end gap-0.5">
+                                            <RowIconButton icon={Printer} title={r.type === 'expense' ? 'Print voucher' : 'Print receipt'} onClick={() => window.open(r.urls.voucher, '_blank')} />
                                             <RowIconButton icon={Pencil} title="Edit" onClick={() => router.visit(r.urls.edit)} />
                                             {r.urls.destroy && (
                                                 <RowIconButton
