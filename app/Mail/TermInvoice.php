@@ -24,11 +24,14 @@ class TermInvoice extends Mailable
 
     public function build()
     {
-        return $this->subject("Invoice {$this->invoice['label']}: {$this->student} — {$this->school}")
+        $word = empty($this->invoice['next']) ? 'Invoice' : 'Bill';
+        $data = ['instructions' => Qs::getSetting('payment_instructions'), 'phone' => Qs::getSetting('phone')];
+        $pdf = \App\Support\Pdf::loadView('pdf.bill', $data + ['school' => $this->school, 'student' => $this->student, 'parentName' => $this->parentName,
+            'invoice' => $this->invoice, 'word' => $word])->setPaper('a4')->output();
+
+        return $this->subject("{$word} {$this->invoice['label']}: {$this->student} — {$this->school}")
             ->from(config('mail.from.address'), $this->school)
-            ->view('emails.term_invoice', [
-                'instructions' => Qs::getSetting('payment_instructions'),
-                'phone' => Qs::getSetting('phone'),
-            ]);
+            ->view('emails.term_invoice', $data)
+            ->attachData($pdf, $word.' '.$this->invoice['label'].' - '.$this->student.'.pdf', ['mime' => 'application/pdf']);
     }
 }
