@@ -271,8 +271,11 @@ class Fees
         $begins = Qs::getSetting('term_begins');
         if (!School::has('service_prices_by_level') || $days < 1 || !$ends) return 1.0;
         try { $end = \Carbon\Carbon::parse($ends)->startOfDay(); $start = $begins ? \Carbon\Carbon::parse($begins)->startOfDay() : null; } catch (\Throwable $e) { return 1.0; }
+        // "Term begins" is often already set to next term's first day: then it says nothing about this term.
+        if ($start && $start->gt($end)) $start = null;
         $from = today()->max($start ?: today());
-        if ($from->gt($end)) return 0.0;
+        // Never a free service: after the term's last day the whole term is charged.
+        if ($from->gt($end)) return 1.0;
         $left = 0;
         for ($d = $from->copy(); $d->lte($end); $d->addDay()) if ($d->isWeekday()) $left++;
 
