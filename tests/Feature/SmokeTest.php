@@ -60,6 +60,21 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testAccountantAssignsServicesAndPrintsVouchers()
+    {
+        $acc = $this->user('accountant');
+        $this->actingAs($acc)->get('/finance/assign')->assertOk()->assertSee('Finance\/AssignServices', false);
+        $sr = \App\Models\StudentRecord::where('grad', 0)->first();
+        if ($sr) {
+            $this->actingAs($acc)->get('/finance/assign?student='.\App\Helpers\Qs::hash($sr->user_id))->assertOk()->assertSee('classLevels', false);
+        }
+        $t = \App\Models\FinanceTransaction::first();
+        if ($t) {
+            $this->actingAs($acc)->get(route('finance.transactions.voucher', \App\Helpers\Qs::hash($t->id)))->assertOk()->assertSee($t->category);
+            $this->actingAs($acc)->get(route('finance.transactions.voucher_pdf', \App\Helpers\Qs::hash($t->id)))->assertOk();
+        }
+    }
+
     public function testOnlyTheSuperAdminOpensTheActivityLog()
     {
         $this->actingAs($this->user('super_admin'))->get('/activity-log')->assertOk();

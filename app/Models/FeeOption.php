@@ -8,9 +8,10 @@ class FeeOption extends Eloquent
 {
     public const GROUPS = ['feeding' => 'Feeding', 'extracurricular' => 'Extra-curricular'];
 
-    protected $fillable = ['group', 'name', 'amount', 'active', 'sort'];
+    protected $fillable = ['group', 'name', 'amount', 'class_type_ids', 'active', 'sort'];
 
-    protected $casts = ['active' => 'boolean', 'amount' => 'float'];
+    /** class_type_ids: the levels the service is offered to (empty = every level). */
+    protected $casts = ['active' => 'boolean', 'amount' => 'float', 'class_type_ids' => 'array'];
 
     /** The price for a class type (schools with service_prices_by_level), else the service's own price. */
     public function priceFor(?int $classTypeId): float

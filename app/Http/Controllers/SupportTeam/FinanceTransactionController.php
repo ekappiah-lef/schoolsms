@@ -83,6 +83,46 @@ class FinanceTransactionController extends Controller
         return back()->with('flash_success', __('msg.del_ok'));
     }
 
+    /** Expense voucher (or income receipt) to print or download. */
+    public function voucher($id)
+    {
+        return view('receipts.voucher', ['v' => self::voucherData(FinanceTransaction::with('recorder')->findOrFail($id)), 'pdf' => false]);
+    }
+
+    public function voucherPdf($id)
+    {
+        $v = self::voucherData(FinanceTransaction::with('recorder')->findOrFail($id));
+
+        return \PDF::loadView('receipts.voucher', ['v' => $v, 'pdf' => true])->setPaper('a5', 'portrait')->download($v['number'].'.pdf');
+    }
+
+    protected static function voucherData(FinanceTransaction $t): array
+    {
+        $logo = Qs::getSetting('logo');
+        $logoPath = $logo && preg_match('#/storage/(.+)$#', $logo, $m) ? public_path('storage/'.ltrim(preg_replace('#/{2,}#', '/', $m[1]), '/')) : null;
+
+        return [
+            'type' => $t->type,
+            'number' => ($t->type === 'expense' ? 'PV-' : 'IN-').str_pad($t->id, 6, '0', STR_PAD_LEFT),
+            'date' => $t->date,
+            'category' => $t->category,
+            'description' => $t->description,
+            'amount' => Money::r($t->amount),
+            'method' => $t->method,
+            'reference' => $t->reference,
+            'by' => optional($t->recorder)->name,
+            'pdf_url' => route('finance.transactions.voucher_pdf', Qs::hash($t->id)),
+            'school' => [
+                'name' => Qs::getSystemName(),
+                'address' => Qs::getSetting('address'),
+                'phone' => Qs::getSetting('phone'),
+                'email' => Qs::getSetting('system_email'),
+                'logo_url' => Qs::localAsset($logo),
+                'logo_path' => $logoPath && is_file($logoPath) && extension_loaded('gd') ? $logoPath : null,
+            ],
+        ];
+    }
+
     protected function validated(Request $req): array
     {
         return $req->validate([
@@ -129,7 +169,7 @@ class FinanceTransactionController extends Controller
                     'reference' => $t->reference,
                     'description' => $t->description,
                     'by' => optional($t->recorder)->name,
-                    'urls' => array_filter(['edit' => route('finance.transactions.edit', $hash), 'destroy' => Qs::userIsSuperAdmin() ? route('finance.transactions.destroy', $hash) : null]),
+                    'urls' => array_filter(['edit' => route('finance.transactions.edit', $hash), 'voucher' => route('finance.transactions.voucher', $hash), 'destroy' => Qs::userIsSuperAdmin() ? route('finance.transactions.destroy', $hash) : null]),
                 ];
             })->values(),
             'editing' => $editing,

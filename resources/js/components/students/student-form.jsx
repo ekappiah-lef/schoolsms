@@ -600,7 +600,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
 
             <FormSection id="services" title="Additional services & shop" >
                 <div className="sm:col-span-2">
-                    <ServicesPicker catalogue={options.services} value={data.services} onChange={(v) => set('services', v)} mode={mode} />
+                    <ServicesPicker catalogue={options.services} value={data.services} onChange={(v) => set('services', v)} mode={mode} classId={data.my_class_id} />
                     {err('services') && <p className="mt-2 text-xs text-danger-fg">{err('services')}</p>}
                 </div>
             </FormSection>

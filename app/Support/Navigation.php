@@ -135,6 +135,7 @@ class Navigation
                 self::item('Fee breakdown', 'layers', 'finance.fee_breakdown'),
                 self::item('Sales & inventory', 'shopping-bag', 'finance.sales'),
                 self::group('Services', 'utensils', [
+                    self::item('Assign services', null, 'finance.assign'),
                     $service('Feeding', 'feeding'),
                     $service('Bus', 'bus'),
                     $service('Extra-curricular', 'extracurricular'),

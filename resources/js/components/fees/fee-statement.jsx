@@ -354,6 +354,7 @@ export const PAY_METHODS = ['Cash', 'Mobile payment', 'Bank transfer', 'Cheque']
 export function PayInline({ title, balance, url, onPaid }) {
     const [value, setValue] = useState('');
     const [method, setMethod] = useState('Cash');
+    const [txn, setTxn] = useState('');
     const [processing, setProcessing] = useState(false);
     const amount = Number(value);
     const invalid = value !== '' && (!Number.isFinite(amount) || amount < 0.01 || amount > balance || Math.abs(Math.round(amount * 100) - amount * 100) > 1e-6);
@@ -363,7 +364,7 @@ export function PayInline({ title, balance, url, onPaid }) {
         e.preventDefault();
         if (!value || invalid) return;
         setProcessing(true);
-        const result = await submitForm(url, { amt_paid: amount, method });
+        const result = await submitForm(url, { amt_paid: amount, method, reference: txn.trim() });
         setProcessing(false);
         if (result.ok) {
             const receipt = result.data?.receipt;
@@ -373,6 +374,7 @@ export function PayInline({ title, balance, url, onPaid }) {
                 cancel: receipt ? { label: 'View', onClick: () => window.open(receipt.view, '_blank') } : undefined,
             });
             setValue('');
+            setTxn('');
             onPaid?.();
         } else {
             toast.error(result.errors?.amt_paid ?? result.message);
@@ -380,7 +382,7 @@ export function PayInline({ title, balance, url, onPaid }) {
     };
 
     return (
-        <form onSubmit={pay} className="flex min-w-[340px] items-start gap-2">
+        <form onSubmit={pay} className="flex min-w-[460px] items-start gap-2">
             <select
                 value={method}
                 onChange={(e) => setMethod(e.target.value)}
@@ -393,6 +395,14 @@ export function PayInline({ title, balance, url, onPaid }) {
                     </option>
                 ))}
             </select>
+            <input
+                value={txn}
+                onChange={(e) => setTxn(e.target.value)}
+                maxLength={100}
+                placeholder="Transaction ID"
+                aria-label="Transaction ID"
+                className="h-8 w-[120px] shrink-0 rounded-md border-0 bg-surface px-2.5 text-xs shadow-field placeholder:text-fg-subtle focus:shadow-[0_0_0_2px_rgb(var(--primary)/0.35)] focus:outline-none"
+            />
             <div className="flex-1">
                 <div className="relative">
                     <input

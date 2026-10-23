@@ -110,6 +110,8 @@ class ReceiptController extends Controller
             'item' => $item,
             'year' => $rc->year,
             'ref' => $ref,
+            'method' => $rc->method ?? null,
+            'txn' => $rc->reference ?? null,
             'owed' => $owed,
             'amount' => \App\Support\Money::r($rc->amt_paid),
             'balance' => \App\Support\Money::r($rc->balance),
