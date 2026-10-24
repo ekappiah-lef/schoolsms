@@ -22,7 +22,7 @@ class ServiceRosterController extends Controller
         $this->middleware('teamAccount');
     }
 
-    /** Admins: give a service to the chosen students for this term (charged by the days left where the school uses that). */
+    /** Admins: give a service to the chosen students, billed for the whole of this term. */
     public function add(Request $req, $group)
     {
         if (!Qs::userIsTeamAdmin() || $group === 'sales') abort(403);
@@ -42,7 +42,7 @@ class ServiceRosterController extends Controller
             if ($group === 'bus') { $sel['bus_route_id'] = $route->id; $sel['bus_direction'] = $req->input('direction'); }
             else { $sel[$group] = array_values(array_unique(array_merge((array) ($sel[$group] ?? []), [(int) $req->input('option')]))); }
             $before = OptionalFeeCharge::where(['student_id' => $sid, 'year' => $year])->count();
-            \App\Support\Fees::syncOptional($sid, $year, $sel, true);
+            \App\Support\Fees::syncOptional($sid, $year, $sel);
             if (OptionalFeeCharge::where(['student_id' => $sid, 'year' => $year])->count() > $before) $added++;
         }
 
