@@ -132,7 +132,7 @@ export default function FinanceTransactions({ session, categories, usedCategorie
                 ) : (
                     <>
                         <div className="grid grid-cols-1 overflow-hidden rounded-xl bg-surface shadow-card md:grid-cols-3 md:divide-x md:divide-border">
-                            <Tile icon={ArrowDownLeft} label="Money received" value={totals.received} tone="success" sub={`School fees ${formatMoney(totals.fees)} · Other ${formatMoney(totals.other)}`} />
+                            <Tile icon={ArrowDownLeft} label="Money received" value={totals.received} tone="success" />
                             <Tile icon={ArrowUpRight} label="Expenses" value={totals.expenses} tone="danger" />
                             <Tile icon={Landmark} label={selection.balanceName} value={totals.balance} tone="primary" />
                         </div>
@@ -243,7 +243,7 @@ const TONES = {
     primary: ['bg-primary-soft text-primary-hover', 'text-primary-hover'],
 };
 
-function Tile({ icon: Icon, label, value, tone, sub }) {
+function Tile({ icon: Icon, label, value, tone }) {
     const [chip, text] = TONES[tone];
     return (
         <div className="flex items-start gap-4 border-b border-border p-6 last:border-0 md:border-b-0">
@@ -256,7 +256,6 @@ function Tile({ icon: Icon, label, value, tone, sub }) {
                     {value < 0 ? '−' : ''}
                     {formatMoney(Math.abs(value))}
                 </span>
-                {sub && <span className="tabular text-xs text-fg-muted">{sub}</span>}
             </div>
         </div>
     );

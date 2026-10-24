@@ -35,7 +35,7 @@ export default function SchoolCalendar({ year, years, now, terms, urls }) {
     return (
         <>
             <Head title="School calendar" />
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+            <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
                 <ModuleHeader crumbs={['Administration', 'School calendar']} title="School calendar" />
 
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -50,34 +50,37 @@ export default function SchoolCalendar({ year, years, now, terms, urls }) {
                     </Button>
                 </div>
 
-                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                    {rows.map((r, i) => (
-                        <section key={r.term} className={cn('flex flex-col rounded-xl bg-surface shadow-card', now === r.term && 'ring-2 ring-primary/60')}>
-                            <header className="flex items-center justify-between gap-2 border-b border-border px-5 py-4">
-                                <div>
-                                    <div className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">Term {r.term}</div>
-                                    <h2 className="text-lg font-semibold tracking-tight">{ORDINAL[i]} term</h2>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {r.days !== null && <span className="tabular rounded-full bg-muted px-2.5 py-1 text-xs font-semibold">{r.days} days</span>}
-                                    {now === r.term && <Badge tone="primary">Now</Badge>}
-                                </div>
-                            </header>
-                            <div className="flex flex-col gap-5 p-5">
-                                <div className="grid grid-cols-2 gap-3">
-                                    <DateField label="Starts" value={r.starts_on} onChange={(v) => set(i, 'starts_on', v)} startYear={startYear} />
-                                    <DateField label="Ends" value={r.ends_on} onChange={(v) => set(i, 'ends_on', v)} startYear={startYear} />
-                                </div>
-                                <div className="rounded-lg bg-muted/60 p-3">
-                                    <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-fg-muted">Mid-term break</div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <DateField label="From" value={r.midterm_starts_on} onChange={(v) => set(i, 'midterm_starts_on', v)} startYear={startYear} />
-                                        <DateField label="To" value={r.midterm_ends_on} onChange={(v) => set(i, 'midterm_ends_on', v)} startYear={startYear} />
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-                    ))}
+                <div className="overflow-hidden rounded-xl bg-surface shadow-card">
+                    <div className="scrollbar-thin overflow-x-auto">
+                        <table className="w-full min-w-[760px] text-left text-sm">
+                            <thead>
+                                <tr className="border-b border-border bg-canvas text-2xs font-semibold uppercase tracking-wider text-fg-muted">
+                                    <th className="h-10 px-5">Term</th>
+                                    <th className="h-10 px-2">Starts</th>
+                                    <th className="h-10 px-2">Ends</th>
+                                    <th className="h-10 px-2">Mid-term from</th>
+                                    <th className="h-10 px-2">Mid-term to</th>
+                                    <th className="h-10 px-5 text-right">Days</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {rows.map((r, i) => (
+                                    <tr key={r.term} className={cn('border-b border-border last:border-0', now === r.term && 'bg-primary-soft/30')}>
+                                        <td className="whitespace-nowrap px-5 py-3 font-semibold">
+                                            {ORDINAL[i]} term
+                                            {now === r.term && <Badge tone="primary" className="ml-2">Now</Badge>}
+                                        </td>
+                                        {['starts_on', 'ends_on', 'midterm_starts_on', 'midterm_ends_on'].map((k) => (
+                                            <td key={k} className="w-[18%] px-2 py-3">
+                                                <DatePicker value={r[k]} onChange={(v) => set(i, k, v)} fromYear={startYear} toYear={startYear + 1} defaultMonth={new Date(startYear, 8)} />
+                                            </td>
+                                        ))}
+                                        <td className="tabular px-5 py-3 text-right font-semibold">{r.days ?? '—'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </>
@@ -86,11 +89,3 @@ export default function SchoolCalendar({ year, years, now, terms, urls }) {
 
 SchoolCalendar.layout = withAppLayout;
 
-function DateField({ label, value, onChange, startYear }) {
-    return (
-        <label className="flex min-w-0 flex-col gap-1.5">
-            <span className="text-sm font-medium">{label}</span>
-            <DatePicker value={value} onChange={onChange} fromYear={startYear} toYear={startYear + 1} defaultMonth={new Date(startYear, 8)} />
-        </label>
-    );
-}

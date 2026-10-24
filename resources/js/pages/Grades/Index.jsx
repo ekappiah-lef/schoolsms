@@ -111,7 +111,6 @@ function GradeList({ grades, types, canDelete, confirm }) {
 
     return (
         <div className="flex flex-col gap-3">
-            <p className="text-sm text-fg-muted">Class-specific grading scales take priority over the default scale (All Classes).</p>
             <div className="overflow-hidden rounded-lg bg-surface shadow-card">
                 <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
                     <h2 className="mr-2 font-semibold">Grading Scale</h2>
