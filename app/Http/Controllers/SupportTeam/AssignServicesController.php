@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
-/** Give one student feeding, bus or extra-curricular from now (billed this term, by the days left where the school uses that). */
+/** Give one student feeding, bus or extra-curricular: billed for the whole of this term. */
 class AssignServicesController extends Controller
 {
     public function __construct()
@@ -52,7 +52,7 @@ class AssignServicesController extends Controller
         unset($sel['sales']);
         if (!empty($sel['bus_direction']) && empty($sel['bus_route_id'])) return Qs::json('Choose the bus location, or set the bus to “No bus”.', false);
 
-        $kept = Fees::syncOptional($sr->user_id, Qs::getCurrentSession(), $sel, true);
+        $kept = Fees::syncOptional($sr->user_id, Qs::getCurrentSession(), $sel);
         \App\Support\ClearEnroll::studentChanged((int) $sr->user_id);
 
         return Qs::json('Saved.'.($kept ? ' Stopped from next term (this term stays billed): '.implode(', ', $kept).'.' : ''), true);

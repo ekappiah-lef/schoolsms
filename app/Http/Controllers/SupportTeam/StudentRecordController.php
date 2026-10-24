@@ -414,7 +414,7 @@ class StudentRecordController extends Controller
 
             $kept = [];
             if ($req->has('services')) {
-                $kept = Fees::syncOptional($sr->user_id, Qs::getCurrentSession(), (array) json_decode((string) $req->services, true), true);
+                $kept = Fees::syncOptional($sr->user_id, Qs::getCurrentSession(), (array) json_decode((string) $req->services, true));
             }
             if ($discountChanged || $req->has('services')) {
                 \App\Support\ClearEnroll::studentChanged((int) $sr->user_id);
