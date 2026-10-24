@@ -40,6 +40,7 @@ import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn, formatCompact, formatDate, formatMoney, formatNumber, parseDate, percent, timeAgo } from '@/lib/utils';
+import { CALENDAR_KINDS, KIND_ORDER } from '@/lib/calendar-colors';
 
 // Fee donut colours from the Stitch dashboard (primary, secondary, tertiary, outline).
 const FEE_COLORS = ['#4f46e5', '#006591', '#006e4b', '#777587', '#9085e9', '#39b8fd'];
@@ -50,7 +51,7 @@ const FEE_COLORS = ['#4f46e5', '#006591', '#006e4b', '#777587', '#9085e9', '#39b
  * are replaced with the closest real equivalent and labelled as such.
  */
 export default function Dashboard(props) {
-    const { session, term, stats, links, enrolment, performance, fees, finance, teaching, student, children, classMonitor, exams } = props;
+    const { session, term, calendar, stats, links, enrolment, performance, fees, finance, teaching, student, children, classMonitor, exams } = props;
     const { auth, nav } = usePage().props;
     const actions = quickActions(auth.can, nav ?? []);
 
@@ -106,8 +107,8 @@ export default function Dashboard(props) {
                 {children && <ChildrenSection items={children} />}
 
                 <section className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-                    <AcademicCalendar term={term} className="lg:col-span-5" />
-                    <Agenda exams={exams} term={term} session={session} className="lg:col-span-7" />
+                    <AcademicCalendar term={term} calendar={calendar} className="lg:col-span-5" />
+                    <Agenda exams={exams} term={term} calendar={calendar} className="lg:col-span-7" />
                 </section>
 
                 {/* Additional insight beyond the reference design */}
@@ -667,8 +668,19 @@ function MiniStat({ label, value, tone }) {
     );
 }
 
-function AcademicCalendar({ term, className }) {
+/** Which colour a day takes: holidays, exams, revision, events, mid-term break, then plain school days (weekdays in a term). */
+function dayKind(spans, iso, weekend) {
+    for (const k of KIND_ORDER) {
+        if (k === 'term' && weekend) continue;
+        const hit = spans.find((s) => s.type === k && s.from <= iso && iso <= s.to);
+        if (hit) return { kind: k, title: hit.title };
+    }
+    return null;
+}
+
+function AcademicCalendar({ term, calendar, className }) {
     const [month, setMonth] = useState(() => startOfMonth(new Date()));
+    const spans = calendar?.spans ?? [];
     const begins = parseDate(term.begins);
     const ends = parseDate(term.ends);
     const days = useMemo(
@@ -676,6 +688,11 @@ function AcademicCalendar({ term, className }) {
         [month],
     );
     const today = new Date();
+    const cells = days.map((d) => {
+        const weekend = d.getDay() === 0 || d.getDay() === 6;
+        return { d, weekend, hit: spans.length ? dayKind(spans, format(d, 'yyyy-MM-dd'), weekend) : null };
+    });
+    const shown = [...new Set(cells.filter((c) => c.hit && isSameMonth(c.d, month)).map((c) => c.hit.kind))];
 
     return (
         <div className={cn('flex flex-col gap-4 rounded-lg bg-surface p-6 shadow-card md:p-8', className)}>
@@ -693,29 +710,28 @@ function AcademicCalendar({ term, className }) {
                     </button>
                 </div>
             </div>
-            <div className="grid grid-cols-7 gap-y-2 text-center">
+            <div className="grid grid-cols-7 gap-y-1.5 text-center">
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-                    <span key={i} className="text-2xs font-semibold text-fg-subtle">
+                    <span key={i} className="pb-1 text-2xs font-semibold text-fg-subtle">
                         {d}
                     </span>
                 ))}
-                {days.map((d) => {
+                {cells.map(({ d, weekend, hit }) => {
                     const inMonth = isSameMonth(d, month);
                     const isToday = isSameDay(d, today);
-                    const isBegin = begins && isSameDay(d, begins);
-                    const isEnd = ends && isSameDay(d, ends);
-                    const weekend = d.getDay() === 0 || d.getDay() === 6;
+                    const isBegin = !spans.length && begins && isSameDay(d, begins);
+                    const isEnd = !spans.length && ends && isSameDay(d, ends);
                     return (
                         <span
                             key={d.toISOString()}
-                            title={isBegin ? 'Term begins' : isEnd ? 'Term ends' : undefined}
+                            title={hit?.title ?? (isBegin ? 'Term begins' : isEnd ? 'Term ends' : undefined)}
                             className={cn(
-                                'mx-auto flex size-8 items-center justify-center rounded-md text-xs',
-                                !inMonth && 'text-fg-subtle/50',
-                                inMonth && (weekend ? 'text-fg-subtle' : 'text-fg'),
-                                isToday && 'bg-primary font-semibold text-white shadow-sm',
-                                isBegin && !isToday && 'bg-info-soft font-semibold text-info',
-                                isEnd && !isToday && 'bg-[#6ffbbe] font-semibold text-success-fg',
+                                'mx-auto flex size-9 items-center justify-center rounded-lg text-xs transition-colors',
+                                inMonth ? (weekend ? 'text-fg-subtle' : 'text-fg') : 'opacity-35',
+                                hit && CALENDAR_KINDS[hit.kind].day,
+                                isBegin && 'bg-info-soft font-semibold text-info',
+                                isEnd && 'bg-success-soft font-semibold text-success-fg',
+                                isToday && 'font-bold ring-2 ring-primary ring-offset-1 ring-offset-surface',
                             )}
                         >
                             {format(d, 'd')}
@@ -723,60 +739,99 @@ function AcademicCalendar({ term, className }) {
                     );
                 })}
             </div>
-            <div className="flex items-center justify-between pt-1 text-xs text-fg-subtle">
-                <span className="flex items-center gap-1">
-                    <span className="size-2 rounded-full bg-primary" /> Today
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-1 text-xs text-fg-muted">
+                <span className="flex items-center gap-1.5">
+                    <span className="size-2.5 rounded-full ring-2 ring-primary" /> Today
                 </span>
-                <span className="flex items-center gap-1">
-                    <span className="size-2 rounded-full bg-info" /> Term begins
-                </span>
-                <span className="flex items-center gap-1">
-                    <span className="size-2 rounded-full bg-success" /> Term ends
-                </span>
+                {shown.map((k) => (
+                    <span key={k} className="flex items-center gap-1.5">
+                        <span className={cn('size-2.5 rounded-full', CALENDAR_KINDS[k].dot)} /> {CALENDAR_KINDS[k].label}
+                    </span>
+                ))}
             </div>
         </div>
     );
 }
 
-function Agenda({ exams, term, session, className }) {
+/** "Today", "Tomorrow", "In 5 days", "Now" (inside a span) for an upcoming item. */
+function whenText(item, todayIso) {
+    if (item.from <= todayIso && todayIso <= item.to) return item.from === item.to ? 'Today' : 'Now';
+    const days = Math.round((new Date(item.from) - new Date(todayIso)) / 86400000);
+    if (days === 1) return 'Tomorrow';
+    if (days < 7) return `In ${days} days`;
+    const weeks = Math.round(days / 7);
+    if (days < 60) return `In ${weeks} week${weeks === 1 ? '' : 's'}`;
+    return `In ${Math.round(days / 30)} months`;
+}
+
+function dateRange(item) {
+    const a = new Date(item.from);
+    const b = new Date(item.to);
+    if (item.from === item.to) return formatDate(a, 'EEEE, d MMMM yyyy');
+    return a.getMonth() === b.getMonth() ? `${format(a, 'd')} – ${format(b, 'd MMMM yyyy')}` : `${format(a, 'd MMM')} – ${format(b, 'd MMM yyyy')}`;
+}
+
+function Agenda({ exams, term, calendar, className }) {
+    const upcoming = calendar?.upcoming ?? [];
     const begins = parseDate(term.begins);
     const ends = parseDate(term.ends);
-    const tones = ['bg-primary/10 text-primary-hover', 'bg-info/10 text-info', 'bg-success/10 text-success', 'bg-subtle text-fg-muted'];
-    const badges = ['bg-primary-soft text-primary-hover', 'bg-info-soft text-info', 'bg-[#6ffbbe] text-success-fg', 'bg-subtle text-fg-muted'];
+    const termExams = (exams ?? []).filter((e) => !calendar?.term || e.term === calendar.term);
 
     return (
         <div className={cn('flex flex-col gap-4 rounded-lg bg-surface p-6 shadow-card md:p-8', className)}>
             <div className="flex items-center justify-between">
                 <div className="flex flex-col">
                     <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">Year agenda</span>
-                    <h3 className="text-lg font-semibold">Term Milestones &amp; Examinations</h3>
+                    <h3 className="text-lg font-semibold">Coming up</h3>
                 </div>
             </div>
             <div className="flex flex-col gap-2">
-                <AgendaRow tone={tones[1]} badge={badges[1]} top={begins ? format(begins, 'MMM') : 'Term'} day={begins ? format(begins, 'dd') : '—'} title="Term begins" meta={begins ? formatDate(begins, 'EEEE, d MMMM yyyy') : 'Not set in school settings'} tag="Calendar" />
-                {(exams ?? []).map((e) => (
+                {upcoming.length > 0 ? (
+                    upcoming.map((it, i) => {
+                        const k = CALENDAR_KINDS[it.type] ?? CALENDAR_KINDS.event;
+                        const when = whenText(it, calendar.today);
+                        return (
+                            <AgendaRow
+                                key={`${it.type}-${it.from}-${i}`}
+                                tone={k.chip}
+                                badge={k.badge}
+                                top={format(new Date(it.from), 'MMM')}
+                                day={format(new Date(it.from), 'dd')}
+                                title={it.title}
+                                meta={`${dateRange(it)} · ${when}`}
+                                tag={k.label}
+                                live={when === 'Now' || when === 'Today'}
+                            />
+                        );
+                    })
+                ) : (
+                    <>
+                        <AgendaRow tone={CALENDAR_KINDS.term_begins.chip} badge={CALENDAR_KINDS.term_begins.badge} top={begins ? format(begins, 'MMM') : 'Term'} day={begins ? format(begins, 'dd') : '—'} title="Term begins" meta={begins ? formatDate(begins, 'EEEE, d MMMM yyyy') : '—'} tag="Calendar" />
+                        <AgendaRow tone={CALENDAR_KINDS.term_ends.chip} badge={CALENDAR_KINDS.term_ends.badge} top={ends ? format(ends, 'MMM') : 'Term'} day={ends ? format(ends, 'dd') : '—'} title="Term ends" meta={ends ? formatDate(ends, 'EEEE, d MMMM yyyy') : '—'} tag="Calendar" />
+                    </>
+                )}
+                {termExams.map((e) => (
                     <AgendaRow
                         key={e.id}
-                        tone={tones[(e.term - 1) % 4] ?? tones[0]}
-                        badge={badges[(e.term - 1) % 4] ?? badges[0]}
+                        tone={CALENDAR_KINDS.exam.chip}
+                        badge={e.records ? 'bg-[#6ffbbe] text-success-fg' : 'bg-subtle text-fg-muted'}
                         top="Term"
                         day={String(e.term).padStart(2, '0')}
                         title={e.name}
                         meta={e.records ? `${e.records} results · ${e.classes} classes${e.average !== null ? ` · avg ${e.average}%` : ''}` : 'No marks entered yet'}
-                        tag={e.records ? 'Marks in progress' : 'Scheduled'}
+                        tag={e.records ? 'Marks in progress' : 'No marks yet'}
                     />
                 ))}
-                <AgendaRow tone={tones[3]} badge={badges[3]} top={ends ? format(ends, 'MMM') : 'Term'} day={ends ? format(ends, 'dd') : '—'} title="Term ends" meta={ends ? formatDate(ends, 'EEEE, d MMMM yyyy') : 'Not set in school settings'} tag="Calendar" />
             </div>
         </div>
     );
 }
 
-function AgendaRow({ tone, badge, top, day, title, meta, tag }) {
+function AgendaRow({ tone, badge, top, day, title, meta, tag, live }) {
     return (
-        <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/50 p-3 transition-colors hover:bg-muted">
+        <div className={cn('flex items-center justify-between gap-3 rounded-lg p-3 transition-colors', live ? 'bg-primary-soft/40 ring-1 ring-primary/20' : 'bg-muted/50 hover:bg-muted')}>
             <div className="flex min-w-0 items-center gap-3">
-                <div className={cn('flex size-12 shrink-0 flex-col items-center justify-center rounded-md font-mono', tone)}>
+                <div className={cn('flex size-12 shrink-0 flex-col items-center justify-center rounded-lg font-mono', tone)}>
                     <span className="text-2xs font-semibold uppercase leading-tight">{top}</span>
                     <span className="text-lg font-bold leading-tight">{day}</span>
                 </div>
@@ -785,7 +840,7 @@ function AgendaRow({ tone, badge, top, day, title, meta, tag }) {
                     <span className="truncate text-xs text-fg-muted">{meta}</span>
                 </div>
             </div>
-            <span className={cn('shrink-0 rounded-full px-1.5 py-0.5 text-2xs font-semibold', badge)}>{tag}</span>
+            <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-2xs font-semibold', badge)}>{tag}</span>
         </div>
     );
 }

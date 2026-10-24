@@ -51,7 +51,7 @@ export const Select = forwardRef(function Select(
                     <SelectPrimitive.Viewport className="p-1">
                         {clearable && <Item value={EMPTY}>{clearLabel}</Item>}
                         {options.map((o) => (
-                            <Item key={o.value} value={String(o.value)}>
+                            <Item key={o.value} value={String(o.value)} icon={o.icon}>
                                 {o.label}
                             </Item>
                         ))}
@@ -62,12 +62,13 @@ export const Select = forwardRef(function Select(
     );
 });
 
-function Item({ children, ...props }) {
+function Item({ children, icon, ...props }) {
     return (
         <SelectPrimitive.Item
             className="relative flex h-8 cursor-default select-none items-center rounded-md pl-2 pr-8 text-sm outline-none data-[highlighted]:bg-subtle data-[state=checked]:font-medium"
             {...props}
         >
+            {icon && <span className="mr-2 flex shrink-0 items-center">{icon}</span>}
             <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
             <SelectPrimitive.ItemIndicator className="absolute right-2">
                 <Check className="size-4 text-primary" />

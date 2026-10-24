@@ -54,7 +54,7 @@ class ActivityLog
         'kind' => 'Bill', 'student_category' => 'Students', 'action' => 'Step', 'term_days' => 'School days', 'admission_date' => 'Admission date',
     ];
     /** Fields that are too long or too technical to show; summarised instead. */
-    const SUMMARY = ['template' => 'Report card design', 'items' => 'Fee items', 'services' => 'Services', 'prices' => 'Prices', 'section_teachers' => 'Teachers by section', 'terms' => 'Term dates'];
+    const SUMMARY = ['template' => 'Report card design', 'items' => 'Fee items', 'services' => 'Services', 'prices' => 'Prices', 'section_teachers' => 'Teachers by section', 'terms' => 'Term dates', 'events' => 'Holidays, exams & events'];
 
     /** The details of a log entry in plain words: "Amount 2,350.00 · Paid by Cash · Bill School Fees (Term 1) for NANA KOFI OKYERE". */
     public static function readable(?string $route, ?string $json): string

@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\SchoolEvent;
 use App\Models\SchoolTerm;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Schema;
 class SchoolCalendar
 {
     protected static $cache = [];
+    protected static $events = [];
 
     /** The terms entered for a school year ("2026-2027"), keyed 1–3. */
     public static function terms(string $year): array
@@ -31,6 +33,19 @@ class SchoolCalendar
     public static function forget(): void
     {
         self::$cache = [];
+        self::$events = [];
+    }
+
+    /** Holidays, exams, revision weeks and other events entered for a school year. */
+    public static function events(string $year)
+    {
+        if (!array_key_exists($year, self::$events)) {
+            self::$events[$year] = Schema::hasTable('school_events')
+                ? SchoolEvent::where('year', $year)->orderBy('starts_on')->get()
+                : collect();
+        }
+
+        return self::$events[$year];
     }
 
     /** The day terms 2 and 3 take over in a school year starting in $y (their start date, or 1 January / 1 May). */
@@ -80,17 +95,54 @@ class SchoolCalendar
         return $row && $row->starts_on ? $row->starts_on->copy() : null;
     }
 
-    /** School days (Monday–Friday, mid-term break left out) from $from to $to in a term. */
+    /** School days (Monday–Friday; mid-term break and holidays left out) from $from to $to in a term. */
     public static function schoolDays(SchoolTerm $row, Carbon $from, Carbon $to): int
     {
+        $holidays = self::events($row->year)->where('type', 'holiday');
         $n = 0;
         for ($d = $from->copy()->startOfDay(); $d->lte($to); $d->addDay()) {
             if (!$d->isWeekday()) continue;
             if ($row->midterm_starts_on && $row->midterm_ends_on && $d->between($row->midterm_starts_on, $row->midterm_ends_on)) continue;
+            if ($holidays->contains(function ($h) use ($d) { return $d->between($h->starts_on, $h->ends_on); })) continue;
             $n++;
         }
 
         return $n;
+    }
+
+    /**
+     * For the dashboard: coloured spans for the month calendar (terms, mid-term breaks, events) and the
+     * next dated items still ahead (term begins/ends, mid-term breaks, holidays, exams…), last year to next.
+     */
+    public static function dashboard(int $limit = 6): array
+    {
+        [$y, $term] = self::termOf(now());
+        $spans = [];
+        $items = [];
+        $d = function ($v) { return $v->toDateString(); };
+        foreach ([($y - 1).'-'.$y, $y.'-'.($y + 1), ($y + 1).'-'.($y + 2)] as $year) {
+            foreach (self::terms($year) as $t) {
+                $name = ['First', 'Second', 'Third'][$t->term - 1].' term';
+                if ($t->starts_on && $t->ends_on) $spans[] = ['type' => 'term', 'title' => $name, 'from' => $d($t->starts_on), 'to' => $d($t->ends_on)];
+                if ($t->starts_on) $items[] = ['type' => 'term_begins', 'title' => $name.' begins', 'from' => $d($t->starts_on), 'to' => $d($t->starts_on)];
+                if ($t->ends_on) $items[] = ['type' => 'term_ends', 'title' => $name.' ends', 'from' => $d($t->ends_on), 'to' => $d($t->ends_on)];
+                if ($t->midterm_starts_on && $t->midterm_ends_on) {
+                    $span = ['type' => 'midterm', 'title' => 'Mid-term break', 'from' => $d($t->midterm_starts_on), 'to' => $d($t->midterm_ends_on)];
+                    $spans[] = $span;
+                    $items[] = $span;
+                }
+            }
+            foreach (self::events($year) as $e) {
+                $span = ['type' => $e->type, 'title' => $e->title, 'from' => $d($e->starts_on), 'to' => $d($e->ends_on)];
+                $spans[] = $span;
+                $items[] = $span;
+            }
+        }
+        $today = today()->toDateString();
+        $upcoming = collect($items)->filter(function ($i) use ($today) { return $i['to'] >= $today; })
+            ->sortBy(function ($i) { return $i['from'].$i['type']; })->take($limit)->values()->all();
+
+        return ['spans' => $spans, 'upcoming' => $upcoming, 'today' => $today, 'term' => $term];
     }
 
     /** Share of this term still ahead (for services started mid-term), or null without this term's dates. */

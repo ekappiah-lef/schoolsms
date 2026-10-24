@@ -83,6 +83,7 @@ class HomeController extends Controller
         \App\Support\SchoolCalendar::syncDaily();
         $d = [
             'session' => $session,
+            'calendar' => \App\Support\SchoolCalendar::dashboard(),
             'term' => [
                 'begins' => Qs::getSetting('term_begins'),
                 'ends' => Qs::getSetting('term_ends'),
