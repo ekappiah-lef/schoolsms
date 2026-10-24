@@ -129,10 +129,12 @@ class Navigation
                 self::item('Student payments', 'wallet', 'payments.manage', ['payments.manage', 'payments.invoice', 'payments.receipts']),
                 self::item('Fee setup', 'banknote', 'payments.index', ['payments.index', 'payments.edit', 'payments.show', 'payments.create']),
                 self::item('Income & expenses', 'receipt', 'finance.transactions', ['finance.transactions', 'finance.transactions.edit']),
-                self::item('Ledger', 'scroll-text', 'finance.ledger'),
-                Qs::userIsSuperAdmin() ? self::item('Trial balance', 'scale', 'finance.trial_balance') : null,
-                self::item('Audit trail', 'shield-check', 'finance.audit'),
-                self::item('Fee breakdown', 'layers', 'finance.fee_breakdown'),
+                self::group('Reports', 'scroll-text', [
+                    self::item('Ledger', null, 'finance.ledger'),
+                    self::item('Fee breakdown', null, 'finance.fee_breakdown'),
+                    Qs::userIsSuperAdmin() ? self::item('Trial balance', null, 'finance.trial_balance') : null,
+                    self::item('Audit trail', null, 'finance.audit'),
+                ]),
                 self::item('Sales & inventory', 'shopping-bag', 'finance.sales'),
                 self::group('Services', 'utensils', [
                     self::item('Assign services', null, 'finance.assign'),
@@ -148,26 +150,27 @@ class Navigation
         if (Qs::userIsTeamSA()) {
             $admin = array_filter([
                 self::item('Analytics', 'chart', 'analytics'),
-                Qs::userIsTeamAdmin() ? self::item('Users', 'user-cog', 'users.index', ['users.index', 'users.show', 'users.edit']) : null,
-                // Teaching and non-teaching staff (admins: every staff role; the academic admin: teachers and non-teaching staff).
-                self::item('Staff', 'graduation-cap', 'staff.index', Qs::userIsTeamAdmin() ? ['staff.index'] : ['staff.index', 'users.index', 'users.show', 'users.edit']),
-                self::item('Staff attendance', 'clock', 'staff.attendance'),
                 self::item('School calendar', 'calendar', 'calendar.index'),
-                self::group('Classes', 'school', [
+                self::group('Staff & users', 'user-cog', [
+                    // Teaching and non-teaching staff (admins: every staff role; the academic admin: teachers and non-teaching staff).
+                    self::item('Staff', null, 'staff.index', Qs::userIsTeamAdmin() ? ['staff.index'] : ['staff.index', 'users.index', 'users.show', 'users.edit']),
+                    self::item('Staff attendance', null, 'staff.attendance'),
+                    Qs::userIsTeamAdmin() ? self::item('Users', null, 'users.index', ['users.index', 'users.show', 'users.edit']) : null,
+                ]),
+                self::group('Classes & subjects', 'school', [
                     self::item('Classes', null, 'classes.index', ['classes.index', 'classes.edit']),
                     self::item('Class types', null, 'class_types.index'),
+                    self::item('Sections', null, 'sections.index', ['sections.index', 'sections.edit']),
+                    self::item('Subjects', null, 'subjects.index', ['subjects.index', 'subjects.edit']),
+                    \App\Support\MarkApprovals::on() ? self::item('Departments', null, 'departments.index') : null,
                 ]),
-                self::item('Sections', 'layers', 'sections.index', ['sections.index', 'sections.edit']),
-                self::item('Subjects', 'book-open', 'subjects.index', ['subjects.index', 'subjects.edit']),
-                \App\Support\MarkApprovals::on() ? self::item('Departments', 'layers', 'departments.index') : null,
                 // Only for schools with boarding (Settings → Boarding facility).
                 Qs::getSetting('has_boarding') ? self::item('Dormitories', 'bed-double', 'dorms.index', ['dorms.index', 'dorms.edit']) : null,
+                Qs::userIsSuperAdmin() ? self::group('System', 'settings', [
+                    self::item('Settings', null, 'settings'),
+                    self::item('Activity log', null, 'activity_log'),
+                ]) : null,
             ]);
-
-            if (Qs::userIsSuperAdmin()) {
-                $admin[] = self::item('Activity log', 'scroll-text', 'activity_log');
-                $admin[] = self::item('Settings', 'settings', 'settings');
-            }
 
             $sections[] = self::section('Administration', array_values($admin));
         }
@@ -184,6 +187,7 @@ class Navigation
 
     protected static function group(string $label, string $icon, array $children): array
     {
+        $children = array_values(array_filter($children));
         $active = collect($children)->contains('active', true);
 
         return ['label' => $label, 'icon' => $icon, 'children' => $children, 'active' => $active];
