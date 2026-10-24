@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
 import { toast } from 'sonner';
-import { ChevronRight, Download, FileText, MoreHorizontal, Printer, Receipt, RotateCcw, Send } from 'lucide-react';
+import { ChevronRight, Download, FileText, MoreHorizontal, Printer, Receipt, RotateCcw } from 'lucide-react';
 import { EmptyState, Panel } from '@/components/app/page';
 import { usePaged } from '@/components/app/data-table';
 import { Meter } from '@/components/app/charts';
@@ -340,7 +340,6 @@ function ReceiptMenu({ urls, number }) {
                     </a>
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => sendReceipt(urls.send)}>
-                    <Send />
                     Send to parent (email &amp; SMS)
                 </DropdownMenuItem>
             </DropdownMenuContent>
@@ -454,7 +453,6 @@ export function TermInvoice({ invoice, sendUrl }) {
             actions={
                 sendUrl ? (
                     <Button size="sm" onClick={send} disabled={sending}>
-                        <Send />
                         {sending ? 'Sending…' : 'Send to parent'}
                     </Button>
                 ) : null

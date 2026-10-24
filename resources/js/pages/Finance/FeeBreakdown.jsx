@@ -8,7 +8,6 @@ import { SearchInput, usePaged } from "@/components/app/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { Segmented } from "@/components/ui/tabs";
 import { PeriodFilter } from "@/components/fees/period-picker";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { downloadCsv } from "@/lib/use-visit-state";
@@ -344,16 +343,19 @@ function ItemTable({ item, rows, label }) {
                     clearLabel="All classes"
                     placeholder="All classes"
                 />
-                <Segmented
+                <Select
                     size="sm"
-                    value={status}
-                    onChange={setStatus}
+                    className="w-40"
+                    value={status === "all" ? "" : status}
+                    onChange={(v) => setStatus(v || "all")}
                     options={[
-                        { value: "all", label: "All" },
                         { value: "paid", label: "Paid" },
                         { value: "part", label: "Part paid" },
                         { value: "unpaid", label: "Unpaid" },
                     ]}
+                    clearable
+                    clearLabel="All payments"
+                    placeholder="All payments"
                 />
                 <Button
                     size="sm"

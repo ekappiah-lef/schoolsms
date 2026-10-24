@@ -21,6 +21,18 @@ class ClassTypeController extends Controller
         $this->middleware('super_admin', ['only' => ['destroy']]);
     }
 
+    public function index()
+    {
+        return \Inertia\Inertia::render('Classes/Types', [
+            'session' => Qs::getCurrentSession(),
+            'canDelete' => Qs::userIsSuperAdmin(),
+            'types' => ClassType::orderBy('name')->get()->map(function ($t) {
+                return ['id' => $t->id, 'name' => $t->name, 'code' => $t->code, 'classes' => DB::table('my_classes')->where('class_type_id', $t->id)->count()];
+            })->values(),
+            'urls' => ['typeStore' => route('class_types.store'), 'typeUpdate' => route('class_types.update', ':id'), 'typeDestroy' => route('class_types.destroy', ':id')],
+        ]);
+    }
+
     public function store(Request $req)
     {
         $d = $this->validated($req);

@@ -54,7 +54,7 @@ class ActivityLog
         'kind' => 'Bill', 'student_category' => 'Students', 'action' => 'Step', 'term_days' => 'School days', 'admission_date' => 'Admission date',
     ];
     /** Fields that are too long or too technical to show; summarised instead. */
-    const SUMMARY = ['template' => 'Report card design', 'items' => 'Fee items', 'services' => 'Services', 'prices' => 'Prices', 'section_teachers' => 'Teachers by section'];
+    const SUMMARY = ['template' => 'Report card design', 'items' => 'Fee items', 'services' => 'Services', 'prices' => 'Prices', 'section_teachers' => 'Teachers by section', 'terms' => 'Term dates'];
 
     /** The details of a log entry in plain words: "Amount 2,350.00 · Paid by Cash · Bill School Fees (Term 1) for NANA KOFI OKYERE". */
     public static function readable(?string $route, ?string $json): string
@@ -135,7 +135,7 @@ class ActivityLog
             'finance.sales.return' => 'Returned a sale', 'settings.update' => 'Changed school settings', 'messages.send' => 'Sent a message',
             'payments.send_all_bills' => 'Sent bills to parents', 'finance.term_days' => 'Changed school days this term', 'finance.options.store' => 'Added a service',
             'finance.options.update' => 'Edited a service', 'finance.routes.store' => 'Added a bus route', 'finance.routes.update' => 'Edited a bus route', 'marks.comment_update' => 'Wrote a report comment',
-            'class_types.store' => 'Added a class type', 'class_types.update' => 'Renamed a class type', 'departments.store' => 'Added a department', 'departments.update' => 'Edited a department', 'payments.send_invoice' => 'Sent an invoice', 'finance.services.add' => 'Added students to a service', 'finance.assign.save' => 'Assigned services',
+            'class_types.store' => 'Added a class type', 'class_types.update' => 'Renamed a class type', 'departments.store' => 'Added a department', 'departments.update' => 'Edited a department', 'payments.send_invoice' => 'Sent an invoice', 'finance.services.add' => 'Added students to a service', 'finance.assign.save' => 'Assigned services', 'calendar.save' => 'Saved the school calendar',
         ];
         if ($name && isset($labels[$name])) return $labels[$name];
         if (!$name) return $req->method().' '.$req->path();

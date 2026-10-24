@@ -6,26 +6,11 @@ import { Field, ModuleHeader, NativeSelect, fieldInput } from '@/components/app/
 import { PhotoUploader } from '@/components/app/file-uploader';
 import { Panel } from '@/components/app/page';
 import { Button } from '@/components/ui/button';
-import { DatePicker } from '@/components/ui/date-picker';
 
-// Term dates are stored as m/d/Y (read with strtotime on the report cards); the picker uses yyyy-MM-dd.
-const toIso = (v) => {
-    const m = String(v ?? '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    return m ? `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}` : /^\d{4}-\d{2}-\d{2}$/.test(v ?? '') ? v : '';
-};
-const fromIso = (v) => {
-    const m = String(v ?? '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    return m ? `${m[2]}/${m[3]}/${m[1]}` : '';
-};
-
-/** School settings (super admin): name, year, contacts, term dates, exam lock and logo. */
+/** School settings (super admin): name, year, contacts, exam lock and logo (term dates: School calendar). */
 export default function Settings({ settings, logo, years, urls }) {
     const errors = usePage().props.errors ?? {};
-    const [data, setData] = useState({
-        ...settings,
-        term_ends: toIso(settings.term_ends),
-        term_begins: toIso(settings.term_begins),
-    });
+    const [data, setData] = useState(settings);
     const [logoFile, setLogoFile] = useState(null);
     const [logoError, setLogoError] = useState(null);
     const [processing, setProcessing] = useState(false);
@@ -33,7 +18,8 @@ export default function Settings({ settings, logo, years, urls }) {
 
     const submit = (e) => {
         e.preventDefault();
-        const body = { ...data, term_ends: fromIso(data.term_ends), term_begins: fromIso(data.term_begins), _method: 'put' };
+        const { term_ends, term_begins, ...rest } = data;
+        const body = { ...rest, _method: 'put' };
         if (logoFile) body.logo = logoFile;
         router.post(urls.update, body, {
             forceFormData: true,
@@ -85,12 +71,6 @@ export default function Settings({ settings, logo, years, urls }) {
                             </Field>
                             <Field label="Address" required error={errors.address} span={2}>
                                 <input className={fieldInput} value={data.address} onChange={(e) => set('address', e.target.value)} />
-                            </Field>
-                            <Field label="This term ends" error={errors.term_ends}>
-                                <DatePicker value={data.term_ends} onChange={(v) => set('term_ends', v)} fromYear={2020} toYear={new Date().getFullYear() + 2} />
-                            </Field>
-                            <Field label="Next term begins" error={errors.term_begins}>
-                                <DatePicker value={data.term_begins} onChange={(v) => set('term_begins', v)} fromYear={2020} toYear={new Date().getFullYear() + 2} />
                             </Field>
                             <Field label="Boarding facility">
                                 <NativeSelect value={String(data.has_boarding || '0')} onChange={(v) => set('has_boarding', v)}>

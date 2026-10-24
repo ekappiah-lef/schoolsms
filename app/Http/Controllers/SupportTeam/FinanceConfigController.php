@@ -49,7 +49,8 @@ class FinanceConfigController extends Controller
             'groups' => collect(FeeOption::GROUPS)->map(function ($label, $key) { return ['key' => $key, 'label' => $label]; })->values(),
             'byLevel' => \App\Support\School::has('service_prices_by_level'),
             'classTypes' => DB::table('class_types')->orderBy('id')->get(['id', 'name'])->map(function ($t) { return ['id' => $t->id, 'name' => $t->name]; })->values(),
-            'termDays' => (string) (Qs::getSetting('term_days') ?: ''),
+            // Counted from the school calendar when this term's dates are there; otherwise typed here.
+            'termDays' => \App\Support\SchoolCalendar::current() ? null : (string) (Qs::getSetting('term_days') ?: ''),
             'options' => FeeOption::orderBy('group')->orderBy('sort')->orderBy('id')->get()->map(function ($o) use ($optionUse) {
                 return [
                     'id' => $o->id,

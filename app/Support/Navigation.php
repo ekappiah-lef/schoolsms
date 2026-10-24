@@ -152,7 +152,11 @@ class Navigation
                 // Teaching and non-teaching staff (admins: every staff role; the academic admin: teachers and non-teaching staff).
                 self::item('Staff', 'graduation-cap', 'staff.index', Qs::userIsTeamAdmin() ? ['staff.index'] : ['staff.index', 'users.index', 'users.show', 'users.edit']),
                 self::item('Staff attendance', 'clock', 'staff.attendance'),
-                self::item('Classes', 'school', 'classes.index', ['classes.index', 'classes.edit']),
+                self::item('School calendar', 'calendar', 'calendar.index'),
+                self::group('Classes', 'school', [
+                    self::item('Classes', null, 'classes.index', ['classes.index', 'classes.edit']),
+                    self::item('Class types', null, 'class_types.index'),
+                ]),
                 self::item('Sections', 'layers', 'sections.index', ['sections.index', 'sections.edit']),
                 self::item('Subjects', 'book-open', 'subjects.index', ['subjects.index', 'subjects.edit']),
                 \App\Support\MarkApprovals::on() ? self::item('Departments', 'layers', 'departments.index') : null,

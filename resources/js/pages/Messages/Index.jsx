@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { toast } from 'sonner';
-import { Send } from 'lucide-react';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { Field, InfoCallout, ModuleHeader, NativeSelect, fieldInput } from '@/components/app/module';
 import { EmptyState, Panel } from '@/components/app/page';
@@ -79,7 +78,6 @@ export default function Messages({ audiences, counts, classes, history, canAppro
                                     {!reach && d.audience === 'class' ? 'Choose a class' : null}
                                 </span>
                                 <Button variant="primary" onClick={() => setConfirm(true)} disabled={!ready || busy}>
-                                    <Send />
                                     {needsApproval ? 'Submit for approval' : 'Send message'}
                                 </Button>
                             </div>

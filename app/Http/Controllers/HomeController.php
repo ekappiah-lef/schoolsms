@@ -80,6 +80,7 @@ class HomeController extends Controller
         $session = Qs::getCurrentSession();
         $user = Auth::user();
 
+        \App\Support\SchoolCalendar::syncDaily();
         $d = [
             'session' => $session,
             'term' => [

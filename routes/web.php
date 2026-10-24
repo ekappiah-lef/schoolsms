@@ -284,7 +284,10 @@ Route::group(['middleware' => 'auth'], function () {
         Route::resource('students', 'StudentRecordController');
         Route::resource('users', 'UserController');
         Route::resource('classes', 'MyClassController');
+        Route::get('class-types', 'ClassTypeController@index')->name('class_types.index');
         Route::post('class-types', 'ClassTypeController@store')->name('class_types.store');
+        Route::get('school-calendar', 'SchoolCalendarController@index')->name('calendar.index');
+        Route::post('school-calendar', 'SchoolCalendarController@save')->name('calendar.save');
         Route::put('class-types/{type}', 'ClassTypeController@update')->name('class_types.update');
         Route::delete('class-types/{type}', 'ClassTypeController@destroy')->name('class_types.destroy');
         Route::resource('sections', 'SectionController');

@@ -266,6 +266,9 @@ class Fees
      */
     public static function termShareLeft(): float
     {
+        if (!School::has('service_prices_by_level')) return 1.0;
+        // From the school calendar when this term's dates are entered (mid-term break left out).
+        if (($share = SchoolCalendar::shareLeft()) !== null) return $share;
         $days = (int) Qs::getSetting('term_days');
         $ends = Qs::getSetting('term_ends');
         $begins = Qs::getSetting('term_begins');

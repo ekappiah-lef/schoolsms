@@ -75,6 +75,21 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testSchoolCalendarAndClassTypesOpen()
+    {
+        $admin = $this->user('admin');
+        $this->actingAs($admin)->get('/school-calendar')->assertOk()->assertSee('Calendar\/Index', false);
+        $this->actingAs($admin)->get('/class-types')->assertOk()->assertSee('Classes\/Types', false);
+    }
+
+    public function testTermsFollowTheMonthsWithoutACalendar()
+    {
+        \App\Support\SchoolCalendar::forget();
+        $this->assertSame([2026, 1], \App\Support\SchoolCalendar::termOf(\Carbon\Carbon::create(2026, 10, 1)));
+        $this->assertSame([2026, 2], \App\Support\SchoolCalendar::termOf(\Carbon\Carbon::create(2027, 2, 1)));
+        $this->assertSame([2026, 3], \App\Support\SchoolCalendar::termOf(\Carbon\Carbon::create(2027, 6, 1)));
+    }
+
     public function testOnlyTheSuperAdminOpensTheActivityLog()
     {
         $this->actingAs($this->user('super_admin'))->get('/activity-log')->assertOk();

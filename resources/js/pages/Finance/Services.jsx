@@ -23,8 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Modal } from "@/components/ui/dialog";
 import { submitForm } from "@/lib/http";
 import { toast } from "sonner";
-import { Select } from "@/components/ui/select";
-import { Segmented } from "@/components/ui/tabs";
+import { MultiSelect, Select } from "@/components/ui/select";
 import { downloadCsv } from "@/lib/use-visit-state";
 import { cn, formatMoney, percent } from "@/lib/utils";
 
@@ -39,6 +38,13 @@ const ICONS = {
  * Feeding / Bus / Extra-curricular / Books roster: who takes what, and what
  * they have paid. Every filter recalculates the cards.
  */
+const STATUSES = [
+    { value: "owing", label: "Owing" },
+    { value: "part", label: "Part paid" },
+    { value: "unpaid", label: "Unpaid" },
+    { value: "paid", label: "Paid" },
+];
+
 export default function ServiceRoster({
     group,
     label,
@@ -63,11 +69,6 @@ export default function ServiceRoster({
     const Icon = ICONS[group];
 
     const choices = isBus ? routes : options;
-    const toggle = (v) => {
-        setPicked((p) =>
-            p.includes(v) ? p.filter((x) => x !== v) : [...p, v],
-        );
-    };
 
     const filtered = useMemo(() => {
         const term = q.trim().toLowerCase();
@@ -220,7 +221,7 @@ export default function ServiceRoster({
                     />
                 </div>
 
-                <div className="flex flex-col gap-4 rounded-lg bg-surface p-5 shadow-card">
+                <div className="flex flex-col gap-3 rounded-xl bg-surface p-5 shadow-card">
                     <div className="flex flex-wrap items-center gap-3">
                         <SearchInput
                             value={q}
@@ -239,132 +240,69 @@ export default function ServiceRoster({
                             clearLabel="All classes"
                             placeholder="All classes"
                         />
-                        <Segmented
+                        <Select
                             size="sm"
-                            value={status}
-                            onChange={setStatus}
-                            options={[
-                                { value: "all", label: "All" },
-                                { value: "owing", label: "Owing" },
-                                { value: "part", label: "Part paid" },
-                                { value: "unpaid", label: "Unpaid" },
-                                { value: "paid", label: "Paid" },
-                            ]}
+                            className="w-40"
+                            value={status === "all" ? "" : status}
+                            onChange={(v) => setStatus(v || "all")}
+                            options={STATUSES}
+                            clearable
+                            clearLabel="All payments"
+                            placeholder="All payments"
                         />
+                        {isBus ? (
+                            <Select
+                                size="sm"
+                                className="w-40"
+                                value={direction}
+                                onChange={setDirection}
+                                options={directions}
+                                clearable
+                                clearLabel="Any direction"
+                                placeholder="Any direction"
+                            />
+                        ) : (
+                            picked.length > 0 && (
+                                <Select
+                                    size="sm"
+                                    className="w-40"
+                                    value={match}
+                                    onChange={(v) => setMatch(v || "exact")}
+                                    options={[
+                                        { value: "exact", label: picked.length === 1 ? "Only this" : "Only these" },
+                                        { value: "includes", label: "Includes" },
+                                    ]}
+                                />
+                            )
+                        )}
                         <div className="ml-auto flex gap-2">
                             {active && (
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={reset}
-                                >
+                                <Button size="sm" variant="ghost" onClick={reset}>
                                     Clear filters
                                 </Button>
                             )}
-                            <Button
-                                size="sm"
-                                onClick={exportCsv}
-                                disabled={!filtered.length}
-                            >
+                            <Button size="sm" onClick={exportCsv} disabled={!filtered.length}>
                                 <Download />
                                 Export
                             </Button>
                         </div>
                     </div>
-
-                    <div className="flex flex-col gap-2">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-sm font-medium">Pick one or more</span>
-                            {isBus ? (
-                                <Segmented
-                                    size="sm"
-                                    value={direction}
-                                    onChange={setDirection}
-                                    options={[
-                                        { value: "", label: "Any direction" },
-                                        ...directions,
-                                    ]}
-                                />
-                            ) : (
-                                picked.length > 0 && (
-                                    <Segmented
-                                        size="sm"
-                                        value={match}
-                                        onChange={setMatch}
-                                        options={[
-                                            {
-                                                value: "exact",
-                                                label:
-                                                    picked.length === 1
-                                                        ? "Only this"
-                                                        : "Only these",
-                                            },
-                                            {
-                                                value: "includes",
-                                                label: "Includes",
-                                            },
-                                        ]}
-                                    />
-                                )
-                            )}
-                        </div>
-                        {choices.length ? (
-                            <div className="flex flex-wrap gap-2">
-                                {choices.map((c) => {
-                                    const on = picked.includes(c.value);
-                                    return (
-                                        <button
-                                            key={c.value}
-                                            type="button"
-                                            aria-pressed={on}
-                                            onClick={() => toggle(c.value)}
-                                            className={cn(
-                                                "inline-flex h-8 items-center gap-2 rounded-full px-3 text-sm font-medium shadow-field transition-shadow",
-                                                on
-                                                    ? "bg-primary text-white shadow-none"
-                                                    : "bg-surface hover:shadow-card-hover",
-                                            )}
-                                        >
-                                            {on && (
-                                                <Check
-                                                    className="size-3.5"
-                                                    strokeWidth={3}
-                                                />
-                                            )}
-                                            {c.label}
-                                            <span
-                                                className={cn(
-                                                    "tabular rounded-full px-1.5 text-xs",
-                                                    on
-                                                        ? "bg-white/20"
-                                                        : "bg-subtle text-fg-muted",
-                                                )}
-                                            >
-                                                {countFor(c.value)}
-                                            </span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            <p className="text-sm text-fg-subtle">
-                                Nothing configured yet.{" "}
-                                <Link
-                                    href={urls.config}
-                                    className="text-primary hover:underline"
-                                >
-                                    Finance configuration
-                                </Link>
-                            </p>
-                        )}
-                        {!isBus && picked.length > 0 && (
-                            <p className="text-xs text-fg-muted">
-                                {match === "exact"
-                                    ? `Showing students on ${picked.map((p) => choices.find((c) => c.value === p)?.label).join(" + ")} and nothing else.`
-                                    : `Showing students on ${picked.map((p) => choices.find((c) => c.value === p)?.label).join(" + ")}, with or without others.`}
-                            </p>
-                        )}
-                    </div>
+                    {choices.length ? (
+                        <MultiSelect
+                            value={picked}
+                            onChange={setPicked}
+                            options={choices.map((c) => ({ value: c.value, label: c.label, hint: countFor(c.value) }))}
+                            placeholder={isBus ? "All routes" : `All ${label.toLowerCase()}`}
+                            searchPlaceholder={isBus ? "Search routes" : "Search services"}
+                        />
+                    ) : (
+                        <p className="text-sm text-fg-subtle">
+                            Nothing configured yet.{" "}
+                            <Link href={urls.config} className="text-primary hover:underline">
+                                Finance configuration
+                            </Link>
+                        </p>
+                    )}
                 </div>
 
                 <div className="overflow-hidden rounded-lg bg-surface shadow-card">

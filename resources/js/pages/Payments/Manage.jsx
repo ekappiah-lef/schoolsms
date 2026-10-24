@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Head, Link, router } from "@inertiajs/react";
-import { ArrowRight, Download, Search, Send, Wallet } from "lucide-react";
+import { ArrowRight, Download, Search, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog, Modal } from "@/components/ui/dialog";
 import { submitForm } from "@/lib/http";
@@ -11,8 +11,7 @@ import { Meter } from "@/components/app/charts";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Combobox } from "@/components/ui/select";
-import { Segmented } from "@/components/ui/tabs";
+import { Combobox, Select } from "@/components/ui/select";
 import { downloadCsv, useVisitState } from "@/lib/use-visit-state";
 import { cn, formatMoney, formatNumber, percent } from "@/lib/utils";
 
@@ -210,22 +209,22 @@ export default function PaymentsManage({
                                     className="h-8 w-full rounded-md border border-border bg-muted pl-8 pr-3 text-sm placeholder:text-fg-subtle focus:border-primary focus:bg-surface focus:shadow-focus focus:outline-none"
                                 />
                             </div>
-                            <Segmented
+                            <Select
                                 size="sm"
-                                value={status}
-                                onChange={setStatus}
+                                className="w-44"
+                                value={status === "all" ? "" : status}
+                                onChange={(v) => setStatus(v || "all")}
+                                clearable
+                                clearLabel={`All students · ${students.length}`}
+                                placeholder={`All students · ${students.length}`}
                                 options={[
                                     {
-                                        value: "all",
-                                        label: `All ${students.length}`,
-                                    },
-                                    {
                                         value: "owing",
-                                        label: `Owing ${counts.owing}`,
+                                        label: `Owing · ${counts.owing}`,
                                     },
                                     {
                                         value: "cleared",
-                                        label: `Paid ${counts.cleared}`,
+                                        label: `Paid · ${counts.cleared}`,
                                     },
                                 ]}
                             />
@@ -422,7 +421,6 @@ function SendAllBills({ url }) {
     return (
         <>
             <Button onClick={() => setOpen(true)}>
-                <Send />
                 Send bills to all parents
             </Button>
             <Modal
@@ -475,7 +473,6 @@ function SendClassInvoices({ url, className, count }) {
     return (
         <>
             <Button className="ml-auto" onClick={() => setOpen(true)}>
-                <Send />
                 Send invoices to class
             </Button>
             <ConfirmDialog

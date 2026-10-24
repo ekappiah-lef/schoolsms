@@ -193,3 +193,102 @@ export function Combobox({
         </PopoverPrimitive.Root>
     );
 }
+
+/**
+ * Searchable multi-select: a wide field with the chosen items as chips, and a list to tick more.
+ * `options`: [{ value, label, hint? }]; `value`: array of values.
+ */
+export function MultiSelect({ value = [], onChange, options = [], placeholder = 'Select…', searchPlaceholder = 'Search…', emptyText = 'No matches', className, disabled }) {
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState('');
+    const chosen = value.map(String);
+    const toggle = (v) => onChange?.(chosen.includes(String(v)) ? value.filter((x) => String(x) !== String(v)) : [...value, v]);
+    const picked = options.filter((o) => chosen.includes(String(o.value)));
+
+    return (
+        <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
+            <PopoverPrimitive.Trigger asChild disabled={disabled}>
+                <div
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={open}
+                    className={cn(inputClass, 'flex h-auto min-h-10 cursor-pointer items-center gap-2 py-1.5 text-left', className)}
+                >
+                    <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+                        {picked.length === 0 && <span className="py-0.5 text-fg-subtle">{placeholder}</span>}
+                        {picked.map((o) => (
+                            <span key={o.value} className="inline-flex h-7 items-center gap-1 rounded-md bg-primary-soft pl-2.5 pr-1 text-sm font-medium text-primary-hover">
+                                {o.label}
+                                <span
+                                    role="button"
+                                    tabIndex={-1}
+                                    aria-label={`Remove ${o.label}`}
+                                    onPointerDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        toggle(o.value);
+                                    }}
+                                    className="rounded p-0.5 hover:bg-primary/15"
+                                >
+                                    <X className="size-3.5" />
+                                </span>
+                            </span>
+                        ))}
+                    </div>
+                    <span className="flex shrink-0 items-center gap-1">
+                        {picked.length > 0 && !disabled && (
+                            <span
+                                role="button"
+                                tabIndex={-1}
+                                aria-label="Clear all"
+                                onPointerDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onChange?.([]);
+                                }}
+                                className="rounded p-0.5 text-fg-subtle hover:bg-subtle hover:text-fg"
+                            >
+                                <X className="size-4" />
+                            </span>
+                        )}
+                        <ChevronDown className="size-4 text-fg-subtle" />
+                    </span>
+                </div>
+            </PopoverPrimitive.Trigger>
+            <PopoverPrimitive.Portal>
+                <PopoverPrimitive.Content
+                    align="start"
+                    sideOffset={4}
+                    className="z-50 w-[max(var(--radix-popover-trigger-width),16rem)] overflow-hidden rounded-lg border border-border bg-surface shadow-lg data-[state=open]:animate-pop-in"
+                >
+                    <Command loop>
+                        <div className="flex items-center gap-2 border-b border-border px-3">
+                            <Search className="size-4 shrink-0 text-fg-subtle" />
+                            <Command.Input value={search} onValueChange={setSearch} placeholder={searchPlaceholder} className="h-9 w-full bg-transparent text-sm outline-none placeholder:text-fg-subtle" />
+                        </div>
+                        <Command.List className="scrollbar-thin max-h-72 overflow-y-auto p-1">
+                            <Command.Empty className="px-2 py-6 text-center text-sm text-fg-muted">{emptyText}</Command.Empty>
+                            {options.map((o) => {
+                                const on = chosen.includes(String(o.value));
+                                return (
+                                    <Command.Item
+                                        key={o.value}
+                                        value={`${o.label} ${o.value}`}
+                                        onSelect={() => toggle(o.value)}
+                                        className="flex h-9 cursor-default select-none items-center gap-2.5 rounded-md px-2 text-sm outline-none data-[selected=true]:bg-subtle"
+                                    >
+                                        <span className={cn('flex size-4 shrink-0 items-center justify-center rounded border', on ? 'border-primary bg-primary text-white' : 'border-border-strong')}>
+                                            {on && <Check className="size-3" />}
+                                        </span>
+                                        <span className="truncate">{o.label}</span>
+                                        {o.hint !== undefined && <span className="tabular ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-fg-muted">{o.hint}</span>}
+                                    </Command.Item>
+                                );
+                            })}
+                        </Command.List>
+                    </Command>
+                </PopoverPrimitive.Content>
+            </PopoverPrimitive.Portal>
+        </PopoverPrimitive.Root>
+    );
+}

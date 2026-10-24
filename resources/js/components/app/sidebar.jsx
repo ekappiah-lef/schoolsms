@@ -25,7 +25,7 @@ function itemClass(active, collapsed) {
     return cn(
         'focus-ring group flex h-9 w-full items-center gap-3 rounded-lg text-sm font-medium transition-colors [&_svg]:size-[18px] [&_svg]:shrink-0',
         collapsed ? 'justify-center px-0' : 'px-3',
-        active ? 'bg-primary font-semibold text-white shadow-btn [&_svg]:text-white' : 'text-fg-muted hover:bg-muted hover:text-fg [&_svg]:text-fg-subtle hover:[&_svg]:text-fg-muted',
+        active ? 'bg-primary font-semibold text-white shadow-btn [&_svg]:text-white' : 'text-fg hover:bg-muted [&_svg]:text-fg-muted hover:[&_svg]:text-fg',
     );
 }
 
@@ -74,7 +74,7 @@ function NavGroup({ item, collapsed, onNavigate }) {
             <Collapsible.Trigger
                 className={cn(
                     itemClass(false, false),
-                    item.active && 'text-fg [&_svg]:text-fg-muted',
+                    item.active && 'font-semibold [&_svg]:text-fg',
                 )}
             >
                 <Icon />
@@ -93,7 +93,7 @@ function NavGroup({ item, collapsed, onNavigate }) {
                                 aria-current={child.active ? 'page' : undefined}
                                 className={cn(
                                     'focus-ring flex h-8 items-center rounded-lg px-2.5 text-sm transition-colors',
-                                    child.active ? 'bg-muted font-semibold text-primary-hover' : 'text-fg-muted hover:bg-muted hover:text-fg',
+                                    child.active ? 'bg-muted font-semibold text-primary-hover' : 'text-fg/85 hover:bg-muted hover:text-fg',
                                 )}
                             >
                                 <span className="truncate">{child.label}</span>
@@ -116,7 +116,7 @@ export function SidebarNav({ nav, collapsed = false, onNavigate }) {
                         (collapsed ? (
                             <div className="mx-auto mb-2 h-px w-6 bg-border" />
                         ) : (
-                            <div className="mb-1.5 px-3 text-2xs font-semibold uppercase tracking-wider text-fg-subtle">{section.label}</div>
+                            <div className="mb-1.5 px-3 text-2xs font-bold uppercase tracking-wider text-fg-muted">{section.label}</div>
                         ))}
                     <ul className="space-y-0.5">
                         {section.items.map((item) => (

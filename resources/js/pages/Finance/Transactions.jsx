@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { ArrowDownLeft, ArrowUpRight, Landmark, Pencil, Printer, Trash2, Wallet } from 'lucide-react';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { Field, InfoCallout, ModuleHeader, ModuleTabs, NativeSelect, RegistryCard, RowIconButton, SetupCard, SummaryTile, fieldInput, useModuleTab } from '@/components/app/module';
 import { useConfirmAction } from '@/components/app/confirm-action';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Segmented } from '@/components/ui/tabs';
+import { Select } from '@/components/ui/select';
 import { useModuleForm } from '@/lib/use-module-form';
 import { PeriodFilter } from '@/components/fees/period-picker';
 import { cn, formatDate, formatMoney } from '@/lib/utils';
@@ -47,14 +48,17 @@ export default function FinanceTransactions({ session, categories, usedCategorie
                     title="Income & expenses"
                     session={session}
                 />
-                <ModuleTabs
-                    value={tab}
-                    onChange={(t) => (editing && t === 'list' ? router.visit(urls.index) : setTab(t))}
-                    createLabel="Entry"
-                    listLabel="Show Entries"
-                    count={transactions.length}
-                    editing={!!editing}
-                />
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <ModuleTabs
+                        value={tab}
+                        onChange={(t) => (editing && t === 'list' ? router.visit(urls.index) : setTab(t))}
+                        createLabel="Entry"
+                        listLabel="Entries"
+                        count={transactions.length}
+                        editing={!!editing}
+                    />
+                    {tab !== 'create' && <PeriodFilter selection={selection} url={urls.index} />}
+                </div>
 
                 {tab === 'create' ? (
                     <div className="flex flex-col gap-3">
@@ -127,30 +131,28 @@ export default function FinanceTransactions({ session, categories, usedCategorie
                     </div>
                 ) : (
                     <>
-                        <div className="flex justify-end">
-                            <PeriodFilter selection={selection} url={urls.index} />
-                        </div>
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                            <Tile label="Money received" value={totals.received} tone="success" />
-                            <Tile label="Expenses" value={totals.expenses} tone="danger" />
-                            <Tile label={selection.balanceName} value={totals.balance} strong />
-                        </div>
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <Segmented
-                                value={typeFilter}
-                                onChange={setTypeFilter}
-                                options={[
-                                    { value: 'all', label: 'All' },
-                                    { value: 'income', label: 'Income' },
-                                    { value: 'expense', label: 'Expenses' },
-                                ]}
-                            />
-                            <Link href={urls.dashboard} className="text-sm font-medium text-primary hover:underline">
-                                Finance dashboard
-                            </Link>
+                        <div className="grid grid-cols-1 overflow-hidden rounded-xl bg-surface shadow-card md:grid-cols-3 md:divide-x md:divide-border">
+                            <Tile icon={ArrowDownLeft} label="Money received" value={totals.received} tone="success" sub={`School fees ${formatMoney(totals.fees)} · Other ${formatMoney(totals.other)}`} />
+                            <Tile icon={ArrowUpRight} label="Expenses" value={totals.expenses} tone="danger" />
+                            <Tile icon={Landmark} label={selection.balanceName} value={totals.balance} tone="primary" />
                         </div>
                         <RegistryCard
                             title="Entries"
+                            actions={
+                                <Select
+                                    size="sm"
+                                    className="ml-2 w-36"
+                                    value={typeFilter === 'all' ? '' : typeFilter}
+                                    onChange={(v) => setTypeFilter(v || 'all')}
+                                    options={[
+                                        { value: 'income', label: 'Income' },
+                                        { value: 'expense', label: 'Expenses' },
+                                    ]}
+                                    clearable
+                                    clearLabel="All entries"
+                                    placeholder="All entries"
+                                />
+                            }
                             rows={rows}
                             exportName="income-expenses"
                             searchText={(r) => `${r.category} ${r.description ?? ''} ${r.reference ?? ''} ${r.method ?? ''}`}
@@ -235,14 +237,27 @@ export default function FinanceTransactions({ session, categories, usedCategorie
 
 FinanceTransactions.layout = withAppLayout;
 
-function Tile({ label, value, tone, strong }) {
+const TONES = {
+    success: ['bg-success-soft text-success-fg', 'text-success-fg'],
+    danger: ['bg-danger-soft text-danger-fg', 'text-danger-fg'],
+    primary: ['bg-primary-soft text-primary-hover', 'text-primary-hover'],
+};
+
+function Tile({ icon: Icon, label, value, tone, sub }) {
+    const [chip, text] = TONES[tone];
     return (
-        <div className={cn('flex flex-col gap-2 rounded-lg p-5 shadow-card', strong ? 'bg-primary-soft/50' : 'bg-surface')}>
-            <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">{label}</span>
-            <span className={cn('tabular text-3xl font-semibold tracking-tight', tone === 'success' && 'text-success-fg', tone === 'danger' && 'text-danger-fg', strong && 'text-primary-hover', value < 0 && 'text-danger-fg')}>
-                {value < 0 ? '−' : ''}
-                {formatMoney(Math.abs(value))}
+        <div className="flex items-start gap-4 border-b border-border p-6 last:border-0 md:border-b-0">
+            <span className={cn('flex size-11 shrink-0 items-center justify-center rounded-xl', chip)}>
+                <Icon className="size-5" />
             </span>
+            <div className="flex min-w-0 flex-col gap-1">
+                <span className="text-xs font-semibold uppercase tracking-wider text-fg-muted">{label}</span>
+                <span className={cn('tabular text-2xl font-bold tracking-tight', value < 0 ? 'text-danger-fg' : text)}>
+                    {value < 0 ? '−' : ''}
+                    {formatMoney(Math.abs(value))}
+                </span>
+                {sub && <span className="tabular text-xs text-fg-muted">{sub}</span>}
+            </div>
         </div>
     );
 }

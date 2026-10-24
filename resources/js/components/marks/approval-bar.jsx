@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
 import { toast } from 'sonner';
-import { CheckCheck, History, Send, Undo2 } from 'lucide-react';
+import { CheckCheck, History, Undo2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/dialog';
@@ -89,7 +89,6 @@ export function ApprovalBar({ approval, url, dirty }) {
                     )}
                     {approval.canSubmit && (
                         <Button size="sm" variant="primary" onClick={() => open('submit')}>
-                            <Send />
                             Submit to HOD
                         </Button>
                     )}

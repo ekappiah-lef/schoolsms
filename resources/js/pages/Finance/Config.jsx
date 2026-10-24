@@ -65,7 +65,7 @@ export default function FinanceConfig({ session, groups, options, routes, discou
                     </TabsList>
 
                     <TabsContent value="services">
-                        {byLevel && <TermDays value={termDays} url={urls.termDays} />}
+                        {byLevel && termDays !== null && <TermDays value={termDays} url={urls.termDays} />}
                         <div className="grid gap-6 lg:grid-cols-3">
                             {groups.map((g) => (
                                 <OptionGroup

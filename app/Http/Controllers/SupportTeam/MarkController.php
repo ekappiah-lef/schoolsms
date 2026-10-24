@@ -194,6 +194,7 @@ class MarkController extends Controller
 
     public function print_view($student_id, $exam_id, $year)
     {
+        \App\Support\SchoolCalendar::syncDaily();
         /* Prevent Other Students/Parents from viewing Result of others */
         if(Auth::user()->id != $student_id && !Qs::userIsTeamSA() && !Qs::userIsMyChild($student_id, Auth::user()->id)){
             return redirect(route('dashboard'))->with('pop_error', __('msg.denied'));

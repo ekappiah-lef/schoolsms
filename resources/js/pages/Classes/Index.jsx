@@ -3,7 +3,6 @@ import { Building2, Layers, Pencil, School, Trash2, Users } from 'lucide-react';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { Field, InfoCallout, ModuleHeader, ModuleTabs, NativeSelect, RegistryCard, RowIconButton, SetupCard, SummaryTile, fieldInput, useModuleTab } from '@/components/app/module';
 import { useConfirmAction } from '@/components/app/confirm-action';
-import { ClassTypes } from '@/components/app/class-types';
 import { useModuleForm } from '@/lib/use-module-form';
 import { cn } from '@/lib/utils';
 
@@ -119,7 +118,6 @@ export default function ClassesIndex({ session, canDelete, types, classes, editi
                                 },
                             ]}
                         />
-                        <ClassTypes types={types} urls={urls} canDelete={canDelete} />
                     </>
                 )}
             </div>

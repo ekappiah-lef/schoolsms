@@ -21,19 +21,16 @@ class FinancePeriod
     public $session; // school year, for term and school-year periods
     public $term;    // 1–3 for term periods
 
-    /** Term dates within a school year starting in $y: Aug–Dec, Jan–Apr, May–Jul. */
+    /** Term dates within a school year starting in $y, from the school calendar (or Aug–Dec, Jan–Apr, May–Jul). */
     public static function termRange(int $y, int $term): array
     {
-        if ($term === 1) return [Carbon::create($y, 8, 1)->startOfDay(), Carbon::create($y, 12, 31)->endOfDay()];
-        if ($term === 2) return [Carbon::create($y + 1, 1, 1)->startOfDay(), Carbon::create($y + 1, 4, 30)->endOfDay()];
-        return [Carbon::create($y + 1, 5, 1)->startOfDay(), Carbon::create($y + 1, 7, 31)->endOfDay()];
+        return SchoolCalendar::termRange($y, $term);
     }
 
     /** [school-year start, term] for a date. */
     public static function termOf(Carbon $d): array
     {
-        if ($d->month >= 8) return [$d->year, 1];
-        return $d->month <= 4 ? [$d->year - 1, 2] : [$d->year - 1, 3];
+        return SchoolCalendar::termOf($d);
     }
 
     public static function fromRequest(Request $req, string $default = 'year'): self

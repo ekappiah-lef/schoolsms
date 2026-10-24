@@ -19,8 +19,7 @@ import {
     RefreshCw,
     Rows3,
     Search,
-    Send,
-} from 'lucide-react';
+    } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { downloadCsv } from '@/lib/use-visit-state';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -142,7 +141,7 @@ export function SetupCard({ title, description, icon: Icon, onSubmit, onReset, o
                         disabled={processing}
                         className="flex h-10 items-center gap-1.5 rounded-lg bg-primary px-8 text-sm font-medium text-white shadow-btn transition-colors hover:bg-primary-hover disabled:opacity-70"
                     >
-                        {processing ? <LoaderCircle className="size-[18px] animate-spin" /> : <Send className="size-[18px]" />}
+                        {processing && <LoaderCircle className="size-[18px] animate-spin" />}
                         {processing ? 'Saving…' : submitLabel}
                     </button>
                 </div>

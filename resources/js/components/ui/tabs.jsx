@@ -37,7 +37,7 @@ export function TabsTrigger({ className, count, children, ...props }) {
 /** Segmented control — used for small in-panel switches (as in the timetable design). */
 export function Segmented({ value, onChange, options, className, size = 'md' }) {
     return (
-        <div role="tablist" className={cn('inline-flex rounded-md border border-border bg-subtle p-0.5', className)}>
+        <div role="tablist" className={cn('inline-flex flex-wrap gap-1 rounded-xl bg-muted p-1', className)}>
             {options.map((opt) => {
                 const active = opt.value === value;
                 return (
@@ -48,9 +48,9 @@ export function Segmented({ value, onChange, options, className, size = 'md' }) 
                         aria-selected={active}
                         onClick={() => onChange(opt.value)}
                         className={cn(
-                            'focus-ring inline-flex items-center gap-1.5 rounded-[5px] px-2.5 font-medium transition-colors [&_svg]:size-3.5',
-                            size === 'sm' ? 'h-6 text-xs' : 'h-7 text-sm',
-                            active ? 'bg-surface text-fg shadow-sm' : 'text-fg-muted hover:text-fg',
+                            'focus-ring inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg font-medium transition-all duration-150 [&_svg]:size-3.5',
+                            size === 'sm' ? 'h-7 px-3 text-xs' : 'h-8 px-4 text-sm',
+                            active ? 'bg-surface font-semibold text-primary-hover shadow-card ring-1 ring-primary/15' : 'text-fg-muted hover:bg-surface/60 hover:text-fg',
                         )}
                     >
                         {opt.icon}
