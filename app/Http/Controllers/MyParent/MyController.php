@@ -21,16 +21,28 @@ class MyController extends Controller
     public function children()
     {
         $data['students'] = $this->student->getRecord(['my_parent_id' => Auth::user()->id])->with(['my_class', 'section'])->get();
+        // This term so far (school calendar), for each child's attendance.
+        [$ty, $tt] = \App\Support\SchoolCalendar::termOf(now());
+        [$from] = \App\Support\SchoolCalendar::termRange($ty, $tt);
+        $today = now()->toDateString();
 
-        return Ui::render('Parent/Children', function () use ($data) {
+        return Ui::render('Parent/Children', function () use ($data, $from, $today) {
             return [
-                'children' => $data['students']->filter(function ($s) { return $s->user; })->sortBy('user.name')->map(function ($s) {
+                'children' => $data['students']->filter(function ($s) { return $s->user; })->sortBy('user.name')->map(function ($s) use ($from, $today) {
                     $t = Fees::statement($s->user_id)['totals'];
+                    $att = \Illuminate\Support\Facades\DB::table('attendances')->where('student_id', $s->user_id)->whereBetween('date', [$from->toDateString(), $today])->orderByDesc('date')->get(['date', 'status']);
                     return [
                         'name' => $s->user->name, 'photo' => $s->user->photo, 'adm_no' => $s->adm_no,
                         'class' => trim(optional($s->my_class)->name.' '.optional($s->section)->name),
-                        'status' => $s->grad ? 'graduated' : 'active',
+                        'status' => $s->grad ? 'graduated' : ($s->status === 'away' ? 'away' : 'active'),
                         'fees' => $t,
+                        'attendance' => [
+                            'today' => optional($att->firstWhere('date', $today))->status,
+                            'present' => $att->where('status', 'present')->count(),
+                            'late' => $att->where('status', 'late')->count(),
+                            'absent' => $att->where('status', 'absent')->count(),
+                            'missed' => $att->whereIn('status', ['absent', 'late'])->take(5)->map(function ($a) { return ['date' => $a->date, 'status' => $a->status]; })->values(),
+                        ],
                         'urls' => [
                             'profile' => route('students.show', Qs::hash($s->id)),
                             'results' => route('marks.year_selector', Qs::hash($s->user_id)),

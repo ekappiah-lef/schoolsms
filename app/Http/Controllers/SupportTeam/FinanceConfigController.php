@@ -86,7 +86,7 @@ class FinanceConfigController extends Controller
                 return [
                     'title' => $p->title,
                     'class' => optional($p->my_class)->name ?: 'All classes',
-                    'category' => Payment::CATEGORIES[$p->student_category ?: 'all'],
+                    'category' => Payment::LABELS[$p->student_category ?: 'all'] ?? $p->student_category,
                     'amount' => \App\Support\Money::r($p->amount),
                     'items' => (int) $p->items_count,
                     'edit_url' => route('payments.edit', $p->id),

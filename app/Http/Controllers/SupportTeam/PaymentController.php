@@ -356,9 +356,10 @@ class PaymentController extends Controller
         $payments = $year ? $this->pay->getPayment(['year' => $year])->with('items')->get() : collect();
 
         // How many student records each fee has, and what has been collected against it.
-        $usage = DB::table('payment_records')->whereIn('payment_id', $payments->pluck('id'))
-            ->groupBy('payment_id')
-            ->select('payment_id', DB::raw('count(*) as records'), DB::raw('sum(coalesce(amt_paid,0)) as collected'), DB::raw('sum(discount) as discount'))
+        // Each student's own amount where one is set (per-student bills), else the fee's amount.
+        $usage = DB::table('payment_records as pr')->join('payments as p', 'p.id', '=', 'pr.payment_id')->whereIn('pr.payment_id', $payments->pluck('id'))
+            ->groupBy('pr.payment_id')
+            ->select('pr.payment_id', DB::raw('count(*) as records'), DB::raw('sum(coalesce(pr.amt_paid,0)) as collected'), DB::raw('sum(coalesce(pr.discount,0)) as discount'), DB::raw('sum(coalesce(pr.amount, p.amount)) as billed'))
             ->get()->keyBy('payment_id');
 
         return [
@@ -380,7 +381,7 @@ class PaymentController extends Controller
                     'description' => $p->description,
                     'records' => $u ? (int) $u->records : 0,
                     'collected' => $u ? Money::r($u->collected) : 0,
-                    'expected' => $u ? \App\Support\Money::r($p->amount) * (int) $u->records - \App\Support\Money::r($u->discount) : 0,
+                    'expected' => $u ? Money::r($u->billed) - Money::r($u->discount) : 0,
                     'urls' => [
                         'edit' => route('payments.edit', $p->id),
                         'duplicate' => route('payments.create', ['from' => Qs::hash($p->id)]),
@@ -388,7 +389,7 @@ class PaymentController extends Controller
                     ],
                 ];
             })->values(),
-            'categories' => Payment::CATEGORIES,
+            'categories' => Payment::LABELS,
             'urls' => [
                 'config' => route('finance.config'),
                 'create' => route('payments.create'),

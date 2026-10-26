@@ -90,6 +90,11 @@ class SmokeTest extends TestCase
         $this->assertSame([2026, 3], \App\Support\SchoolCalendar::termOf(\Carbon\Carbon::create(2027, 6, 1)));
     }
 
+    public function testParentSeesChildrenWithAttendance()
+    {
+        $this->actingAs($this->user('parent'))->get(route('my_children'))->assertOk()->assertSee('attendance', false);
+    }
+
     public function testOnlyTheSuperAdminOpensTheActivityLog()
     {
         $this->actingAs($this->user('super_admin'))->get('/activity-log')->assertOk();

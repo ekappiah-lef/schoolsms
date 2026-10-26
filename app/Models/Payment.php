@@ -8,6 +8,8 @@ class Payment extends Eloquent
 {
     /** Which students a fee is billed to. */
     public const CATEGORIES = ['all' => 'All students', 'new' => 'New students', 'old' => 'Continuing students'];
+    /** Bills set student by student (imported or opening balances), never billed automatically. */
+    public const LABELS = self::CATEGORIES + ['opening' => 'Per student'];
 
     protected $fillable = ['title', 'amount', 'my_class_id', 'student_category', 'description', 'year', 'term', 'ref_no'];
 

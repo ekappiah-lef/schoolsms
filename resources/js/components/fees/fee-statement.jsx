@@ -575,7 +575,6 @@ export function MomoPay({ url, maxAmount, defaultPhone = '', test, onPaid, staff
                     <Button type="submit" variant="primary" disabled={busy}>
                         {busy ? 'Sending…' : staff ? 'Send prompt to phone' : 'Pay now'}
                     </Button>
-                    {test && <p className="w-full text-xs text-fg-muted">Test mode: no real money moves; numbers ending in 0 are declined.</p>}
                 </form>
             )}
             {state.step === 'waiting' && <p className="text-sm">Waiting for approval on {phone}… Check the phone and enter the MoMo PIN.</p>}

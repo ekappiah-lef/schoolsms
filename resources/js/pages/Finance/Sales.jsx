@@ -404,13 +404,6 @@ function SellForm({ items, students, url, onDone }) {
                         placeholder="Search for the student"
                         searchPlaceholder="Name or admission number…"
                     />
-                    {student && (
-                        <p className="text-xs text-fg-muted">
-                            {student.siblings.length
-                                ? `Brothers and sisters: ${student.siblings.map((s) => s.name).join(", ")}`
-                                : "No brothers or sisters at the school."}
-                        </p>
-                    )}
                 </div>
 
                 <div className="flex flex-col gap-2">
