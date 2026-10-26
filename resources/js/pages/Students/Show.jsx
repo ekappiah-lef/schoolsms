@@ -2,7 +2,12 @@ import { useEffect, useState, Fragment } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import {
     BookOpenCheck,
+    CirclePause,
+    CirclePlay,
+    DoorOpen,
     KeyRound,
+    Trash2,
+    UserRoundPlus,
     LockKeyhole,
     Mail,
     MapPin,
@@ -25,7 +30,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Segmented, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Modal } from '@/components/ui/dialog';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Input } from '@/components/ui/input';
 import { cn, formatDate, formatMoney, ordinal, parseDate } from '@/lib/utils';
 import { submitForm } from '@/lib/http';
 import { toast } from 'sonner';
@@ -38,6 +46,13 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
     const [tab, setTab] = useState(initialTab);
     const [confirm, confirmDialog] = useConfirmAction();
     const [resetPassword, resetDialog] = useResetPassword();
+    const [statusForm, setStatusForm] = useState(null); // 'away' | 'left'
+    const quick = async (url) => {
+        const r = await submitForm(url, {});
+        r.ok ? toast.success(r.message) : toast.error(r.message);
+        if (r.ok) router.reload({ preserveScroll: true });
+    };
+    const hasMenu = urls.reset_pass || urls.deactivate || urls.reactivate || urls.leave || urls.readmit || urls.destroy;
 
     const changeTab = (value) => {
         setTab(value);
@@ -65,7 +80,7 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                 <Breadcrumbs
                     items={[
                         { label: 'Academics' },
-                        urls.back ? { label: student.status === 'graduated' ? 'Graduated' : 'Students', href: urls.back } : { label: 'Students' },
+                        urls.back ? { label: student.status === 'graduated' || student.status === 'left' ? 'Graduated & left' : 'Students', href: urls.back } : { label: 'Students' },
                         { label: 'Profile' },
                     ]}
                 />
@@ -75,12 +90,19 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                         <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                                 <h1 className="truncate text-2xl font-semibold">{student.name}</h1>
-                                {student.status === 'graduated' ? (
+                                {student.status === 'graduated' && (
                                     <Badge tone="info" dot>
                                         Graduated {student.grad_date ?? ''}
                                     </Badge>
-                                ) : (
-                                    <Badge >
+                                )}
+                                {student.status === 'away' && (
+                                    <Badge tone="warning" dot>
+                                        Away{student.away_until ? ` until ${formatDate(student.away_until, 'd MMM yyyy')}` : ''}
+                                    </Badge>
+                                )}
+                                {student.status === 'left' && (
+                                    <Badge tone="danger" dot>
+                                        Left {student.left_on ? formatDate(student.left_on, 'd MMM yyyy') : ''}
                                     </Badge>
                                 )}
                             </div>
@@ -122,23 +144,68 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                                 </Link>
                             </Button>
                         )}
-                        {urls.reset_pass && (
+                        {hasMenu && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button size="icon" aria-label="More actions" className="size-9">
                                         <MoreHorizontal />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                    <DropdownMenuItem
-                                        onSelect={() => resetPassword({ name: student.name, url: urls.reset_pass })}
-                                    >
-                                        <KeyRound />
-                                        Reset password
-                                    </DropdownMenuItem>
+                                <DropdownMenuContent align="end">
+                                    {urls.reset_pass && (
+                                        <DropdownMenuItem onSelect={() => resetPassword({ name: student.name, url: urls.reset_pass })}>
+                                            <KeyRound />
+                                            Reset password
+                                        </DropdownMenuItem>
+                                    )}
+                                    {urls.deactivate && (
+                                        <DropdownMenuItem onSelect={() => setStatusForm('away')}>
+                                            <CirclePause />
+                                            Deactivate (away)
+                                        </DropdownMenuItem>
+                                    )}
+                                    {urls.reactivate && (
+                                        <DropdownMenuItem onSelect={() => quick(urls.reactivate)}>
+                                            <CirclePlay />
+                                            Reactivate
+                                        </DropdownMenuItem>
+                                    )}
+                                    {urls.leave && (
+                                        <DropdownMenuItem onSelect={() => setStatusForm('left')}>
+                                            <DoorOpen />
+                                            Mark as left
+                                        </DropdownMenuItem>
+                                    )}
+                                    {urls.readmit && (
+                                        <DropdownMenuItem onSelect={() => quick(urls.readmit)}>
+                                            <UserRoundPlus />
+                                            Re-admit
+                                        </DropdownMenuItem>
+                                    )}
+                                    {urls.destroy && (
+                                        <>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                                className="text-danger-fg"
+                                                onSelect={() =>
+                                                    confirm({
+                                                        title: `Delete ${student.name}?`,
+                                                        description: 'Only for a student added by mistake. A student with payments, results or attendance cannot be deleted; mark them as left instead.',
+                                                        confirmLabel: 'Delete student',
+                                                        method: 'delete',
+                                                        url: urls.destroy,
+                                                    })
+                                                }
+                                            >
+                                                <Trash2 />
+                                                Delete
+                                            </DropdownMenuItem>
+                                        </>
+                                    )}
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         )}
+                        <StatusForm kind={statusForm} student={student} url={statusForm === 'away' ? urls.deactivate : urls.leave} onClose={() => setStatusForm(null)} />
                     </div>
                 </div>
             </div>
@@ -696,4 +763,67 @@ function gradeTone(grade = '') {
     if (g === 'C') return 'info';
     if (g === 'D' || g === 'E') return 'warning';
     return 'danger';
+}
+
+/** Deactivate (away for a while) or mark as left, with the dates and a reason. */
+function StatusForm({ kind, student, url, onClose }) {
+    const today = formatDate(new Date(), 'yyyy-MM-dd');
+    const [data, setData] = useState({});
+    const [busy, setBusy] = useState(false);
+    useEffect(() => setData(kind === 'away' ? { away_from: today, away_until: '', reason: '' } : { left_on: today, reason: '' }), [kind]);
+    const set = (k, v) => setData((d) => ({ ...d, [k]: v }));
+    const save = async () => {
+        setBusy(true);
+        const r = await submitForm(url, data);
+        setBusy(false);
+        if (!r.ok) {
+            toast.error(r.errors ? Object.values(r.errors)[0] : r.message);
+            return;
+        }
+        toast.success(r.message);
+        onClose();
+        router.reload({ preserveScroll: true });
+    };
+    const year = new Date().getFullYear();
+    return (
+        <Modal
+            open={!!kind}
+            onOpenChange={(o) => !o && !busy && onClose()}
+            title={kind === 'away' ? `Deactivate ${student.name}` : `${student.name} has left`}
+            footer={
+                <>
+                    <Button variant="secondary" onClick={onClose} disabled={busy}>
+                        Cancel
+                    </Button>
+                    <Button variant={kind === 'away' ? 'primary' : 'danger'} onClick={save} loading={busy}>
+                        {kind === 'away' ? 'Deactivate' : 'Mark as left'}
+                    </Button>
+                </>
+            }
+        >
+            <div className="grid gap-4 sm:grid-cols-2">
+                {kind === 'away' ? (
+                    <>
+                        <label className="flex flex-col gap-1.5 text-sm font-medium">
+                            From
+                            <DatePicker value={data.away_from} onChange={(v) => set('away_from', v)} fromYear={year - 1} toYear={year + 1} defaultMonth={new Date()} />
+                        </label>
+                        <label className="flex flex-col gap-1.5 text-sm font-medium">
+                            Expected back
+                            <DatePicker value={data.away_until} onChange={(v) => set('away_until', v)} fromYear={year - 1} toYear={year + 1} defaultMonth={new Date()} />
+                        </label>
+                    </>
+                ) : (
+                    <label className="flex flex-col gap-1.5 text-sm font-medium">
+                        Date left
+                        <DatePicker value={data.left_on} onChange={(v) => set('left_on', v)} fromYear={year - 5} toYear={year} defaultMonth={new Date()} />
+                    </label>
+                )}
+                <label className="flex flex-col gap-1.5 text-sm font-medium sm:col-span-2">
+                    Reason
+                    <Input value={data.reason ?? ''} onChange={(e) => set('reason', e.target.value)} maxLength={190} placeholder={kind === 'away' ? 'e.g. Travelling with family' : 'e.g. Transferred to another school'} />
+                </label>
+            </div>
+        </Modal>
+    );
 }

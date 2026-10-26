@@ -134,6 +134,7 @@ class Fees
             if ($done) {
                 [$py, $pt] = $term > 1 ? [$year, $term - 1] : [((int) substr($year, 0, 4) - 1).'-'.substr($year, 0, 4), 3];
                 foreach ($students as $sr) {
+                    if ($sr->status === 'away') continue;
                     $has = OptionalFeeCharge::where(['student_id' => $sr->user_id, 'year' => $year, 'term' => $term])->where('group', '!=', 'sales')->exists();
                     $last = OptionalFeeCharge::where(['student_id' => $sr->user_id, 'year' => $py, 'term' => $pt])->where('group', '!=', 'sales')->get();
                     if ($has || $last->isEmpty()) continue;

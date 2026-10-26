@@ -32,7 +32,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { downloadCsv, useVisitState } from '@/lib/use-visit-state';
-import { formatNumber } from '@/lib/utils';
+import { formatDate, formatNumber } from '@/lib/utils';
 
 export default function StudentsIndex({ variant, showParent = true, students, summary, filters, classes, sections, urls }) {
     const graduated = variant === 'graduated';
@@ -76,6 +76,16 @@ export default function StudentsIndex({ variant, showParent = true, students, su
                                 <Link href={s.urls.show} className="block truncate font-medium text-fg hover:text-primary" onClick={(e) => e.stopPropagation()}>
                                     {s.name}
                                 </Link>
+                                {s.status === 'away' && (
+                                    <Badge tone="warning" dot className="mt-0.5">
+                                        Away{s.away_until ? ` until ${formatDate(s.away_until, 'd MMM')}` : ''}
+                                    </Badge>
+                                )}
+                                {s.status === 'left' && (
+                                    <Badge tone="danger" dot className="mt-0.5">
+                                        Left{s.left_on ? ` ${formatDate(s.left_on, 'd MMM yyyy')}` : ''}
+                                    </Badge>
+                                )}
                             </div>
                         </div>
                     );
@@ -137,13 +147,13 @@ export default function StudentsIndex({ variant, showParent = true, students, su
         [graduated],
     );
 
-    const title = graduated ? 'Graduated students' : 'Students';
+    const title = graduated ? 'Graduated & left' : 'Students';
 
     return (
         <>
             <Head title={title} />
             <PageHeader
-                breadcrumbs={[{ label: 'Academics' }, { label: 'Students', href: urls.active }, ...(graduated ? [{ label: 'Graduated' }] : [])]}
+                breadcrumbs={[{ label: 'Academics' }, { label: 'Students', href: urls.active }, ...(graduated ? [{ label: 'Graduated & left' }] : [])]}
                 title={title}
             />
 
@@ -154,7 +164,7 @@ export default function StudentsIndex({ variant, showParent = true, students, su
                     onChange={(v) => router.visit(v === 'graduated' ? urls.graduated : urls.active)}
                     options={[
                         { value: 'active', label: `Enrolled ${formatNumber(summary.enrolled ?? 0)}`, icon: <Users /> },
-                        { value: 'graduated', label: `Graduated ${formatNumber(summary.graduated ?? 0)}`, icon: <GraduationCap /> },
+                        { value: 'graduated', label: `Graduated & left ${formatNumber(summary.graduated ?? 0)}`, icon: <GraduationCap /> },
                     ]}
                 />
             )}

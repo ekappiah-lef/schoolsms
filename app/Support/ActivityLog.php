@@ -135,7 +135,7 @@ class ActivityLog
             'finance.sales.return' => 'Returned a sale', 'settings.update' => 'Changed school settings', 'messages.send' => 'Sent a message',
             'payments.send_all_bills' => 'Sent bills to parents', 'finance.term_days' => 'Changed school days this term', 'finance.options.store' => 'Added a service',
             'finance.options.update' => 'Edited a service', 'finance.routes.store' => 'Added a bus route', 'finance.routes.update' => 'Edited a bus route', 'marks.comment_update' => 'Wrote a report comment',
-            'class_types.store' => 'Added a class type', 'class_types.update' => 'Renamed a class type', 'departments.store' => 'Added a department', 'departments.update' => 'Edited a department', 'payments.send_invoice' => 'Sent an invoice', 'finance.services.add' => 'Added students to a service', 'finance.assign.save' => 'Assigned services', 'calendar.save' => 'Saved the school calendar',
+            'class_types.store' => 'Added a class type', 'class_types.update' => 'Renamed a class type', 'departments.store' => 'Added a department', 'departments.update' => 'Edited a department', 'payments.send_invoice' => 'Sent an invoice', 'finance.services.add' => 'Added students to a service', 'finance.assign.save' => 'Assigned services', 'calendar.save' => 'Saved the school calendar', 'students.deactivate' => 'Marked a student away', 'students.reactivate' => 'Brought a student back', 'students.leave' => 'Marked a student as left', 'students.readmit' => 'Re-admitted a student',
         ];
         if ($name && isset($labels[$name])) return $labels[$name];
         if (!$name) return $req->method().' '.$req->path();

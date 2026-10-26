@@ -81,6 +81,10 @@ Route::group(['middleware' => 'auth'], function () {
             Route::get('list/{class_id}', 'StudentRecordController@listByClass')->name('students.list')->middleware('teamSAT');
             Route::get('search', 'StudentRecordController@search')->name('students.search')->middleware('teamSAT');
             Route::post('notify/{id}', 'StudentRecordController@notify')->name('students.notify')->middleware('teamSA');
+            Route::post('status/{student}/deactivate', 'StudentStatusController@deactivate')->name('students.deactivate');
+            Route::post('status/{student}/reactivate', 'StudentStatusController@reactivate')->name('students.reactivate');
+            Route::post('status/{student}/leave', 'StudentStatusController@leave')->name('students.leave');
+            Route::post('status/{student}/readmit', 'StudentStatusController@readmit')->name('students.readmit');
 
             /* Promotions */
             Route::post('promote_selector', 'PromotionController@selector')->name('students.promote_selector');

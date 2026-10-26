@@ -36,7 +36,7 @@ class AttendanceController extends Controller
         }
         $date = $this->date($req->query('date'));
 
-        $students = $sectionId ? StudentRecord::where(['section_id' => $sectionId, 'grad' => 0])->with('user')->get()
+        $students = $sectionId ? StudentRecord::where(['section_id' => $sectionId, 'grad' => 0])->where('status', '!=', 'away')->with('user')->get()
             ->filter(function ($sr) { return $sr->user; })->sortBy('user.name')->values() : collect();
         $marks = Attendance::where('section_id', $sectionId)->whereDate('date', $date)->get()->keyBy('student_id');
 
@@ -75,7 +75,7 @@ class AttendanceController extends Controller
         if (!$section) {
             return Qs::json('You can only take the register for your own class.', false);
         }
-        $valid = StudentRecord::where(['section_id' => $section->id, 'grad' => 0])->pluck('user_id')->map(function ($v) { return (int) $v; })->all();
+        $valid = StudentRecord::where(['section_id' => $section->id, 'grad' => 0])->where('status', '!=', 'away')->pluck('user_id')->map(function ($v) { return (int) $v; })->all();
         $year = Qs::getCurrentSession();
 
         DB::transaction(function () use ($d, $section, $valid, $year) {

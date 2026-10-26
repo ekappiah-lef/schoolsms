@@ -432,12 +432,20 @@ class StudentRecordController extends Controller
         $st_id = Qs::decodeHash($st_id);
         if(!$st_id){return Qs::goWithDanger();}
 
-        $sr = $this->student->getRecord(['user_id' => $st_id])->first();
+        $sr = \App\Models\StudentRecord::where('user_id', $st_id)->with('user')->first();
+        if (!$sr) return Qs::goWithDanger();
+        $kept = \App\Models\PaymentRecord::where('student_id', $st_id)->where('amt_paid', '>', 0)->exists()
+            || \App\Models\OptionalFeeCharge::where('student_id', $st_id)->where('amt_paid', '>', 0)->exists()
+            || \Illuminate\Support\Facades\DB::table('marks')->where('student_id', $st_id)->exists()
+            || \Illuminate\Support\Facades\DB::table('attendances')->where('student_id', $st_id)->exists();
+        if ($kept) {
+            return back()->with('flash_danger', $sr->user->name.' has payments, results or attendance on record, so they cannot be deleted. Mark them as left instead.');
+        }
         $path = Qs::getUploadPath('student').$sr->user->code;
         Storage::exists($path) ? Storage::deleteDirectory($path) : false;
         $this->user->delete($sr->user->id);
 
-        return back()->with('flash_success', __('msg.del_ok'));
+        return redirect()->route('students.index')->with('flash_success', __('msg.del_ok'));
     }
 
     /* ---------------------------------------------------------------------
@@ -463,7 +471,7 @@ class StudentRecordController extends Controller
                 $q->whereIn('sr.section_id', \App\Support\TeacherScope::ownSectionIds());
             })
             ->select(
-                'sr.id', 'sr.user_id', 'sr.adm_no', 'sr.my_class_id', 'sr.section_id', 'sr.year_admitted', 'sr.grad_date',
+                'sr.id', 'sr.user_id', 'sr.adm_no', 'sr.my_class_id', 'sr.section_id', 'sr.year_admitted', 'sr.grad_date', 'sr.status', 'sr.away_until', 'sr.left_on',
                 'u.name', 'u.email', 'u.phone', 'u.gender', 'u.photo',
                 'c.name as class_name', 's.name as section_name', 'p.name as parent_name'
             );
@@ -527,6 +535,9 @@ class StudentRecordController extends Controller
                 'parent' => Qs::userIsTeacher() ? null : $r->parent_name,
                 'year_admitted' => $r->year_admitted,
                 'grad_date' => $r->grad_date,
+                'status' => $r->status,
+                'away_until' => $r->away_until,
+                'left_on' => $r->left_on,
                 'urls' => array_filter([
                     'show' => route('students.show', $srHash),
                     'marksheet' => route('marks.year_selector', $userHash),
@@ -598,7 +609,11 @@ class StudentRecordController extends Controller
                 'username' => $u->username,
                 'class' => optional($sr->my_class)->name,
                 'section' => optional($sr->section)->name,
-                'status' => $sr->grad ? 'graduated' : 'active',
+                'status' => $sr->status === 'left' ? 'left' : ($sr->grad ? 'graduated' : ($sr->status === 'away' ? 'away' : 'active')),
+                'away_from' => $sr->away_from,
+                'away_until' => $sr->away_until,
+                'left_on' => $sr->left_on,
+                'status_reason' => $sr->status_reason,
                 'grad_date' => $sr->grad_date,
                 'gender' => $u->gender,
                 'dob' => $u->dob,
@@ -654,6 +669,10 @@ class StudentRecordController extends Controller
                 'send_invoice' => $canFees ? route('payments.send_invoice', $userHash) : null,
                 'notify' => Qs::userIsTeamSA() ? route('students.notify', $srHash) : null,
                 'destroy' => Qs::userIsSuperAdmin() ? route('students.destroy', $userHash) : null,
+                'deactivate' => Qs::userIsTeamSA() && !$sr->grad && $sr->status !== 'away' ? route('students.deactivate', $srHash) : null,
+                'reactivate' => Qs::userIsTeamSA() && $sr->status === 'away' ? route('students.reactivate', $srHash) : null,
+                'leave' => Qs::userIsTeamSA() && !$sr->grad ? route('students.leave', $srHash) : null,
+                'readmit' => Qs::userIsTeamSA() && $sr->status === 'left' ? route('students.readmit', $srHash) : null,
             ]),
             'tabs' => [
                 'guardian' => !Qs::userIsTeacher(),
