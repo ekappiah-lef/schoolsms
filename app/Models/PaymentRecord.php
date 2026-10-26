@@ -7,10 +7,10 @@ use Eloquent;
 
 class PaymentRecord extends Eloquent
 {
-    protected $fillable =['student_id', 'payment_id', 'amount', 'amt_paid', 'discount', 'year', 'paid', 'balance', 'ref_no'];
+    protected $fillable =['student_id', 'payment_id', 'amount', 'amt_paid', 'discount', 'discount_fixed', 'year', 'paid', 'balance', 'ref_no'];
 
     // Money: cedis with pesewas
-    protected $casts = ['amount' => 'float', 'amt_paid' => 'float', 'balance' => 'float', 'discount' => 'float'];
+    protected $casts = ['amount' => 'float', 'amt_paid' => 'float', 'balance' => 'float', 'discount' => 'float', 'discount_fixed' => 'boolean'];
 
     /** What this student is billed: the record's own amount (e.g. a balance brought forward; negative = credit), else the fee's. */
     public function billAmount(): float

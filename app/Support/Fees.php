@@ -193,7 +193,8 @@ class Fees
         if (!$pr->payment) {
             return;
         }
-        $discount = Money::r(self::tuitionBase($pr->payment) * $percent / 100);
+        // A discount set on this student's bill stays as it is; otherwise it follows their discount type.
+        $discount = $pr->discount_fixed ? Money::r($pr->discount) : Money::r(self::tuitionBase($pr->payment) * $percent / 100);
         $owed = max($pr->billAmount() - $discount, 0);
         $paid = Money::r($pr->amt_paid);
         $pr->update(['discount' => $discount, 'balance' => max($owed - $paid, 0), 'paid' => $paid >= $owed ? 1 : 0]);

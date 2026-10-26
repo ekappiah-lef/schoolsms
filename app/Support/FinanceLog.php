@@ -46,7 +46,7 @@ class FinanceLog
                 $total += \App\Support\Money::r($r->amt_paid);
             }
             DB::table('receipts')->where('pr_id', $pr->id)->delete();
-            $owed = max(\App\Support\Money::r(optional($pr->payment)->amount) - \App\Support\Money::r($pr->discount), 0);
+            $owed = max($pr->billAmount() - \App\Support\Money::r($pr->discount), 0);
             $pr->update(['amt_paid' => 0, 'paid' => 0, 'balance' => $owed]);
             ClearEnroll::studentChanged((int) $pr->student_id);
 
