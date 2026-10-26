@@ -27,7 +27,7 @@ export const periodQuery = (selection) => new URLSearchParams({ periods: selecti
  */
 export function BalanceCards({ selection, invoiced, received, expenses }) {
     const cards = [
-        { label: 'Total fees', value: invoiced.billed },
+        { label: 'Total fees', value: invoiced.billed + (invoiced.discount ?? 0) },
         { label: 'Money received', value: received, tone: 'success' },
         { label: 'Expenses', value: expenses, tone: 'danger' },
         { label: selection.balanceName, value: received - expenses, strong: true },
