@@ -261,7 +261,7 @@ function FeesChartCard({ fees, f, scope, setScope, label, breakdown, onBreakdown
                         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
                             <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">Collected</span>
                             <span className="tabular text-xl font-semibold tracking-tight">{formatMoney(f.paid)}</span>
-                            <span className="tabular text-[11px] text-fg-subtle">of {formatMoney(f.expected + discount)} billed</span>
+                            <span className="tabular text-[11px] text-fg-subtle">of {formatMoney(f.expected)} billed</span>
                         </div>
                     </div>
                 </div>
