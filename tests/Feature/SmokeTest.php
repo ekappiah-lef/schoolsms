@@ -92,7 +92,7 @@ class SmokeTest extends TestCase
 
     public function testParentSeesChildrenWithAttendance()
     {
-        $this->actingAs($this->user('parent'))->get(route('my_children'))->assertOk()->assertSee('attendance', false);
+        $this->actingAs($this->user('parent'))->get(route('my_children'))->assertOk()->assertSee('Parent\/Children', false);
     }
 
     public function testOnlyTheSuperAdminOpensTheActivityLog()
