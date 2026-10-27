@@ -104,12 +104,27 @@ class Fees
     /** Create the student's school-fee records for the session, for the terms that have started (idempotent). */
     public static function billSchoolFees(StudentRecord $sr, string $year): void
     {
+        $created = [];
         foreach (self::paymentsFor($sr, $year) as $p) {
             if (!self::isDue($p, $year)) continue;
             $rec = PaymentRecord::firstOrCreate(['student_id' => $sr->user_id, 'payment_id' => $p->id, 'year' => $year]);
             $rec->ref_no ?: $rec->update(['ref_no' => mt_rand(100000, 99999999)]);
+            if ($rec->wasRecentlyCreated) $created[] = $rec->id;
         }
         self::applyDiscount($sr, $year);
+
+        // A "next term only" discount (e.g. early payment) comes off the first new term's tuition, once.
+        if ($created && $sr->next_discount_id && ($d = FeeDiscount::find($sr->next_discount_id))) {
+            foreach (PaymentRecord::whereIn('id', $created)->with('payment.items')->get() as $pr) {
+                $off = $pr->payment ? $d->offFor($pr->payment) : 0;
+                if ($off <= 0) continue;
+                $discount = Money::r(min($pr->discount + $off, $pr->billAmount()));
+                $bal = Money::r($pr->billAmount() - $discount - $pr->amt_paid);
+                $pr->update(['discount' => $discount, 'discount_fixed' => true, 'balance' => max($bal, 0), 'paid' => $bal <= 0 ? 1 : 0]);
+                $sr->update(['next_discount_id' => null]);
+                break;
+            }
+        }
     }
 
     /**
@@ -151,9 +166,13 @@ class Fees
      | Tuition discounts
      * -----------------------------------------------------------------*/
 
-    /** The part of a fee a tuition discount applies to: its "Tuition" items, or the whole fee if it is not itemised. */
+    /**
+     * The part of a fee a tuition discount applies to: its "Tuition" items, or the whole fee if it is not itemised.
+     * Bills set per student (books, admission, imported items) carry no tuition.
+     */
     public static function tuitionBase(Payment $p): float
     {
+        if ($p->student_category === 'opening') return 0.0;
         $p->loadMissing('items');
         if ($p->items->isEmpty()) {
             return Money::r($p->amount);
@@ -166,11 +185,11 @@ class Fees
     public static function applyDiscount(StudentRecord $sr, ?string $year = null): void
     {
         $year = $year ?: Qs::getCurrentSession();
-        $percent = $sr->fee_discount_id ? (int) optional(FeeDiscount::find($sr->fee_discount_id))->percent : 0;
+        $d = self::standingDiscount($sr->fee_discount_id);
 
         PaymentRecord::where(['student_id' => $sr->user_id, 'year' => $year])->with('payment.items')->get()
-            ->each(function (PaymentRecord $pr) use ($percent) {
-                self::writeDiscount($pr, $percent);
+            ->each(function (PaymentRecord $pr) use ($d) {
+                self::writeDiscount($pr, $d);
             });
     }
 
@@ -178,23 +197,30 @@ class Fees
     public static function refreshPaymentDiscounts(Payment $payment): void
     {
         $payment->load('items');
-        $percents = StudentRecord::whereIn('user_id', PaymentRecord::where('payment_id', $payment->id)->pluck('student_id'))
-            ->leftJoin('fee_discounts as d', 'd.id', '=', 'student_records.fee_discount_id')
-            ->pluck('d.percent', 'student_records.user_id');
+        $ids = StudentRecord::whereIn('user_id', PaymentRecord::where('payment_id', $payment->id)->pluck('student_id'))
+            ->pluck('fee_discount_id', 'user_id');
 
-        PaymentRecord::where('payment_id', $payment->id)->get()->each(function (PaymentRecord $pr) use ($payment, $percents) {
+        PaymentRecord::where('payment_id', $payment->id)->get()->each(function (PaymentRecord $pr) use ($payment, $ids) {
             $pr->setRelation('payment', $payment);
-            self::writeDiscount($pr, (int) ($percents[$pr->student_id] ?? 0));
+            self::writeDiscount($pr, self::standingDiscount($ids[$pr->student_id] ?? null));
         });
     }
 
-    protected static function writeDiscount(PaymentRecord $pr, int $percent): void
+    /** A student's standing discount type ("next term only" types are not standing). */
+    public static function standingDiscount($id): ?FeeDiscount
+    {
+        $d = $id ? FeeDiscount::find($id) : null;
+
+        return $d && !$d->next_term_only ? $d : null;
+    }
+
+    protected static function writeDiscount(PaymentRecord $pr, ?FeeDiscount $d): void
     {
         if (!$pr->payment) {
             return;
         }
         // A discount set on this student's bill stays as it is; otherwise it follows their discount type.
-        $discount = $pr->discount_fixed ? Money::r($pr->discount) : Money::r(self::tuitionBase($pr->payment) * $percent / 100);
+        $discount = $pr->discount_fixed ? Money::r($pr->discount) : ($d ? $d->offFor($pr->payment) : 0.0);
         $owed = max($pr->billAmount() - $discount, 0);
         $paid = Money::r($pr->amt_paid);
         $pr->update(['discount' => $discount, 'balance' => max($owed - $paid, 0), 'paid' => $paid >= $owed ? 1 : 0]);
@@ -202,8 +228,8 @@ class Fees
 
     public static function discountOptions(): array
     {
-        return FeeDiscount::where('active', true)->orderByDesc('percent')->get()
-            ->map(function ($d) { return ['id' => $d->id, 'name' => $d->name, 'percent' => (int) $d->percent]; })->values()->all();
+        return FeeDiscount::where('active', true)->orderBy('next_term_only')->orderBy('name')->get()
+            ->map(function ($d) { return ['id' => $d->id, 'name' => $d->name, 'label' => $d->label(), 'kind' => $d->kind ?: 'percent', 'percent' => (float) $d->percent, 'amount' => (float) $d->amount, 'next_term_only' => $d->next_term_only]; })->values()->all();
     }
 
     /** Payment amount follows its breakdown when one exists. */
@@ -706,9 +732,12 @@ class Fees
             $school = Money::r($billedNext->sum(function ($pr) { return max($pr->billAmount() - Money::r($pr->discount) - Money::r($pr->amt_paid), 0); }));
             $set = true;
         } else {
-            $percent = $sr->fee_discount_id ? (int) optional(FeeDiscount::find($sr->fee_discount_id))->percent : 0;
+            $d = self::standingDiscount($sr->fee_discount_id);
+            $once = $sr->next_discount_id ? FeeDiscount::find($sr->next_discount_id) : null;
             $fees = self::paymentsFor($sr, $nYear)->where('term', $nTerm);
-            $school = Money::r($fees->sum(function ($p) use ($percent) { return Money::r($p->amount) - Money::r(self::tuitionBase($p) * $percent / 100); }));
+            $school = Money::r($fees->sum(function ($p) use ($d) { return Money::r($p->amount) - ($d ? $d->offFor($p) : 0); }));
+            // An early-payment (next term only) discount comes off the first of next term's fees.
+            if ($once && ($first = $fees->first(function ($p) use ($once) { return $once->offFor($p) > 0; }))) $school = Money::r(max($school - $once->offFor($first), 0));
             $set = $fees->isNotEmpty();
         }
 

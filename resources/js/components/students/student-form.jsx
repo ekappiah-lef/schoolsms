@@ -62,6 +62,7 @@ const EMPTY = {
     adm_no: '',
     services: EMPTY_SERVICES,
     fee_discount_id: '',
+    next_discount_id: '',
     clearenroll_status: '',
     parent_mode: 'existing',
     my_parent_id: '',
@@ -134,7 +135,7 @@ const STUDENT_FIELDS = ['first_name', 'middle_name', 'last_name', 'gender', 'dob
 
 const STEPS = [
     { id: 'student', title: 'Student Details', description: 'Personal, contact and health information', fields: STUDENT_FIELDS },
-    { id: 'enrolment', title: 'Enrolment & Services', description: 'Class, admission details and additional services', fields: ['my_class_id', 'section_id', 'admission_date', 'adm_no', 'clearenroll_status', 'fee_discount_id', 'dorm_id', 'dorm_room_no', 'house', 'services'] },
+    { id: 'enrolment', title: 'Enrolment & Services', description: 'Class, admission details and additional services', fields: ['my_class_id', 'section_id', 'admission_date', 'adm_no', 'clearenroll_status', 'fee_discount_id', 'next_discount_id', 'dorm_id', 'dorm_room_no', 'house', 'services'] },
     { id: 'parent', title: 'Parent / Guardian', description: 'Link an existing or add a new guardian', fields: ['parent_mode', 'my_parent_id', 'parent_primary', ...PARENT_FIELDS] },
     { id: 'review', title: 'Review & Submit', description: 'Confirm details, fees and agreements', fields: ['terms_accepted'] },
 ];
@@ -302,7 +303,13 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
     const discount = (options.discounts ?? []).find((d) => String(d.id) === String(data.fee_discount_id));
     // Tuition share of a fee: its "Tuition" items, or the whole fee when it is not itemised.
     const tuitionOf = (f) => (f.items.length ? f.items.filter((i) => /tuition/i.test(i.name)).reduce((t, i) => t + i.amount, 0) : f.amount);
-    const discountOn = (f) => (discount ? Math.round(tuitionOf(f) * discount.percent) / 100 : 0);
+    const discountOn = (f) => {
+        if (!discount) return 0;
+        const t = tuitionOf(f);
+        return discount.kind === 'fixed' ? Math.min(discount.amount, t) : Math.round(t * discount.percent) / 100;
+    };
+    const standingDiscounts = (options.discounts ?? []).filter((d) => !d.next_term_only);
+    const nextDiscounts = (options.discounts ?? []).filter((d) => d.next_term_only);
 
     const schoolFees = useMemo(() => {
         if (!data.my_class_id) return [];
@@ -585,17 +592,30 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
             )}
 
             <FormSection id="discount" title="Fee discount" >
-                <FormField label="Discount" error={err('fee_discount_id')} hint={discount ? `${discount.percent}% off tuition.` : 'No discount.'}>
+                <FormField label="Discount" error={err('fee_discount_id')}>
                     <Select
                         id="field-fee_discount_id"
                         value={data.fee_discount_id}
                         onChange={(v) => set('fee_discount_id', v)}
-                        options={(options.discounts ?? []).map((d) => ({ value: String(d.id), label: d.name.includes(`${d.percent}%`) ? d.name : `${d.name} · ${d.percent}%` }))}
+                        options={standingDiscounts.map((d) => ({ value: String(d.id), label: `${d.name} · ${d.label}` }))}
                         clearable
                         clearLabel="No discount"
                         placeholder="No discount"
                     />
                 </FormField>
+                {nextDiscounts.length > 0 && (
+                    <FormField label="Next term" error={err('next_discount_id')}>
+                        <Select
+                            id="field-next_discount_id"
+                            value={data.next_discount_id}
+                            onChange={(v) => set('next_discount_id', v)}
+                            options={nextDiscounts.map((d) => ({ value: String(d.id), label: `${d.name} · ${d.label}` }))}
+                            clearable
+                            clearLabel="No discount"
+                            placeholder="No discount"
+                        />
+                    </FormField>
+                )}
             </FormSection>
 
             <FormSection id="services" title="Additional services & shop" >
@@ -1015,7 +1035,7 @@ const SECTION_INDEX = [
     ['insurance', 'Health insurance', ['insurance_card_no', 'insurance_provider', 'insurance_category', 'insurance_coverage_limit', 'insurance_valid_until', 'insurance_start_date']],
     ['doctor', 'Family doctor', ['doctor_name', 'doctor_hospital', 'doctor_contact']],
     ['enrolment', 'Class placement', ['my_class_id', 'section_id', 'admission_date']],
-    ['discount', 'Fee discount', ['fee_discount_id']],
+    ['discount', 'Fee discount', ['fee_discount_id', 'next_discount_id']],
     ['services', 'Additional services', ['services']],
     ['boarding', 'Boarding & house', ['dorm_id', 'dorm_room_no', 'house']],
     ['guardian', 'Parent / guardian', ['my_parent_id']],

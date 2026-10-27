@@ -36,6 +36,7 @@ trait AdmissionRules
             'doctor_contact' => 'nullable|string|max:40',
             'services' => 'nullable|json',
             'fee_discount_id' => 'nullable|exists:fee_discounts,id',
+            'next_discount_id' => 'nullable|exists:fee_discounts,id',
         ];
     }
 

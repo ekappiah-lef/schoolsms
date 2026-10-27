@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input, Textarea } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Segmented, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { submitForm } from '@/lib/http';
 import { cn, formatMoney } from '@/lib/utils';
 
@@ -437,7 +437,7 @@ function BusRoutes({ rows, urls, confirm, onSaved }) {
 }
 
 function Discounts({ rows, urls, confirm, onSaved }) {
-    const empty = { name: '', percent: '', active: true };
+    const empty = { name: '', kind: 'percent', percent: '', amount: '', next_term_only: false, active: true };
     const [form, setForm] = useState(empty);
     const [editingId, setEditingId] = useState(null);
     const [errors, setErrors] = useState({});
@@ -454,11 +454,13 @@ function Discounts({ rows, urls, confirm, onSaved }) {
         const errs = {};
         if (!form.name.trim()) errs.name = 'Enter a name.';
         const pct = Number(form.percent);
-        if (!(pct >= 1 && pct <= 100)) errs.percent = 'Enter a percentage from 1 to 100.';
+        const amt = Number(form.amount);
+        if (form.kind === 'percent' && !(pct > 0 && pct <= 100)) errs.percent = 'Enter a percentage up to 100.';
+        if (form.kind === 'fixed' && !(amt > 0)) errs.amount = 'Enter the amount.';
         setErrors(errs);
         if (Object.keys(errs).length) return;
         setBusy(true);
-        const payload = { name: form.name.trim(), percent: pct, active: form.active ? 1 : 0 };
+        const payload = { name: form.name.trim(), kind: form.kind, percent: form.kind === 'percent' ? pct : '', amount: form.kind === 'fixed' ? amt : '', next_term_only: form.next_term_only ? 1 : 0, active: form.active ? 1 : 0 };
         const r = editingId ? await submitForm(urls.discount.replace(':id', editingId), payload, { method: 'put' }) : await submitForm(urls.discounts, payload);
         setBusy(false);
         if (r.ok) {
@@ -495,7 +497,7 @@ function Discounts({ rows, urls, confirm, onSaved }) {
                                             </Badge>
                                         )}
                                     </td>
-                                    <td className="px-3 text-right font-semibold">{d.percent}%</td>
+                                    <td className="whitespace-nowrap px-3 text-right font-semibold">{d.label}</td>
                                     <td className="px-3 text-right text-fg-muted">{d.students}</td>
                                     <td className="px-4 text-right">
                                         <div className="flex justify-end gap-0.5">
@@ -505,7 +507,7 @@ function Discounts({ rows, urls, confirm, onSaved }) {
                                                 onClick={() => {
                                                     setEditingId(d.id);
                                                     setErrors({});
-                                                    setForm({ name: d.name, percent: String(d.percent), active: d.active });
+                                                    setForm({ name: d.name, kind: d.kind, percent: d.kind === 'percent' ? String(d.percent) : '', amount: d.kind === 'fixed' ? String(d.amount) : '', next_term_only: d.next_term_only, active: d.active });
                                                 }}
                                             />
                                             <RowIconButton
@@ -548,19 +550,29 @@ function Discounts({ rows, urls, confirm, onSaved }) {
                     <Labeled label="Name" error={errors.name}>
                         <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Staff child" invalid={!!errors.name} />
                     </Labeled>
-                    <Labeled label="Percentage of tuition" error={errors.percent} hint="100 means tuition is free.">
-                        <Input
-                            className="tabular"
-                            type="number"
-                            min={1}
-                            max={100}
-                            inputMode="numeric"
-                            value={form.percent}
-                            onChange={(e) => setForm({ ...form, percent: e.target.value })}
-                            placeholder="e.g. 50"
-                            invalid={!!errors.percent}
+                    <Labeled label="Off tuition">
+                        <Segmented
+                            value={form.kind}
+                            onChange={(v) => setForm({ ...form, kind: v })}
+                            options={[
+                                { value: 'percent', label: 'Percentage' },
+                                { value: 'fixed', label: 'Fixed amount' },
+                            ]}
                         />
                     </Labeled>
+                    {form.kind === 'percent' ? (
+                        <Labeled label="Percentage" error={errors.percent}>
+                            <Input className="tabular" type="number" step="0.01" min={0.01} max={100} inputMode="decimal" value={form.percent} onChange={(e) => setForm({ ...form, percent: e.target.value })} invalid={!!errors.percent} />
+                        </Labeled>
+                    ) : (
+                        <Labeled label="Amount" error={errors.amount}>
+                            <Input className="tabular" type="number" step="0.01" min={0.01} inputMode="decimal" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} invalid={!!errors.amount} />
+                        </Labeled>
+                    )}
+                    <label className="flex items-center gap-2 text-sm">
+                        <Checkbox checked={form.next_term_only} onCheckedChange={(v) => setForm({ ...form, next_term_only: v === true })} />
+                        Next term's fees only
+                    </label>
                     {editingId && (
                         <label className="flex items-center gap-2 text-sm">
                             <Checkbox checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v === true })} />

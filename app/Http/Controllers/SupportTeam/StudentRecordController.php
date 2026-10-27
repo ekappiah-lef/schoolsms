@@ -179,7 +179,7 @@ class StudentRecordController extends Controller
             $sr['session'] = $year;
             $sr['admission_date'] = $req->admission_date;
             $sr['admitted_session'] = $year;
-            $sr['fee_discount_id'] = $req->fee_discount_id ?: null;
+            [$sr['fee_discount_id'], $sr['next_discount_id']] = $this->discountChoice($req);
             // ClearEnroll check made before admitting (school-to-school fee clearance).
             if (in_array($req->clearenroll_status, array_keys(\App\Http\Controllers\SupportTeam\ClearEnrollController::STATUSES), true)) {
                 $sr['clearenroll_status'] = $req->clearenroll_status;
@@ -333,6 +333,7 @@ class StudentRecordController extends Controller
                     'values' => $this->detailValues($sr) + [
                         'admission_date' => $sr->admission_date,
                         'fee_discount_id' => $sr->fee_discount_id ? (string) $sr->fee_discount_id : '',
+                        'next_discount_id' => $sr->next_discount_id ? (string) $sr->next_discount_id : '',
                         'services' => Fees::selectionFor($sr->user_id, Qs::getCurrentSession()),
                         'name' => $u->name,
                         'address' => $u->address,
@@ -397,7 +398,7 @@ class StudentRecordController extends Controller
         $discountChanged = false;
         if ($req->input('form_version') === '2') {
             $srec['admission_date'] = $req->admission_date ?: null;
-            $srec['fee_discount_id'] = $req->fee_discount_id ?: null;
+            [$srec['fee_discount_id'], $srec['next_discount_id']] = $this->discountChoice($req, $sr);
             $discountChanged = (int) $sr->fee_discount_id !== (int) $srec['fee_discount_id'];
         }
 
@@ -631,7 +632,8 @@ class StudentRecordController extends Controller
                 'dorm' => optional($sr->dorm)->name,
                 'dorm_room_no' => $sr->dorm_room_no,
                 'admission_date' => $sr->admission_date,
-                'discount' => $sr->fee_discount_id ? optional(\App\Models\FeeDiscount::find($sr->fee_discount_id))->only(['name', 'percent']) : null,
+                'discount' => ($fd = \App\Support\Fees::standingDiscount($sr->fee_discount_id)) ? ['name' => $fd->name, 'label' => $fd->label()] : null,
+                'next_discount' => $sr->next_discount_id && ($nd = \App\Models\FeeDiscount::find($sr->next_discount_id)) ? ['name' => $nd->name, 'label' => $nd->label()] : null,
                 'details' => Qs::userIsTeamSAT() || Auth::id() === $u->id || Qs::userIsMyChild($u->id, Auth::id())
                     ? optional(StudentDetail::where('user_id', $u->id)->first())->only(StudentDetail::FIELDS)
                     : null,
@@ -850,6 +852,17 @@ class StudentRecordController extends Controller
                 'capacity' => $s->capacity ? (int) $s->capacity : null,
             ];
         })->values()->all();
+    }
+
+    /** [standing discount, next-term-only discount] from the form; a next-term-only type is never a standing one. */
+    protected function discountChoice(Request $req, $sr = null): array
+    {
+        $standing = $req->input('fee_discount_id') ?: null;
+        $next = $req->has('next_discount_id') ? ($req->input('next_discount_id') ?: null) : optional($sr)->next_discount_id;
+        if ($standing && \App\Models\FeeDiscount::where('id', $standing)->value('next_term_only')) { $next = $standing; $standing = null; }
+        if ($next && !\App\Models\FeeDiscount::where('id', $next)->value('next_term_only')) $next = null;
+
+        return [$standing, $next];
     }
 
     protected function idNames($collection): array

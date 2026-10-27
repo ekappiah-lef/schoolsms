@@ -73,13 +73,17 @@ class FinanceConfigController extends Controller
                     'students' => (int) ($routeUse[$r->id] ?? 0),
                 ];
             })->values(),
-            'discounts' => FeeDiscount::orderByDesc('percent')->get()->map(function ($d) {
+            'discounts' => FeeDiscount::orderBy('next_term_only')->orderBy('name')->get()->map(function ($d) {
                 return [
                     'id' => $d->id,
                     'name' => $d->name,
-                    'percent' => (int) $d->percent,
+                    'kind' => $d->kind ?: 'percent',
+                    'percent' => (float) $d->percent,
+                    'amount' => (float) $d->amount,
+                    'next_term_only' => (bool) $d->next_term_only,
+                    'label' => $d->label(),
                     'active' => $d->active,
-                    'students' => StudentRecord::where('grad', 0)->where('fee_discount_id', $d->id)->count(),
+                    'students' => StudentRecord::where('grad', 0)->where(function ($q) use ($d) { $q->where('fee_discount_id', $d->id)->orWhere('next_discount_id', $d->id); })->count(),
                 ];
             })->values(),
             'schoolFees' => Payment::where('year', $year)->withCount('items')->with('my_class')->orderBy('my_class_id')->get()->map(function ($p) {
@@ -202,11 +206,11 @@ class FinanceConfigController extends Controller
     public function updateDiscount(Request $req, $fee_discount)
     {
         $d = FeeDiscount::findOrFail($fee_discount);
-        $old = (int) $d->percent;
+        $old = [$d->kind, (float) $d->percent, (float) $d->amount, (bool) $d->next_term_only];
         $d->update($this->validateDiscount($req, $d->id));
 
-        // A new percentage changes what students on this discount owe this session.
-        if ($old !== (int) $d->percent) {
+        // A new rate changes what students on this discount owe this session (bills with their own discount stay).
+        if ($old !== [$d->kind, (float) $d->percent, (float) $d->amount, (bool) $d->next_term_only]) {
             StudentRecord::where('grad', 0)->where('fee_discount_id', $d->id)->get()->each(function ($sr) {
                 Fees::applyDiscount($sr);
             });
@@ -218,7 +222,7 @@ class FinanceConfigController extends Controller
     public function destroyDiscount($fee_discount)
     {
         $d = FeeDiscount::findOrFail($fee_discount);
-        if (StudentRecord::where('fee_discount_id', $d->id)->exists()) {
+        if (StudentRecord::where('fee_discount_id', $d->id)->orWhere('next_discount_id', $d->id)->exists()) {
             $d->update(['active' => false]);
             return back()->with('flash_success', $d->name.' is assigned to students, so it was deactivated instead of deleted. Their discount stays until you change it on their record.');
         }
@@ -231,8 +235,13 @@ class FinanceConfigController extends Controller
     {
         $d = $req->validate([
             'name' => 'required|string|max:100|unique:fee_discounts,name'.($id ? ','.$id : ''),
-            'percent' => 'required|integer|min:1|max:100',
-        ], [], ['percent' => 'Percentage']);
+            'kind' => 'nullable|in:percent,fixed',
+            'percent' => 'required_unless:kind,fixed|nullable|numeric|min:0.01|max:100',
+            'amount' => 'required_if:kind,fixed|nullable|'.Money::rule().'|min:0.01',
+        ], [], ['percent' => 'Percentage', 'amount' => 'Amount']);
+        $d['kind'] = $d['kind'] ?? 'percent';
+        if ($d['kind'] === 'fixed') { $d['percent'] = 0; } else { $d['amount'] = null; $d['percent'] = round((float) $d['percent'], 2); }
+        $d['next_term_only'] = $req->boolean('next_term_only');
         $d['active'] = $req->boolean('active', true);
 
         return $d;
