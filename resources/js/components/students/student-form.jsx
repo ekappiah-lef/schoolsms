@@ -63,6 +63,7 @@ const EMPTY = {
     services: EMPTY_SERVICES,
     fee_discount_id: '',
     next_discount_id: '',
+    not_billed: false,
     clearenroll_status: '',
     parent_mode: 'existing',
     my_parent_id: '',
@@ -359,7 +360,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
         setProcessing(true);
         setServerErrors({});
         const name = [data.first_name, data.middle_name, data.last_name].map((s) => (s ?? '').trim()).filter(Boolean).join(' ');
-        const payload = { ...data, name, form_version: '2', services: JSON.stringify(data.services) };
+        const payload = { ...data, name, form_version: '2', services: JSON.stringify(data.services), not_billed: data.not_billed ? 1 : 0 };
         if (mode === 'edit') {
             delete payload.adm_no; // not editable after admission
             ['parent_mode', 'parent_primary', 'terms_accepted', 'send_notices', ...PARENT_FIELDS].forEach((f) => delete payload[f]);
@@ -603,6 +604,10 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                         placeholder="No discount"
                     />
                 </FormField>
+                <label className="flex items-center gap-2 text-sm font-medium">
+                    <Checkbox checked={!!data.not_billed} onCheckedChange={(v) => set('not_billed', v === true)} />
+                    Not billed
+                </label>
                 {nextDiscounts.length > 0 && (
                     <FormField label="Next term" error={err('next_discount_id')}>
                         <Select

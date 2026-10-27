@@ -180,6 +180,7 @@ class StudentRecordController extends Controller
             $sr['admission_date'] = $req->admission_date;
             $sr['admitted_session'] = $year;
             [$sr['fee_discount_id'], $sr['next_discount_id']] = $this->discountChoice($req);
+            $sr['not_billed'] = Qs::userIsTeamSA() && $req->boolean('not_billed');
             // ClearEnroll check made before admitting (school-to-school fee clearance).
             if (in_array($req->clearenroll_status, array_keys(\App\Http\Controllers\SupportTeam\ClearEnrollController::STATUSES), true)) {
                 $sr['clearenroll_status'] = $req->clearenroll_status;
@@ -334,6 +335,7 @@ class StudentRecordController extends Controller
                         'admission_date' => $sr->admission_date,
                         'fee_discount_id' => $sr->fee_discount_id ? (string) $sr->fee_discount_id : '',
                         'next_discount_id' => $sr->next_discount_id ? (string) $sr->next_discount_id : '',
+                        'not_billed' => (bool) $sr->not_billed,
                         'services' => Fees::selectionFor($sr->user_id, Qs::getCurrentSession()),
                         'name' => $u->name,
                         'address' => $u->address,
@@ -399,6 +401,7 @@ class StudentRecordController extends Controller
         if ($req->input('form_version') === '2') {
             $srec['admission_date'] = $req->admission_date ?: null;
             [$srec['fee_discount_id'], $srec['next_discount_id']] = $this->discountChoice($req, $sr);
+            if (Qs::userIsTeamSA() && $req->has('not_billed')) $srec['not_billed'] = $req->boolean('not_billed');
             $discountChanged = (int) $sr->fee_discount_id !== (int) $srec['fee_discount_id'];
         }
 
@@ -615,6 +618,7 @@ class StudentRecordController extends Controller
                 'away_until' => $sr->away_until,
                 'left_on' => $sr->left_on,
                 'status_reason' => $sr->status_reason,
+                'not_billed' => (bool) $sr->not_billed,
                 'grad_date' => $sr->grad_date,
                 'gender' => $u->gender,
                 'dob' => $u->dob,

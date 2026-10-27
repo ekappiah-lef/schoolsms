@@ -104,6 +104,7 @@ class Fees
     /** Create the student's school-fee records for the session, for the terms that have started (idempotent). */
     public static function billSchoolFees(StudentRecord $sr, string $year): void
     {
+        if ($sr->not_billed) return;   // never billed (e.g. the owner's children)
         $created = [];
         foreach (self::paymentsFor($sr, $year) as $p) {
             if (!self::isDue($p, $year)) continue;
@@ -349,6 +350,7 @@ class Fees
         foreach ($wanted as $w) {
             if (!$have->contains($key($w))) {
                 if ($share < 1) $w['amount'] = Money::r($w['amount'] * $share);
+                if (DB::table('student_records')->where('user_id', $studentId)->value('not_billed')) $w['amount'] = 0.0;
                 OptionalFeeCharge::create($w + ['student_id' => $studentId, 'year' => $year, 'term' => $term, 'amt_paid' => 0]);
             }
         }
@@ -704,6 +706,7 @@ class Fees
      */
     public static function nextTermBill(StudentRecord $sr): ?array
     {
+        if ($sr->not_billed) return null;
         $year = Qs::getCurrentSession();
         $n = self::nextTermFees($sr, $year, self::termNow($year));
         if (!$n['set']) return null;

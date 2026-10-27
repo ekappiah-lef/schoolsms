@@ -95,6 +95,11 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                                         Graduated {student.grad_date ?? ''}
                                     </Badge>
                                 )}
+                                {student.not_billed && (
+                                    <Badge tone="info" dot>
+                                        Not billed
+                                    </Badge>
+                                )}
                                 {student.status === 'away' && (
                                     <Badge tone="warning" dot>
                                         Away{student.away_until ? ` until ${formatDate(student.away_until, 'd MMM yyyy')}` : ''}
