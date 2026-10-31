@@ -8,7 +8,7 @@ use Illuminate\Mail\Mailable;
 /** A message from the school (announcements, absence alerts). */
 class Announcement extends Mailable
 {
-    use Queueable;
+    use Queueable, FromSchool;
 
     public $school, $title, $body;
 
@@ -22,7 +22,7 @@ class Announcement extends Mailable
     public function build()
     {
         return $this->subject($this->title)
-            ->from(config('mail.from.address'), $this->school)
+            ->fromSchool($this->school)
             ->view('emails.announcement');
     }
 }

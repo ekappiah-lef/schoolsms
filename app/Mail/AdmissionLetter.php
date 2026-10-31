@@ -9,7 +9,7 @@ use Illuminate\Mail\Mailable;
 /** "Congratulations, your ward has been admitted", with the school policy attached. */
 class AdmissionLetter extends Mailable
 {
-    use Queueable;
+    use Queueable, FromSchool;
 
     public $school, $parentName, $student, $class, $policyPath;
 
@@ -25,7 +25,7 @@ class AdmissionLetter extends Mailable
     public function build()
     {
         $mail = $this->subject("Admission: {$this->student} — {$this->school}")
-            ->from(config('mail.from.address'), $this->school)
+            ->fromSchool($this->school)
             ->view('emails.admission', [
                 'address' => Qs::getSetting('address'),
                 'phone' => Qs::getSetting('phone'),

@@ -9,7 +9,7 @@ use Illuminate\Mail\Mailable;
 /** Link to the student's fees statement (school fees + additional fees). */
 class FeesStatementLink extends Mailable
 {
-    use Queueable;
+    use Queueable, FromSchool;
 
     public $school, $parentName, $student, $url, $totals, $schoolTotals, $optionalTotals;
 
@@ -27,7 +27,7 @@ class FeesStatementLink extends Mailable
     public function build()
     {
         return $this->subject("Fees for {$this->student} — {$this->school}")
-            ->from(config('mail.from.address'), $this->school)
+            ->fromSchool($this->school)
             ->view('emails.fees_link', [
                 'instructions' => Qs::getSetting('payment_instructions'),
                 'phone' => Qs::getSetting('phone'),

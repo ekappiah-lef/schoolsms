@@ -8,7 +8,7 @@ use Illuminate\Mail\Mailable;
 /** A student's report sheet for an exam, as a PDF attachment. */
 class ReportCard extends Mailable
 {
-    use Queueable;
+    use Queueable, FromSchool;
 
     public $school, $parentName, $student, $examLabel;
     protected $pdf, $file;
@@ -26,7 +26,7 @@ class ReportCard extends Mailable
     public function build()
     {
         return $this->subject("{$this->student}: {$this->examLabel} report sheet")
-            ->from(config('mail.from.address'), $this->school)
+            ->fromSchool($this->school)
             ->view('emails.announcement', [
                 'title' => "{$this->student}'s report sheet",
                 'body' => 'Dear '.($this->parentName ?: 'Parent/Guardian').",\n\nPlease find attached {$this->student}'s report sheet for the {$this->examLabel}.\n\nThank you.",

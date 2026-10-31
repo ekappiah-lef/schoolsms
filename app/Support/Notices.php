@@ -22,6 +22,32 @@ use Throwable;
  */
 class Notices
 {
+    /** The address school emails come from: the school's own sender (its domain verified with the mail service), else the platform's. */
+    public static function senderAddress(): string
+    {
+        $s = trim((string) Qs::getSetting('mail_from'));
+
+        return filter_var($s, FILTER_VALIDATE_EMAIL) ? $s : (string) config('mail.from.address');
+    }
+
+    /** Parents' replies go to the school's email (Settings), when it has one. */
+    public static function replyTo(): ?string
+    {
+        $e = trim((string) Qs::getSetting('system_email'));
+
+        return filter_var($e, FILTER_VALIDATE_EMAIL) ? $e : null;
+    }
+
+    /** The school logo as a file on disk (for emails and PDFs), or null. */
+    public static function logoPath(): ?string
+    {
+        $logo = (string) Qs::getSetting('logo');
+        if (!preg_match('#/storage/(.+)$#', $logo, $m)) return null;
+        $path = public_path('storage/'.ltrim(preg_replace('#/{2,}#', '/', $m[1]), '/'));
+
+        return is_file($path) ? $path : null;
+    }
+
     public static function mailConfigured(): bool
     {
         $driver = config('mail.driver') ?? config('mail.default');
@@ -181,9 +207,13 @@ class Notices
         }
 
         $money = function ($n) { return 'GHS '.Money::fmt($n); };
-        $sms = "{$school}: {$student}, {$invoice['label']} fees {$money($invoice['current']['balance'])}"
-            .($invoice['forward']['total'] > 0 ? " + balance brought forward {$money($invoice['forward']['total'])}" : '')
-            .". Total due: {$money($invoice['total'])}. Details: {$url}";
+        $sms = $school."\n"
+            .(empty($invoice['next']) ? 'Fees' : 'Next term fees').' for '.$student."\n"
+            .$invoice['label']."\n\n"
+            .(empty($invoice['next']) ? 'This term: ' : 'Next term: ').$money($invoice['current']['balance'])."\n"
+            .($invoice['forward']['total'] > 0 ? (empty($invoice['next']) ? 'Previous balance: ' : 'Still owed: ').$money($invoice['forward']['total'])."\n" : '')
+            .'Total due: '.$money($invoice['total'])."\n\n"
+            .'View & pay: '.$url;
         foreach ($to['phones'] as $phone) {
             $log('sms', $phone, self::sms($phone, $sms));
             if (self::whatsappEnabled()) $log('whatsapp', $phone, self::whatsapp($phone, $sms));

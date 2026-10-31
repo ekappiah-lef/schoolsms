@@ -4,13 +4,17 @@
 @php($cell = 'padding:9px 12px;border-top:1px solid #eceaf4;')
 @php($next = !empty($invoice['next']))
 @php($span = $next ? 1 : 3)
+@php($logo = \App\Support\Notices::logoPath())
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:8px;">
     <tr><td style="padding:28px 32px 8px;">
+        @if($logo && isset($message))
+            <img src="{{ $message->embed($logo) }}" alt="{{ $school }}" style="height:56px;width:auto;display:block;margin-bottom:12px;">
+        @endif
         <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#4f46e5;font-weight:bold;">{{ $school }}</div>
         <h1 style="font-size:20px;margin:12px 0 0;">{{ $next ? 'Bill' : 'Invoice' }} for {{ $student }}</h1>
         <div style="font-size:14px;color:#777587;margin-top:4px;">{{ $invoice['label'] }}</div>
     </td></tr>
-    <tr><td style="padding:12px 32px;font-size:14px;line-height:22px;color:#464555;">
+    <tr><td style="padding:12px 32px 28px;font-size:14px;line-height:22px;color:#464555;">
         <p style="margin:0 0 16px;">Dear {{ $parentName ?: 'Parent/Guardian' }}, here is {{ $student }}'s {{ $next ? 'bill' : 'invoice' }} for {{ $invoice['label'] }}.</p>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;border:1px solid #eceaf4;border-radius:6px;">
             <tr style="background:#f7f7fc;font-size:12px;color:#777587;">
@@ -39,9 +43,6 @@
             <p style="margin:0 0 6px;font-weight:bold;color:#131b2e;">How to pay</p>
             <p style="margin:0;white-space:pre-line;">{{ $instructions }}</p>
         @endif
-    </td></tr>
-    <tr><td style="padding:20px 32px 28px;font-size:12px;line-height:18px;color:#777587;border-top:1px solid #eceaf4;">
-        All fees paid are non-refundable, except where the school states otherwise in writing.@if($phone) Questions? Call {{ $phone }}.@endif
     </td></tr>
 </table>
 </body>

@@ -8,7 +8,7 @@ use Illuminate\Mail\Mailable;
 /** Payment receipt for a parent, with the PDF attached. */
 class PaymentReceipt extends Mailable
 {
-    use Queueable;
+    use Queueable, FromSchool;
 
     public $r, $pdf;
 
@@ -21,7 +21,7 @@ class PaymentReceipt extends Mailable
     public function build()
     {
         $mail = $this->subject("Payment receipt {$this->r['number']} — {$this->r['student']['name']}")
-            ->from(config('mail.from.address'), $this->r['school']['name'])
+            ->fromSchool($this->r['school']['name'])
             ->view('emails.receipt');
 
         if ($this->pdf) {

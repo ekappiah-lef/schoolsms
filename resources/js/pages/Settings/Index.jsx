@@ -69,6 +69,9 @@ export default function Settings({ settings, logo, years, urls }) {
                             <Field label="Email" error={errors.system_email}>
                                 <input className={fieldInput} type="email" value={data.system_email} onChange={(e) => set('system_email', e.target.value)} />
                             </Field>
+                            <Field label="Sender email" error={errors.mail_from}>
+                                <input className={fieldInput} type="email" value={data.mail_from ?? ''} onChange={(e) => set('mail_from', e.target.value)} />
+                            </Field>
                             <Field label="Address" required error={errors.address} span={2}>
                                 <input className={fieldInput} value={data.address} onChange={(e) => set('address', e.target.value)} />
                             </Field>

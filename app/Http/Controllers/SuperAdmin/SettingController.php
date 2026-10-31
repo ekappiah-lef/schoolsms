@@ -33,7 +33,7 @@ class SettingController extends Controller
                 $years[] = ($y - 1).'-'.$y;
             }
             return [
-                'settings' => collect(['system_name', 'system_title', 'current_session', 'phone', 'system_email', 'address', 'term_ends', 'term_begins', 'lock_exam', 'has_boarding', 'birthday_messages', 'fee_reminders'])
+                'settings' => collect(['system_name', 'system_title', 'current_session', 'phone', 'system_email', 'mail_from', 'address', 'term_ends', 'term_begins', 'lock_exam', 'has_boarding', 'birthday_messages', 'fee_reminders'])
                     ->mapWithKeys(function ($k) use ($s) { return [$k => (string) ($s[$k] ?? '')]; }),
                 'logo' => $s['logo'] ?? null,
                 'years' => $years,

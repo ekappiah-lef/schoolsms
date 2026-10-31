@@ -8,7 +8,7 @@ use Illuminate\Mail\Mailable;
 /** A child's attendance for a period, as a short PDF attachment. */
 class AttendanceReport extends Mailable
 {
-    use Queueable;
+    use Queueable, FromSchool;
 
     public $school, $parentName, $student, $period;
     protected $pdf, $file;
@@ -26,7 +26,7 @@ class AttendanceReport extends Mailable
     public function build()
     {
         return $this->subject("{$this->student}: attendance, {$this->period}")
-            ->from(config('mail.from.address'), $this->school)
+            ->fromSchool($this->school)
             ->view('emails.announcement', [
                 'title' => "{$this->student}'s attendance",
                 'body' => 'Dear '.($this->parentName ?: 'Parent/Guardian').",\n\nPlease find attached {$this->student}'s attendance for {$this->period}.\n\nThank you.",
