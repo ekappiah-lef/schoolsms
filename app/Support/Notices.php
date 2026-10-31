@@ -521,7 +521,11 @@ class Notices
     /** True when the school's WhatsApp Business number is connected (config/whatsapp.php). */
     public static function whatsappEnabled(): bool
     {
-        return config('whatsapp.enabled') && config('whatsapp.token') && config('whatsapp.phone_number_id');
+        if (!config('whatsapp.enabled')) return false;
+
+        return config('whatsapp.provider') === '360dialog'
+            ? (bool) config('whatsapp.api_key')
+            : config('whatsapp.token') && config('whatsapp.phone_number_id');
     }
 
     /**
@@ -543,8 +547,14 @@ class Notices
         // Template parameters cannot contain new lines, tabs or more than 4 spaces in a row.
         $param = trim(preg_replace('/\s+/', ' ', $text));
         try {
-            $res = Http::withToken(config('whatsapp.token'))->timeout(20)
-                ->post('https://graph.facebook.com/'.config('whatsapp.version').'/'.config('whatsapp.phone_number_id').'/messages', [
+            // 360dialog takes the same message as Meta's Cloud API, with the school's key in a header.
+            $http = config('whatsapp.provider') === '360dialog'
+                ? Http::withHeaders(['D360-API-KEY' => config('whatsapp.api_key')])
+                : Http::withToken(config('whatsapp.token'));
+            $url = config('whatsapp.provider') === '360dialog'
+                ? 'https://waba-v2.360dialog.io/messages'
+                : 'https://graph.facebook.com/'.config('whatsapp.version').'/'.config('whatsapp.phone_number_id').'/messages';
+            $res = $http->timeout(20)->post($url, [
                     'messaging_product' => 'whatsapp',
                     'to' => $to,
                     'type' => 'template',
