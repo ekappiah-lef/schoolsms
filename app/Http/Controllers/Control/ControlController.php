@@ -74,7 +74,8 @@ class ControlController extends Controller
             'features' => 'nullable|array', 'features.*' => 'in:'.implode(',', array_keys(config('school.FEATURES'))),
             'scheme' => 'nullable|in:'.implode(',', array_keys(config('school.schemes'))),
             'has_boarding' => 'nullable|boolean', 'fee_reminders' => 'nullable|in:0,7,14,30',
-        ], ['slug.regex' => 'Use small letters, numbers and dashes (e.g. desvy).', 'slug.not_in' => 'This web name is reserved.', 'slug.unique' => 'A school already uses this web name.'],
+            'sms_sender' => ['nullable', 'string', 'max:11', 'regex:/^[A-Za-z0-9][A-Za-z0-9 \'&.\-]*$/'],
+        ], ['slug.regex' => 'Use small letters, numbers and dashes (e.g. desvy).', 'sms_sender.regex' => 'Letters, numbers, spaces and \' & . - only.', 'slug.not_in' => 'This web name is reserved.', 'slug.unique' => 'A school already uses this web name.'],
            ['slug' => 'Web name', 'admin_username' => 'Admin username']);
 
         $domain = $d['slug'].'.edunetwork.lefsignature.com';
@@ -84,7 +85,7 @@ class ControlController extends Controller
                 'features' => array_values($d['features'] ?? []), 'scheme' => $d['scheme'] ?? 'standard',
                 'settings' => ['has_boarding' => (int) ($d['has_boarding'] ?? 0), 'fee_reminders' => (int) ($d['fee_reminders'] ?? 0)],
             ]), 'created_at' => now(), 'updated_at' => now()]);
-        Control::dispatch('create_school', ['slug' => $d['slug'], 'domain' => $domain, 'name' => $d['name']], $d['slug']);
+        Control::dispatch('create_school', ['slug' => $d['slug'], 'domain' => $domain, 'name' => $d['name'], 'sms_sender' => $d['sms_sender'] ?? ''], $d['slug']);
 
         return Qs::json('Creating '.$d['name'].'. This takes a few minutes.', true);
     }

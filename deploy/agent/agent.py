@@ -19,6 +19,7 @@ JOBS = '/opt/edunetwork/jobs'
 SCHOOLS = '/opt/schools'
 TEST = '/opt/edusuite'
 BASE_DOMAIN = '.edunetwork.lefsignature.com'
+MAIL_DOMAIN = 'notify.lefsignature.com'   # school emails come from <web name>@notify.lefsignature.com (verified in Brevo)
 CERT_EMAIL = 'info@lefsignature.com'
 SLUG = re.compile(r'^[a-z][a-z0-9-]{1,29}$')
 DOMAIN = re.compile(r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$')
@@ -52,6 +53,16 @@ def read_env(path):
                 k, v = line.split('=', 1)
                 out[k.strip()] = v
     return out
+
+
+def env_value(v):
+    # Values with spaces, quotes, # or $ (e.g. an SMS sender "DESVY INT'L") are quoted so the file stays valid.
+    v = '' if v is None else str(v)
+    if len(v) >= 2 and v[0] == v[-1] and v[0] in '"\'':
+        return v
+    if any(c in v for c in ' \t\'"#$'):
+        return '"' + v.replace('\\', '\\\\').replace('"', '\\"') + '"'
+    return v
 
 
 def write_env(path, updates, header=None):
@@ -155,7 +166,11 @@ def create_school(job):
     env = {k: v for k, v in base.items() if not k.startswith('SCHOOL_') and k not in ('CONTROL_API_TOKEN', 'APP_ROLE', 'CONTROL_JOBS_DIR')}
     env.update({'APP_KEY': 'base64:' + base64.b64encode(secrets.token_bytes(32)).decode(), 'APP_URL': f'https://{domain}',
                 'DB_DATABASE': db, 'DB_USERNAME': db, 'DB_PASSWORD': dbpass, 'MARIADB_DATABASE': db, 'MARIADB_USER': db, 'MARIADB_PASSWORD': dbpass,
-                'MARIADB_ROOT_PASSWORD': root, 'CLEARENROLL_API_KEY': '', 'MOMO_DRIVER': 'fake', 'CONTROL_API_TOKEN': token})
+                'MARIADB_ROOT_PASSWORD': root, 'CLEARENROLL_API_KEY': '', 'MOMO_DRIVER': 'fake', 'CONTROL_API_TOKEN': token,
+                'MAIL_FROM_ADDRESS': f'{slug}@{MAIL_DOMAIN}'})
+    sender = (job.get('sms_sender') or '').strip()[:11]
+    if sender:
+        env['SMS_SENDER_ID'] = env_value(sender)
     open(f'{path}/.env.docker', 'w').write(f'# {name} (https://{domain})\n' + '\n'.join(f'{k}={v}' for k, v in env.items()) + '\n')
     open(f'{path}/.health_url', 'w').write(f'https://{domain}/healthz\n')
     run(['chown', '-R', 'ubuntu:ubuntu', path])
@@ -197,7 +212,7 @@ def set_env(job):
         v = '' if v is None else str(v)
         if '\n' in v or '\r' in v or len(v) > 500:
             raise ValueError(f'Invalid value for {k}.')
-        clean[k] = v
+        clean[k] = env_value(v)
     write_env(f'{path}/.env.docker', clean)
     recreate(path)
     return {'slug': job.get('slug'), 'changed': sorted(clean)}

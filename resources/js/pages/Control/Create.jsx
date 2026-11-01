@@ -6,7 +6,7 @@ import { withAppLayout } from '@/layouts/AppLayout';
 import { Field, ModuleHeader, NativeSelect, SetupCard, fieldInput } from '@/components/app/module';
 import { submitForm } from '@/lib/http';
 
-const BLANK = { name: '', slug: '', short: '', phone: '', email: '', address: '', admin_name: '', admin_email: '', admin_phone: '', admin_username: '',
+const BLANK = { name: '', slug: '', short: '', sms_sender: '', phone: '', email: '', address: '', admin_name: '', admin_email: '', admin_phone: '', admin_username: '',
     features: [], scheme: 'standard', has_boarding: '0', fee_reminders: '0' };
 
 /** New school: its own copy, database, web address and HTTPS, set up in a few minutes. */
@@ -56,6 +56,9 @@ export default function ControlCreate({ features, schemes, baseDomain, urls }) {
                     </Field>
                     <Field label="Short name" error={errors.short}>
                         <input className={fieldInput} value={d.short} onChange={(e) => set('short', e.target.value)} placeholder="e.g. DIS" maxLength={20} />
+                    </Field>
+                    <Field label="SMS sender name" error={errors.sms_sender}>
+                        <input className={fieldInput} value={d.sms_sender} onChange={(e) => set('sms_sender', e.target.value)} placeholder="e.g. DESVY INT'L" maxLength={11} />
                     </Field>
                     <Field label="School phone" error={errors.phone}>
                         <input className={fieldInput} value={d.phone} onChange={(e) => set('phone', e.target.value)} inputMode="tel" />
