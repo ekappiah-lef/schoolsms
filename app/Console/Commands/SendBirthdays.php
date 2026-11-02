@@ -36,7 +36,7 @@ class SendBirthdays extends Command
         $school = Qs::getSystemName();
         $born = function ($q) use ($md) { $q->whereIn(\DB::raw("substr(dob, 6, 5)"), $md); };
         $wish = function ($name) use ($school) {
-            return "Happy Birthday, {$name}! Wishing you a wonderful day filled with joy, happiness, and God's blessings. May all your dreams come true.\n\nBest wishes from {$school} Management.";
+            return "Happy Birthday, {$name}! Wishing you a wonderful day filled with joy, happiness, and God's blessings. May all your dreams come true.\n\nBest wishes from {$school}\nManagement.";
         };
         $n = 0;
 
