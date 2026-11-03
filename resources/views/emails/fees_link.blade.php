@@ -19,9 +19,11 @@
             <p style="margin:0;white-space:pre-line;">{{ $instructions }}</p>
         @endif
     </td></tr>
+    @if($phone)
     <tr><td style="padding:20px 32px 28px;font-size:12px;line-height:18px;color:#777587;border-top:1px solid #eceaf4;">
-        All fees paid are non-refundable, except where the school states otherwise in writing.@if($phone) Questions? Call {{ $phone }}.@endif
+        Questions? Call {{ $phone }}.
     </td></tr>
+    @endif
 </table>
 </body>
 </html>

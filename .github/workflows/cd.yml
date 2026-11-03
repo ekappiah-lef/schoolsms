@@ -104,6 +104,8 @@ jobs:
             # Each has its own .env (project name, port, image tag), .env.docker, database and backups; .health_url is its /healthz.
             failed=""
             for d in /opt/schools/*/; do
+              # A school with a .hold file stays on its version until the file is removed.
+              if [ -f "$d/.hold" ]; then echo "=== $(basename "$d") held, not updated ==="; continue; fi
               [ -f "$d/.env" ] || continue
               echo "=== $(basename "$d") ==="
               cp docker-compose.prod.yml "$d/" && cp deploy/deploy.sh deploy/backup.sh "$d/deploy/"

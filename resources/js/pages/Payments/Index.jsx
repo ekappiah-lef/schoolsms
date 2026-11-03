@@ -1,11 +1,14 @@
 import { useMemo, useState } from "react";
 import { Head, Link, router } from "@inertiajs/react";
+import { toast } from "sonner";
 import { Banknote, Copy, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { usePaged } from "@/components/app/data-table";
 import { withAppLayout } from "@/layouts/AppLayout";
 import { EmptyState, PageHeader, Panel } from "@/components/app/page";
 import { Meter } from "@/components/app/charts";
 import { useConfirmAction } from "@/components/app/confirm-action";
+import { ConfirmDialog } from "@/components/ui/dialog";
+import { submitForm } from "@/lib/http";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -18,9 +21,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatMoney } from "@/lib/utils";
 
+const TERMS = { 1: "1st term", 2: "2nd term", 3: "3rd term" };
+
 export default function PaymentsIndex({
     year,
     session,
+    currentTerm,
     years,
     payments,
     categories,
@@ -28,6 +34,23 @@ export default function PaymentsIndex({
 }) {
     const [confirm, confirmDialog] = useConfirmAction();
     const [classFilter, setClassFilter] = useState("");
+    const [term, setTerm] = useState(
+        () => new URLSearchParams(window.location.search).get("term") ?? String(currentTerm),
+    );
+    const [copying, setCopying] = useState(false);
+    const [copyBusy, setCopyBusy] = useState(false);
+    const start = Number(String(year).slice(0, 4));
+    const nextLabel = term === "3" ? `${TERMS[1]} ${start + 1}-${start + 2}` : `${TERMS[Number(term) + 1]} ${year}`;
+    const toCopy = payments.filter((p) => String(p.term) === term && p.category !== "opening").length;
+    const copy = async () => {
+        setCopyBusy(true);
+        const r = await submitForm(urls.copyTerm, { year, term });
+        setCopyBusy(false);
+        setCopying(false);
+        if (!r.ok) return toast.error(r.message);
+        toast.success(r.message);
+        router.visit(`${urls.year.replace(":year", r.data.year)}?term=${r.data.term}`);
+    };
 
     const classes = useMemo(() => {
         const seen = new Map();
@@ -42,16 +65,26 @@ export default function PaymentsIndex({
 
     const rows = payments.filter(
         (p) =>
-            !classFilter ||
-            (classFilter === "general"
-                ? !p.class_id
-                : String(p.class_id) === classFilter),
+            (!term || !p.term || String(p.term) === term) &&
+            (!classFilter ||
+                (classFilter === "general"
+                    ? !p.class_id
+                    : String(p.class_id) === classFilter)),
     );
     const { shown, pager } = usePaged(rows, 10, "fees");
 
     return (
         <>
             <Head title="Fee setup" />
+            <ConfirmDialog
+                open={copying}
+                onOpenChange={(o) => !copyBusy && setCopying(o)}
+                title={`Copy ${toCopy} fees to ${nextLabel}?`}
+                confirmLabel="Copy"
+                tone="primary"
+                loading={copyBusy}
+                onConfirm={copy}
+            />
             <PageHeader
                 breadcrumbs={[{ label: "Finance" }, { label: "Fee setup" }]}
                 title="Fee setup"
@@ -74,9 +107,15 @@ export default function PaymentsIndex({
 
             <Panel
                 flush
-                title={year ? `Fees for ${year}` : "Fees"}
+                title={year ? `Fees for ${year}${term ? ` · ${TERMS[term]}` : ""}` : "Fees"}
                 actions={
                     <>
+                        {term && toCopy > 0 && (
+                            <Button size="sm" onClick={() => setCopying(true)}>
+                                <Copy />
+                                Copy to next term
+                            </Button>
+                        )}
                         {classes.length > 1 && (
                             <Select
                                 size="sm"
@@ -89,6 +128,16 @@ export default function PaymentsIndex({
                                 placeholder="All fees"
                             />
                         )}
+                        <Select
+                            size="sm"
+                            className="w-32"
+                            value={term}
+                            onChange={(v) => setTerm(v ?? "")}
+                            options={Object.entries(TERMS).map(([value, label]) => ({ value, label }))}
+                            clearable
+                            clearLabel="All terms"
+                            placeholder="All terms"
+                        />
                         {years.length > 0 && (
                             <Select
                                 size="sm"
@@ -113,6 +162,7 @@ export default function PaymentsIndex({
                                 <thead>
                                     <tr className="border-b border-border bg-canvas text-2xs font-semibold uppercase text-fg-muted">
                                         <th className="h-9 px-4">Fee</th>
+                                        <th className="h-9 px-3">Term</th>
                                         <th className="h-9 px-3">Applies to</th>
                                         <th className="h-9 px-3 text-right">
                                             Amount
@@ -146,6 +196,9 @@ export default function PaymentsIndex({
                                                         .filter(Boolean)
                                                         .join(" · ")}
                                                 </div>
+                                            </td>
+                                            <td className="whitespace-nowrap px-3 text-sm">
+                                                {TERMS[p.term] ?? "All terms"}
                                             </td>
                                             <td className="px-3">
                                                 <div className="flex flex-wrap gap-1">

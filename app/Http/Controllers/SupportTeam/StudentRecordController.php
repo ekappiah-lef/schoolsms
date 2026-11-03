@@ -179,6 +179,7 @@ class StudentRecordController extends Controller
             $sr['session'] = $year;
             $sr['admission_date'] = $req->admission_date;
             $sr['admitted_session'] = $year;
+            $sr['admitted_term'] = Fees::termNow($year);
             [$sr['fee_discount_id'], $sr['next_discount_id']] = $this->discountChoice($req);
             $sr['not_billed'] = Qs::userIsTeamSA() && $req->boolean('not_billed');
             // ClearEnroll check made before admitting (school-to-school fee clearance).

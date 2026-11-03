@@ -203,6 +203,34 @@ class PaymentController extends Controller
         return response()->json(['ok' => true, 'sent' => $sent, 'held' => $held, 'not_set' => $notSet, 'clear' => $clear, 'next' => $next, 'total' => $total, 'done' => $next >= $total]);
     }
 
+    /** Copy a term's fees (with their items) to the next term, to adjust whatever changed. Copying again adds nothing. */
+    public function copyTerm(Request $req)
+    {
+        $d = $req->validate(['year' => ['required', 'regex:/^\d{4}-\d{4}$/'], 'term' => 'required|in:1,2,3']);
+        $start = (int) substr($d['year'], 0, 4);
+        [$year, $term] = (int) $d['term'] < 3 ? [$d['year'], (int) $d['term'] + 1] : [($start + 1).'-'.($start + 2), 1];
+        $created = $skipped = 0;
+        DB::transaction(function () use ($d, $year, $term, &$created, &$skipped) {
+            // A class already set up for that term keeps its fees, whatever they are called: a copy would bill it twice.
+            $key = function ($p) { return $p->my_class_id.'|'.$p->student_category; };
+            $there = Payment::where(['year' => $year, 'term' => $term])->get()->map($key)->flip();
+            foreach (Payment::where(['year' => $d['year'], 'term' => $d['term']])->where('student_category', '!=', 'opening')->with('items')->get() as $p) {
+                if ($there->has($key($p))) {
+                    $skipped++;
+                    continue;
+                }
+                $copy = $p->replicate();
+                $copy->fill(['year' => $year, 'term' => $term, 'ref_no' => Pay::genRefCode()])->save();
+                foreach ($p->items as $i) {
+                    $copy->items()->create(['name' => $i->name, 'amount' => $i->amount, 'sort' => $i->sort]);
+                }
+                $created++;
+            }
+        });
+
+        return response()->json(['ok' => true, 'msg' => "{$created} fees copied".($skipped ? ", {$skipped} already there" : '').'.', 'year' => $year, 'term' => $term]);
+    }
+
     /** The director's check of next term's bills, and approving them to go out on the term's last day. */
     public function nextBills(Request $req)
     {
@@ -378,6 +406,7 @@ class PaymentController extends Controller
         return [
             'year' => $year,
             'session' => $this->year,
+            'currentTerm' => Fees::termNow($year ?: $this->year),
             'years' => $this->pay->getPaymentYears()->pluck('year')->sort()->reverse()->values(),
             'payments' => $payments->map(function ($p) use ($usage) {
                 $u = $usage[$p->id] ?? null;
@@ -389,6 +418,7 @@ class PaymentController extends Controller
                     'class' => optional($p->my_class)->name,
                     'class_id' => $p->my_class_id,
                     'category' => $p->student_category ?: 'all',
+                    'term' => $p->term ? (int) $p->term : null,
                     'items' => $p->items->map(function ($i) { return ['name' => $i->name, 'amount' => Money::r($i->amount)]; })->values(),
                     'method' => ucwords($p->method),
                     'description' => $p->description,
@@ -406,6 +436,7 @@ class PaymentController extends Controller
             'urls' => [
                 'config' => route('finance.config'),
                 'create' => route('payments.create'),
+                'copyTerm' => route('payments.copy_term'),
                 'year' => route('payments.show', ':year'),
                 'manage' => route('payments.manage'),
             ],

@@ -28,22 +28,24 @@ class Fees
     const METHODS = ['Cash', 'Mobile payment', 'Bank transfer', 'Cheque'];
 
     /** "new" when the student joined in the given session, otherwise "old". */
-    public static function categoryFor(StudentRecord $sr, string $year): string
+    public static function categoryFor(StudentRecord $sr, string $year, ?int $term = null): string
     {
-        return $sr->admitted_session && $sr->admitted_session === $year ? 'new' : 'old';
+        if (!$sr->admitted_session || $sr->admitted_session !== $year) return 'old';
+
+        return ($term ?: self::termNow($year)) === ((int) $sr->admitted_term ?: 1) ? 'new' : 'old';
     }
 
     /** Fees for the student's class (or all classes) that apply to their category. */
     public static function paymentsFor(StudentRecord $sr, string $year): Collection
     {
-        $category = self::categoryFor($sr, $year);
-
         return Payment::where('year', $year)
             ->where(function ($q) use ($sr) {
                 $q->where('my_class_id', $sr->my_class_id)->orWhereNull('my_class_id');
             })
-            ->whereIn('student_category', ['all', $category])
-            ->get();
+            ->whereIn('student_category', ['all', 'old', 'new'])
+            ->get()
+            ->filter(function ($p) use ($sr, $year) { return self::appliesTo($p, $sr, $year); })
+            ->values();
     }
 
     /**
@@ -69,8 +71,19 @@ class Fees
     public static function appliesTo(Payment $p, StudentRecord $sr, string $year): bool
     {
         $category = $p->student_category ?: 'all';
+        if (!in_array($category, ['all', 'old', 'new'], true)) return false;
+        if ($sr->admitted_session !== $year) return $category !== 'new';
 
-        return $category === 'all' || $category === self::categoryFor($sr, $year);
+        // Admitted this year: nothing for the terms before they joined. In the term they join the new-student fee
+        // takes the place of their class's regular fee; from the next term they pay the regular fee.
+        $term = (int) $p->term;
+        $joined = (int) $sr->admitted_term ?: 1;
+        if ($term && $term < $joined) return false;
+        $joining = !$term || $term === $joined;
+        if ($category === 'new') return $joining;
+        if ($category === 'old') return !$joining;
+
+        return !$joining || !$p->my_class_id || !Payment::where(['year' => $year, 'my_class_id' => $p->my_class_id, 'term' => $p->term, 'student_category' => 'new'])->exists();
     }
 
     /**
