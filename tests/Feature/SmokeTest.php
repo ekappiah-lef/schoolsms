@@ -115,6 +115,44 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testAccountantGoesThroughStudents()
+    {
+        $acc = $this->user('accountant');
+        $this->actingAs($acc)->get(route('students.index'))->assertOk();
+        $sr = \App\Models\StudentRecord::where('grad', 0)->first();
+        if ($sr) $this->actingAs($acc)->get(route('students.edit', \App\Helpers\Qs::hash($sr->id)))->assertOk();
+    }
+
+    public function testEditPageServicesStartNextTermAndImportedBusKeepsItsBill()
+    {
+        $sr = \App\Models\StudentRecord::where('grad', 0)->first();
+        if (!$sr) return $this->assertTrue(true);
+        $year = \App\Helpers\Qs::getCurrentSession();
+        $term = \App\Support\Fees::termNow($year);
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $route = \App\Models\BusRoute::where('active', true)->first();
+            $before = \App\Models\OptionalFeeCharge::where('student_id', $sr->user_id)->count();
+            $sel = ['feeding' => [], 'extracurricular' => [], 'bus_route_id' => $route ? $route->id : '', 'bus_direction' => $route ? array_keys(\App\Models\BusRoute::DIRECTIONS)[0] : ''];
+            \App\Support\Fees::planServices($sr, $year, $sel);
+            $this->assertSame($before, \App\Models\OptionalFeeCharge::where('student_id', $sr->user_id)->count());
+            $this->assertEquals($sel['bus_route_id'], \App\Support\Fees::nextServices($sr->fresh(), $year)['bus_route_id']);
+
+            if ($route) {
+                \App\Models\OptionalFeeCharge::where(['student_id' => $sr->user_id, 'year' => $year, 'term' => $term])->delete();
+                $old = \App\Models\OptionalFeeCharge::create(['student_id' => $sr->user_id, 'year' => $year, 'term' => $term, 'group' => 'bus', 'label' => 'Imported', 'amount' => 1234, 'amt_paid' => 100]);
+                \App\Support\Fees::syncOptional($sr->user_id, $year, $sel);
+                $bus = \App\Models\OptionalFeeCharge::where(['student_id' => $sr->user_id, 'year' => $year, 'term' => $term, 'group' => 'bus'])->get();
+                $this->assertCount(1, $bus);
+                $this->assertEquals($route->id, $bus[0]->bus_route_id);
+                $this->assertEquals(1234, $bus[0]->amount);
+                $this->assertEquals($old->id, $bus[0]->id);
+            }
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testParentHasTimetablesInTheirMenu()
     {
         $this->actingAs($this->user('parent'));

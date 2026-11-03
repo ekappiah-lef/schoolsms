@@ -53,6 +53,7 @@ class AssignServicesController extends Controller
         if (!empty($sel['bus_direction']) && empty($sel['bus_route_id'])) return Qs::json('Choose the bus location, or set the bus to “No bus”.', false);
 
         $kept = Fees::syncOptional($sr->user_id, Qs::getCurrentSession(), $sel);
+        $sr->update(['next_services' => null]);
         \App\Support\ClearEnroll::studentChanged((int) $sr->user_id);
 
         return Qs::json('Saved.'.($kept ? ' Stopped from next term (this term stays billed): '.implode(', ', $kept).'.' : ''), true);

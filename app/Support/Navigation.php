@@ -38,7 +38,7 @@ class Navigation
         /* Academics */
         $academics = [];
 
-        if (Qs::userIsTeamSAT()) {
+        if (Qs::userIsTeamSAT() || Qs::userIsAccountant()) {
             $students = [self::item('All students', 'users', 'students.index', ['students.index', 'students.list', 'students.show', 'students.edit'])];
             if (Qs::userIsTeamSA()) {
                 $students[] = self::item('Admit student', null, 'students.create');

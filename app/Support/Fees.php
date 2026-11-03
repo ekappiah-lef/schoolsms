@@ -160,15 +160,18 @@ class Fees
         $key = $year.':'.$term;
         $done = DB::table('settings')->where('type', 'services_billed_term')->value('description');
         if ($done !== $key) {
-            if ($done) {
-                [$py, $pt] = $term > 1 ? [$year, $term - 1] : [((int) substr($year, 0, 4) - 1).'-'.substr($year, 0, 4), 3];
-                foreach ($students as $sr) {
-                    if ($sr->status === 'away') continue;
-                    $has = OptionalFeeCharge::where(['student_id' => $sr->user_id, 'year' => $year, 'term' => $term])->where('group', '!=', 'sales')->exists();
-                    $last = OptionalFeeCharge::where(['student_id' => $sr->user_id, 'year' => $py, 'term' => $pt])->where('group', '!=', 'sales')->get();
-                    if ($has || $last->isEmpty()) continue;
-                    self::syncOptional($sr->user_id, $year, self::selectionOf($last));
+            [$py, $pt] = $term > 1 ? [$year, $term - 1] : [((int) substr($year, 0, 4) - 1).'-'.substr($year, 0, 4), 3];
+            foreach ($students as $sr) {
+                if ($sr->status === 'away') continue;
+                if (OptionalFeeCharge::where(['student_id' => $sr->user_id, 'year' => $year, 'term' => $term])->where('group', '!=', 'sales')->exists()) continue;
+                $plan = self::plannedServices($sr, $key);
+                if ($plan !== null) {
+                    self::syncOptional($sr->user_id, $year, $plan);
+                    continue;
                 }
+                if (!$done) continue;
+                $last = OptionalFeeCharge::where(['student_id' => $sr->user_id, 'year' => $py, 'term' => $pt])->where('group', '!=', 'sales')->get();
+                if ($last->isNotEmpty()) self::syncOptional($sr->user_id, $year, self::selectionOf($last));
             }
             DB::table('settings')->updateOrInsert(['type' => 'services_billed_term'], ['description' => $key]);
         }
@@ -345,6 +348,12 @@ class Fees
 
         $kept = [];
         foreach ($existing as $c) {
+            // Imported without a service link: its amount and payments stay. A bus route chosen now is attached to it.
+            if (!$c->fee_option_id && !$c->bus_route_id) {
+                $bus = $c->group === 'bus' ? $wanted->firstWhere('group', 'bus') : null;
+                if ($bus) $c->update(['bus_route_id' => $bus['bus_route_id'], 'bus_direction' => $bus['bus_direction'], 'label' => $bus['label']]);
+                continue;
+            }
             $k = $key($c->toArray());
             if ($wanted->contains(function ($w) use ($key, $k) { return $key($w) === $k; })) {
                 continue;
@@ -405,6 +414,38 @@ class Fees
     }
 
     /** The current selection (this term's services, or the latest term's before it is billed), in the shape the form uses. */
+    /** The term after ($year, $term): [year, term]. */
+    public static function nextTerm(string $year, int $term): array
+    {
+        $start = (int) substr($year, 0, 4);
+
+        return $term < 3 ? [$year, $term + 1] : [($start + 1).'-'.($start + 2), 1];
+    }
+
+    /** Services set on the student's edit page for the term "$key" (year:term), or null. */
+    public static function plannedServices(StudentRecord $sr, string $key): ?array
+    {
+        $plan = json_decode((string) $sr->next_services, true);
+
+        return ($plan['for'] ?? null) === $key ? (array) ($plan['services'] ?? []) : null;
+    }
+
+    /** What the student takes next term: as set on the edit page, otherwise what they take now. */
+    public static function nextServices(StudentRecord $sr, string $year): array
+    {
+        [$nYear, $nTerm] = self::nextTerm($year, self::termNow($year));
+
+        return self::plannedServices($sr, $nYear.':'.$nTerm) ?? self::selectionFor($sr->user_id, $year);
+    }
+
+    /** Set the student's services from next term. This term's services and bills do not change. */
+    public static function planServices(StudentRecord $sr, string $year, array $sel): void
+    {
+        unset($sel['sales']);
+        [$nYear, $nTerm] = self::nextTerm($year, self::termNow($year));
+        $sr->update(['next_services' => json_encode(['for' => $nYear.':'.$nTerm, 'services' => $sel])]);
+    }
+
     public static function selectionFor(int $studentId, string $year): array
     {
         $all = OptionalFeeCharge::where('student_id', $studentId)->where('group', '!=', 'sales')
@@ -775,7 +816,7 @@ class Fees
             }
         }
         if (!$billedNextServices) {
-            $services = Money::r(collect(self::chargesFromSelection(self::selectionFor($sr->user_id, $year)))->sum('amount'));
+            $services = Money::r(collect(self::chargesFromSelection(self::plannedServices($sr, $nKey) ?? self::selectionFor($sr->user_id, $year), $sr->user_id))->sum('amount'));
         }
 
         return [

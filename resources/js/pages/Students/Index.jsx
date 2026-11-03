@@ -59,7 +59,7 @@ export default function StudentsIndex({ variant, showParent = true, students, su
         () => sections.filter((s) => String(s.class_id) === String(filters.class)).map((s) => ({ value: s.id, label: s.name })),
         [sections, filters.class],
     );
-    const hasFilters = filters.q || filters.class || filters.section || filters.gender;
+    const hasFilters = filters.q || filters.class || filters.section || filters.gender || filters.staff;
 
     const columns = useMemo(
         () => [
@@ -231,8 +231,18 @@ export default function StudentsIndex({ variant, showParent = true, students, su
                             clearLabel="Any gender"
                             placeholder="Any gender"
                         />
+                        <Select
+                            size="sm"
+                            className="w-40"
+                            value={filters.staff ?? ''}
+                            onChange={(v) => apply({ staff: v })}
+                            options={[{ value: '1', label: 'Staff children' }]}
+                            clearable
+                            clearLabel="All students"
+                            placeholder="All students"
+                        />
                         {hasFilters && (
-                            <Button size="sm" variant="ghost" onClick={() => apply({ q: '', class: '', section: '', gender: '' })}>
+                            <Button size="sm" variant="ghost" onClick={() => apply({ q: '', class: '', section: '', gender: '', staff: '' })}>
                                 <X />
                                 Clear
                             </Button>
@@ -246,7 +256,7 @@ export default function StudentsIndex({ variant, showParent = true, students, su
                        
                         action={
                             hasFilters ? (
-                                <Button size="sm" onClick={() => apply({ q: '', class: '', section: '', gender: '' })}>
+                                <Button size="sm" onClick={() => apply({ q: '', class: '', section: '', gender: '', staff: '' })}>
                                     Clear filters
                                 </Button>
                             ) : urls.create && !graduated ? (

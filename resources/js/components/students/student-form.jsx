@@ -64,6 +64,7 @@ const EMPTY = {
     fee_discount_id: '',
     next_discount_id: '',
     not_billed: false,
+    staff_child: false,
     clearenroll_status: '',
     parent_mode: 'existing',
     my_parent_id: '',
@@ -360,7 +361,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
         setProcessing(true);
         setServerErrors({});
         const name = [data.first_name, data.middle_name, data.last_name].map((s) => (s ?? '').trim()).filter(Boolean).join(' ');
-        const payload = { ...data, name, form_version: '2', services: JSON.stringify(data.services), not_billed: data.not_billed ? 1 : 0 };
+        const payload = { ...data, name, form_version: '2', services: JSON.stringify(data.services), not_billed: data.not_billed ? 1 : 0, staff_child: data.staff_child ? 1 : 0 };
         if (mode === 'edit') {
             delete payload.adm_no; // not editable after admission
             ['parent_mode', 'parent_primary', 'terms_accepted', 'send_notices', ...PARENT_FIELDS].forEach((f) => delete payload[f]);
@@ -608,6 +609,10 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                     <Checkbox checked={!!data.not_billed} onCheckedChange={(v) => set('not_billed', v === true)} />
                     Not billed
                 </label>
+                <label className="flex items-center gap-2 text-sm font-medium">
+                    <Checkbox checked={!!data.staff_child} onCheckedChange={(v) => set('staff_child', v === true)} />
+                    Staff child
+                </label>
                 {nextDiscounts.length > 0 && (
                     <FormField label="Next term" error={err('next_discount_id')}>
                         <Select
@@ -623,7 +628,7 @@ export default function StudentForm({ mode, options, initial, initialLgas, curre
                 )}
             </FormSection>
 
-            <FormSection id="services" title="Additional services & shop" >
+            <FormSection id="services" title={mode === 'edit' ? 'Services from next term' : 'Additional services & shop'}>
                 <div className="sm:col-span-2">
                     <ServicesPicker catalogue={options.services} value={data.services} onChange={(v) => set('services', v)} mode={mode} classId={data.my_class_id} />
                     {err('services') && <p className="mt-2 text-xs text-danger-fg">{err('services')}</p>}

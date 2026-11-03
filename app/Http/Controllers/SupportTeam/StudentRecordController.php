@@ -36,15 +36,28 @@ class StudentRecordController extends Controller
 
    public function __construct(LocationRepo $loc, MyClassRepo $my_class, UserRepo $user, StudentRepo $student)
    {
-       $this->middleware('teamSA', ['only' => ['edit','update', 'reset_pass', 'create', 'store', 'graduated'] ]);
+       $this->middleware('teamSA', ['only' => ['reset_pass', 'create', 'store', 'graduated'] ]);
        $this->middleware('super_admin', ['only' => ['destroy',] ]);
-       $this->middleware('teamSAT', ['only' => ['index', 'search'] ]);
+       // The accountant goes through the students too: discounts and next term's services.
+       $this->middleware(function ($req, $next) {
+           abort_unless($this->canEdit(), 403);
+           return $next($req);
+       })->only(['edit', 'update']);
+       $this->middleware(function ($req, $next) {
+           abort_unless(Qs::userIsTeamSAT() || Qs::userIsAccountant(), 403);
+           return $next($req);
+       })->only(['index', 'search']);
 
         $this->loc = $loc;
         $this->my_class = $my_class;
         $this->user = $user;
         $this->student = $student;
    }
+
+    protected function canEdit(): bool
+    {
+        return Qs::userIsTeamSA() || Qs::userIsAccountant();
+    }
 
     /** Set a new password for a student (admins only; the person doing it types the password). */
     public function reset_pass(Request $req, $st_id)
@@ -182,6 +195,7 @@ class StudentRecordController extends Controller
             $sr['admitted_term'] = Fees::termNow($year);
             [$sr['fee_discount_id'], $sr['next_discount_id']] = $this->discountChoice($req);
             $sr['not_billed'] = Qs::userIsTeamSA() && $req->boolean('not_billed');
+            $sr['staff_child'] = $req->boolean('staff_child');
             // ClearEnroll check made before admitting (school-to-school fee clearance).
             if (in_array($req->clearenroll_status, array_keys(\App\Http\Controllers\SupportTeam\ClearEnrollController::STATUSES), true)) {
                 $sr['clearenroll_status'] = $req->clearenroll_status;
@@ -305,7 +319,7 @@ class StudentRecordController extends Controller
         if(!$sr){return Qs::goWithDanger();}
 
         /* Prevent Other Students/Parents from viewing Profile of others */
-        if(Auth::user()->id != $data['sr']->user_id && !Qs::userIsTeamSAT() && !Qs::userIsMyChild($data['sr']->user_id, Auth::user()->id)){
+        if(Auth::user()->id != $data['sr']->user_id && !Qs::userIsTeamSAT() && !Qs::userIsAccountant() && !Qs::userIsMyChild($data['sr']->user_id, Auth::user()->id)){
             return redirect(route('dashboard'))->with('pop_error', __('msg.denied'));
         }
         if (!\App\Support\TeacherScope::canSeeStudent($sr)) {
@@ -337,7 +351,8 @@ class StudentRecordController extends Controller
                         'fee_discount_id' => $sr->fee_discount_id ? (string) $sr->fee_discount_id : '',
                         'next_discount_id' => $sr->next_discount_id ? (string) $sr->next_discount_id : '',
                         'not_billed' => (bool) $sr->not_billed,
-                        'services' => Fees::selectionFor($sr->user_id, Qs::getCurrentSession()),
+                        'staff_child' => (bool) $sr->staff_child,
+                        'services' => Fees::nextServices($sr, Qs::getCurrentSession()),
                         'name' => $u->name,
                         'address' => $u->address,
                         'email' => $u->email,
@@ -402,7 +417,8 @@ class StudentRecordController extends Controller
         if ($req->input('form_version') === '2') {
             $srec['admission_date'] = $req->admission_date ?: null;
             [$srec['fee_discount_id'], $srec['next_discount_id']] = $this->discountChoice($req, $sr);
-            if (Qs::userIsTeamSA() && $req->has('not_billed')) $srec['not_billed'] = $req->boolean('not_billed');
+            if ($req->has('not_billed')) $srec['not_billed'] = $req->boolean('not_billed');
+            if ($req->has('staff_child')) $srec['staff_child'] = $req->boolean('staff_child');
             $discountChanged = (int) $sr->fee_discount_id !== (int) $srec['fee_discount_id'];
         }
 
@@ -417,15 +433,12 @@ class StudentRecordController extends Controller
                 Fees::applyDiscount($sr->fresh());
             }
 
-            $kept = [];
+            // Services set here start next term; this term's stay as billed (Assign services bills this term).
             if ($req->has('services')) {
-                $kept = Fees::syncOptional($sr->user_id, Qs::getCurrentSession(), (array) json_decode((string) $req->services, true));
+                Fees::planServices($sr->fresh(), Qs::getCurrentSession(), (array) json_decode((string) $req->services, true));
             }
-            if ($discountChanged || $req->has('services')) {
+            if ($discountChanged) {
                 \App\Support\ClearEnroll::studentChanged((int) $sr->user_id);
-            }
-            if ($kept) {
-                return Qs::json(rtrim(__('msg.update_ok'), '.').'. Stopped from next term (this term stays billed): '.implode(', ', $kept).'.');
             }
         }
 
@@ -489,6 +502,7 @@ class StudentRecordController extends Controller
             'class' => $req->query('class') ?: null,
             'section' => $req->query('section') ?: null,
             'gender' => $req->query('gender') ?: null,
+            'staff' => $req->query('staff') ?: null,
             'sort' => in_array($req->query('sort'), ['name', 'adm_no', 'class', 'year', 'grad_date']) ? $req->query('sort') : ($grad ? 'grad_date' : 'name'),
             'dir' => $req->query('dir') === 'desc' ? 'desc' : ($req->query('dir') === 'asc' ? 'asc' : ($grad ? 'desc' : 'asc')),
             'per_page' => in_array((int) $req->query('per_page'), [10, 25, 50, 100]) ? (int) $req->query('per_page') : 10,
@@ -497,6 +511,7 @@ class StudentRecordController extends Controller
         $scope = $this->baseQuery($grad);
         if ($filters['class']) $scope->where('sr.my_class_id', $filters['class']);
         if ($filters['section']) $scope->where('sr.section_id', $filters['section']);
+        if ($filters['staff']) $scope->where('sr.staff_child', true);
         if ($filters['q'] !== '') {
             $term = $filters['q'];
             $scope->where(function ($w) use ($term) {
@@ -546,7 +561,7 @@ class StudentRecordController extends Controller
                 'urls' => array_filter([
                     'show' => route('students.show', $srHash),
                     'marksheet' => route('marks.year_selector', $userHash),
-                    'edit' => $isSA ? route('students.edit', $srHash) : null,
+                    'edit' => $this->canEdit() ? route('students.edit', $srHash) : null,
                     'reset_pass' => Qs::userIsTeamAdmin() ? route('st.reset_pass', $userHash) : null,
                     'not_graduated' => ($isSA && $grad) ? route('st.not_graduated', $srHash) : null,
                     'destroy' => $isSuper ? route('students.destroy', $userHash) : null,
@@ -670,7 +685,7 @@ class StudentRecordController extends Controller
             'urls' => array_filter([
                 'back' => Qs::userIsTeamSAT() ? route($sr->grad ? 'students.graduated' : 'students.index') : null,
                 'marksheet' => route('marks.year_selector', $userHash),
-                'edit' => Qs::userIsTeamSA() ? route('students.edit', $srHash) : null,
+                'edit' => $this->canEdit() ? route('students.edit', $srHash) : null,
                 'reset_pass' => Qs::userIsTeamAdmin() ? route('st.reset_pass', $userHash) : null,
                 'invoice' => $canFees ? route('payments.invoice', $userHash) : null,
                 'send_invoice' => $canFees ? route('payments.send_invoice', $userHash) : null,
