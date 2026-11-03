@@ -258,7 +258,7 @@ export default function PaymentsIndex({
                                                             All classes
                                                         </Badge>
                                                     )}
-                                                    {p.category !== "all" && (
+                                                    {categories[p.category] && (
                                                         <Badge
                                                             tone={
                                                                 p.category ===
