@@ -68,9 +68,6 @@ export default function FeeStatement({ school, student, session, invoice, momo, 
                         ) : (
                             <p className="mt-2 text-sm text-fg-muted">Please pay at the school’s accounts office{school.phone ? ` or call ${school.phone}` : ''}.</p>
                         )}
-                        <p className="mt-4 text-xs text-fg-subtle">
-                            Fees are due on or before the deadlines set by the school and are non-refundable unless the school states otherwise in writing. Use the admission number {student.adm_no} as your payment reference.
-                        </p>
                     </section>
                 </article>
             </div>

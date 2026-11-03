@@ -84,6 +84,7 @@ class HomeController extends Controller
         $d = [
             'session' => $session,
             'calendar' => \App\Support\SchoolCalendar::dashboard(),
+            'nextBills' => Qs::userIsTeamAdmin() ? \App\Support\NextBills::waiting() : null,
             'term' => [
                 'begins' => Qs::getSetting('term_begins'),
                 'ends' => Qs::getSetting('term_ends'),

@@ -32,6 +32,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('notices:birthdays')->dailyAt('07:30');
         // Fees reminders to parents who owe, as often as Settings → Fee reminders says.
         $schedule->command('fees:remind')->dailyAt('09:00');
+        // Next term's bills on the term's last day, once the director has approved them.
+        $schedule->command('fees:next-bills')->dailyAt('08:00');
     }
 
     /**

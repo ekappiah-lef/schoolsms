@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Combobox, Select } from "@/components/ui/select";
 import { downloadCsv, useVisitState } from "@/lib/use-visit-state";
-import { cn, formatMoney, formatNumber, percent } from "@/lib/utils";
+import { cn, formatDate, formatMoney, formatNumber, percent } from "@/lib/utils";
 
 export default function PaymentsManage({
     session,
@@ -98,6 +98,7 @@ export default function PaymentsManage({
                     </span>
                 )}
                 {classId && urls.sendInvoices && <SendClassInvoices url={urls.sendInvoices} className={className} count={students.length} />}
+                {urls.nextBills && <NextTermBills url={urls.nextBills} />}
                 {urls.sendAll && <SendAllBills url={urls.sendAll} />}
             </div>
 
@@ -387,6 +388,85 @@ function Figure({ label, value, note, tone }) {
     );
 }
 
+/** The director checks what each class will be billed next term and approves it to go out on the term's last day. */
+function NextTermBills({ url }) {
+    const [open, setOpen] = useState(false);
+    const [data, setData] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const load = async (extra = {}) => {
+        setBusy(true);
+        const r = await submitForm(url, extra);
+        setBusy(false);
+        if (r.ok) setData(r.data);
+        else toast.error(r.message);
+    };
+    const s = data?.status;
+    return (
+        <>
+            <Button onClick={() => { setOpen(true); load(); }}>
+                Next term bills
+            </Button>
+            <Modal
+                open={open}
+                onOpenChange={setOpen}
+                title="Next term bills"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setOpen(false)}>
+                            Close
+                        </Button>
+                        {s && !s.sent && (
+                            <Button variant={s.approved ? "secondary" : "primary"} loading={busy} onClick={() => load({ approve: s.approved ? 0 : 1 })}>
+                                {s.approved ? "Cancel approval" : "Approve"}
+                            </Button>
+                        )}
+                    </>
+                }
+            >
+                {!data ? (
+                    <p className="text-sm text-fg-muted">Loading…</p>
+                ) : !s ? (
+                    <p className="text-sm text-fg-muted">This term has no end date in the school calendar.</p>
+                ) : (
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between text-sm font-medium">
+                            <span>{formatDate(s.date, "d MMM yyyy")}</span>
+                            <Badge>{s.sent ? "Sent" : s.approved ? "Approved" : "Not approved"}</Badge>
+                        </div>
+                        <div className="max-h-80 overflow-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="text-left text-xs text-fg-muted">
+                                        <th className="py-1 pr-2 font-medium">Class</th>
+                                        <th className="py-1 pr-2 text-right font-medium">Students</th>
+                                        <th className="py-1 pr-2 text-right font-medium">Next term</th>
+                                        <th className="py-1 pr-2 text-right font-medium">Still owed</th>
+                                        <th className="py-1 text-right font-medium">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="tabular">
+                                    {data.classes.map((c) => (
+                                        <tr key={c.class} className="border-t border-border">
+                                            <td className="py-1 pr-2">{c.class}</td>
+                                            <td className="py-1 pr-2 text-right">{formatNumber(c.students)}</td>
+                                            <td className="py-1 pr-2 text-right">{formatMoney(c.next)}</td>
+                                            <td className="py-1 pr-2 text-right">{formatMoney(c.owed)}</td>
+                                            <td className="py-1 text-right font-medium">{formatMoney(c.total)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        {data.not_set > 0 && (
+                            <p className="text-sm font-medium text-danger">{data.not_set} students: next term's fees not set up</p>
+                        )}
+                    </div>
+                )}
+            </Modal>
+        </>
+    );
+}
+
 /** Bills to every parent in the school, sent a few at a time: this term's, or next term's (at vacation). */
 function SendAllBills({ url }) {
     const [open, setOpen] = useState(false);
@@ -394,7 +474,7 @@ function SendAllBills({ url }) {
     const [progress, setProgress] = useState(null);
     const run = async () => {
         let offset = 0;
-        const sum = { sent: 0, held: 0, not_set: 0, total: 0 };
+        const sum = { sent: 0, held: 0, not_set: 0, clear: 0, total: 0 };
         setProgress({ ...sum, next: 0 });
         for (;;) {
             const r = await submitForm(url, { kind, offset });
@@ -406,10 +486,11 @@ function SendAllBills({ url }) {
             sum.sent += d.sent;
             sum.held += d.held;
             sum.not_set += d.not_set;
+            sum.clear += d.clear;
             sum.total = d.total;
             setProgress({ ...sum, next: d.next });
             if (d.done) {
-                toast.success(`Bills sent for ${sum.sent} of ${sum.total} students${sum.held ? ` (${sum.held} not sent: demo mode or no contact)` : ''}${sum.not_set ? ` (${sum.not_set}: next term's fees not set up)` : ''}.`);
+                toast.success(`Bills sent for ${sum.sent} of ${sum.total} students${sum.clear ? ` (${sum.clear} owe nothing)` : ''}${sum.held ? ` (${sum.held} not sent: demo mode or no contact)` : ''}${sum.not_set ? ` (${sum.not_set}: next term's fees not set up)` : ''}.`);
                 break;
             }
             offset = d.next;
@@ -479,7 +560,7 @@ function SendClassInvoices({ url, className, count }) {
                 open={open}
                 onOpenChange={(o) => !busy && setOpen(o)}
                 title={`Send invoices to ${className} parents?`}
-                description={`Each of the ${count} students' parents gets this term's invoice by email and SMS, including any balance brought forward from earlier terms.`}
+                description={`Parents of the students who owe (out of ${count}) get this term's invoice by email and SMS, including any balance brought forward from earlier terms.`}
                 confirmLabel="Send invoices"
                 tone="primary"
                 loading={busy}

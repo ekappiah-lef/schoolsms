@@ -24,7 +24,7 @@ class MoMo
     public static function configured(): bool
     {
         if (config('momo.driver') === 'fake') {
-            return true;
+            return (bool) config('momo.demo');
         }
 
         return config('momo.subscription_key') && config('momo.api_user') && config('momo.api_key');

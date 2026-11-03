@@ -15,6 +15,7 @@ $live = $driver === 'production';
 
 return [
     'driver' => $driver,
+    'demo' => (bool) env('MOMO_DEMO', false),   // show the fake driver's "test mode" payment box
     'base_url' => env('MOMO_BASE_URL', $live ? 'https://proxy.momoapi.mtn.com' : 'https://sandbox.momodeveloper.mtn.com'),
     'environment' => env('MOMO_TARGET_ENVIRONMENT', $live ? 'mtnghana' : 'sandbox'),
     'currency' => env('MOMO_CURRENCY', $live ? 'GHS' : 'EUR'),

@@ -51,13 +51,19 @@ const FEE_COLORS = ['#4f46e5', '#006591', '#006e4b', '#777587', '#9085e9', '#39b
  * are replaced with the closest real equivalent and labelled as such.
  */
 export default function Dashboard(props) {
-    const { session, term, calendar, stats, links, enrolment, performance, fees, finance, teaching, student, children, classMonitor, exams } = props;
+    const { nextBills, session, term, calendar, stats, links, enrolment, performance, fees, finance, teaching, student, children, classMonitor, exams } = props;
     const { auth, nav } = usePage().props;
     const actions = quickActions(auth.can, nav ?? []);
 
     return (
         <>
             <Head title="Dashboard" />
+
+            {nextBills && (
+                <Link href={nextBills.url} className="mb-6 block rounded-lg border border-border bg-muted px-4 py-3 text-sm font-medium hover:bg-accent">
+                    Next term's bills go out on {formatDate(nextBills.date, 'd MMM yyyy')} once approved. Check and approve them
+                </Link>
+            )}
 
             {/* Page header */}
             <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">

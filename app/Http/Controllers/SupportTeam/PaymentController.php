@@ -170,12 +170,15 @@ class PaymentController extends Controller
         $students = $this->student->getRecord(['my_class_id' => $class_id])->get();
         $sent = 0;
         $held = 0;
+        $clear = 0;
         foreach ($students as $sr) {
-            $r = collect(Notices::sendInvoice($sr));
+            $invoice = Fees::termInvoice($sr->user_id);
+            if (Money::r($invoice['total']) <= 0) { $clear++; continue; }
+            $r = collect(Notices::sendInvoice($sr, $invoice));
             $r->where('status', 'sent')->count() ? $sent++ : $held++;
         }
 
-        return Qs::json("Invoices sent for {$sent} of {$students->count()} students".($held ? " ({$held} not sent: demo mode or no contact)" : '').'.', true);
+        return Qs::json("Invoices sent for {$sent} of {$students->count()} students".($clear ? " ({$clear} owe nothing)" : '').($held ? " ({$held} not sent: demo mode or no contact)" : '').'.', true);
     }
 
     /**
@@ -188,15 +191,25 @@ class PaymentController extends Controller
         $offset = max((int) $req->input('offset'), 0);
         $all = \App\Models\StudentRecord::where('grad', 0)->orderBy('id');
         $total = (clone $all)->count();
-        $sent = $held = $notSet = 0;
+        $sent = $held = $notSet = $clear = 0;
         foreach ((clone $all)->skip($offset)->take(15)->get() as $sr) {
-            $bill = $kind === 'next' ? Fees::nextTermBill($sr) : null;
+            $bill = $kind === 'next' ? Fees::nextTermBill($sr) : Fees::termInvoice($sr->user_id);
             if ($kind === 'next' && !$bill) { $notSet++; continue; }
+            if (Money::r($bill['total']) <= 0) { $clear++; continue; }
             collect(Notices::sendInvoice($sr, $bill))->where('status', 'sent')->count() ? $sent++ : $held++;
         }
         $next = min($offset + 15, $total);
 
-        return response()->json(['ok' => true, 'sent' => $sent, 'held' => $held, 'not_set' => $notSet, 'next' => $next, 'total' => $total, 'done' => $next >= $total]);
+        return response()->json(['ok' => true, 'sent' => $sent, 'held' => $held, 'not_set' => $notSet, 'clear' => $clear, 'next' => $next, 'total' => $total, 'done' => $next >= $total]);
+    }
+
+    /** The director's check of next term's bills, and approving them to go out on the term's last day. */
+    public function nextBills(Request $req)
+    {
+        if (!Qs::userIsTeamAdmin()) return Qs::json(__('msg.denied'), false);
+        if ($req->filled('approve')) \App\Support\NextBills::approve($req->input('approve') === '1');
+
+        return response()->json(['ok' => true] + \App\Support\NextBills::summary());
     }
 
     public function receipts($pr_id)
@@ -346,7 +359,7 @@ class PaymentController extends Controller
                     return ['id' => $c->id, 'name' => $c->name];
                 })->values(),
                 'students' => $students,
-                'urls' => ['select' => route('payments.select_class'), 'sendInvoices' => $class_id ? route('payments.send_class_invoices', $class_id) : null, 'sendAll' => route('payments.send_all_bills')],
+                'urls' => ['select' => route('payments.select_class'), 'sendInvoices' => $class_id ? route('payments.send_class_invoices', $class_id) : null, 'nextBills' => Qs::userIsTeamAdmin() ? route('payments.next_bills') : null, 'sendAll' => route('payments.send_all_bills')],
             ];
         }, 'pages.support_team.payments.manage', $d);
     }
