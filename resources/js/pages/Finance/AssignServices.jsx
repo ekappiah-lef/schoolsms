@@ -6,6 +6,7 @@ import { ModuleHeader } from '@/components/app/module';
 import { Panel } from '@/components/app/page';
 import { Button } from '@/components/ui/button';
 import { Combobox, Select } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FormField } from '@/components/app/form';
 import { ServicesPicker, EMPTY_SERVICES } from '@/components/students/services-picker';
@@ -76,7 +77,7 @@ export default function AssignServices({ session, students, student, catalogue, 
                         footer={
                             <div className="flex justify-end">
                                 <Button variant="primary" loading={busy} onClick={save}>
-                                    Save
+                                    {term === 'next' ? 'Save for next term' : 'Bill this term'}
                                 </Button>
                             </div>
                         }
@@ -88,13 +89,22 @@ export default function AssignServices({ session, students, student, catalogue, 
                             <FormField label="Next term only">
                                 <Select value={nextDiscount} onChange={(v) => setNextDiscount(v ?? '')} options={(discounts ?? []).filter((d) => d.next_term_only).map(option)} clearable clearLabel="No discount" placeholder="No discount" />
                             </FormField>
-                            <FormField label="Services for">
-                                <Select value={term} onChange={(v) => v && chooseTerm(v)} options={[{ value: 'next', label: 'Next term' }, { value: 'current', label: 'This term' }]} clearable={false} />
-                            </FormField>
-                            <label className="flex items-center gap-2 self-end pb-2 text-sm font-medium">
+                            <label className="flex items-center gap-2 text-sm font-medium">
                                 <Checkbox checked={staffChild} onCheckedChange={(v) => setStaffChild(v === true)} />
                                 Staff child
                             </label>
+                        </div>
+                        <div className="mb-6 inline-flex rounded-lg bg-muted p-1">
+                            {[['next', 'Next term'], ['current', 'This term']].map(([v, label]) => (
+                                <button
+                                    key={v}
+                                    type="button"
+                                    onClick={() => chooseTerm(v)}
+                                    className={cn('rounded-md px-4 py-1.5 text-sm font-medium', term === v ? 'bg-surface text-fg shadow-sm' : 'text-fg-muted')}
+                                >
+                                    {label}
+                                </button>
+                            ))}
                         </div>
                         <ServicesPicker catalogue={catalogue} value={services} onChange={setServices} mode="edit" classId={student.class_id} />
                     </Panel>

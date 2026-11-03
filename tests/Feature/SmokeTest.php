@@ -118,9 +118,13 @@ class SmokeTest extends TestCase
     public function testAccountantGoesThroughStudents()
     {
         $acc = $this->user('accountant');
-        $this->actingAs($acc)->get(route('students.index'))->assertOk();
+        $this->actingAs($acc)->get(route('students.index'))->assertStatus(302);
         $sr = \App\Models\StudentRecord::where('grad', 0)->first();
-        if ($sr) $this->actingAs($acc)->get(route('students.edit', \App\Helpers\Qs::hash($sr->id)))->assertStatus(302);
+        if ($sr) {
+            $this->actingAs($acc)->get(route('students.edit', \App\Helpers\Qs::hash($sr->id)))->assertStatus(302);
+            $this->actingAs($acc)->get(route('students.show', \App\Helpers\Qs::hash($sr->id)))->assertStatus(302);
+            $this->actingAs($acc)->get('/finance/assign?student='.\App\Helpers\Qs::hash($sr->user_id))->assertOk();
+        }
     }
 
     public function testStaffUsernameIsShort()

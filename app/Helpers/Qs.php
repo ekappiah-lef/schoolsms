@@ -165,11 +165,6 @@ class Qs
         return $toString ? implode(',', $decoded) : $decoded;
     }
 
-    public static function userIsAccountant()
-    {
-        return Auth::user()->user_type === 'accountant';
-    }
-
     public static function userIsTeamAccount()
     {
         return in_array(Auth::user()->user_type, self::getTeamAccount());

@@ -38,10 +38,7 @@ class StudentRecordController extends Controller
    {
        $this->middleware('teamSA', ['only' => ['edit', 'update', 'reset_pass', 'create', 'store', 'graduated'] ]);
        $this->middleware('super_admin', ['only' => ['destroy',] ]);
-       $this->middleware(function ($req, $next) {
-           abort_unless(Qs::userIsTeamSAT() || Qs::userIsAccountant(), 403);
-           return $next($req);
-       })->only(['index', 'search']);
+       $this->middleware('teamSAT', ['only' => ['index', 'search'] ]);
 
         $this->loc = $loc;
         $this->my_class = $my_class;
@@ -309,7 +306,7 @@ class StudentRecordController extends Controller
         if(!$sr){return Qs::goWithDanger();}
 
         /* Prevent Other Students/Parents from viewing Profile of others */
-        if(Auth::user()->id != $data['sr']->user_id && !Qs::userIsTeamSAT() && !Qs::userIsAccountant() && !Qs::userIsMyChild($data['sr']->user_id, Auth::user()->id)){
+        if(Auth::user()->id != $data['sr']->user_id && !Qs::userIsTeamSAT() && !Qs::userIsMyChild($data['sr']->user_id, Auth::user()->id)){
             return redirect(route('dashboard'))->with('pop_error', __('msg.denied'));
         }
         if (!\App\Support\TeacherScope::canSeeStudent($sr)) {
