@@ -226,7 +226,7 @@ class UserController extends Controller
         $user_is_teamSA = in_array($user_type, Qs::getTeamSA());
 
         $staff_id = Qs::uniqueUsername(Qs::getAppCode().'/STAFF/'.date('Y/m', strtotime($req->emp_date)).'/');
-        $data['username'] = $uname = ($user_is_teamSA) ? $req->username : $staff_id;
+        $data['username'] = $uname = $req->username ?: Qs::nameUsername((string) $req->name);
 
         $pass = $req->password ?: $user_type;
         $data['password'] = Hash::make($pass);

@@ -36,13 +36,8 @@ class StudentRecordController extends Controller
 
    public function __construct(LocationRepo $loc, MyClassRepo $my_class, UserRepo $user, StudentRepo $student)
    {
-       $this->middleware('teamSA', ['only' => ['reset_pass', 'create', 'store', 'graduated'] ]);
+       $this->middleware('teamSA', ['only' => ['edit', 'update', 'reset_pass', 'create', 'store', 'graduated'] ]);
        $this->middleware('super_admin', ['only' => ['destroy',] ]);
-       // The accountant goes through the students too: discounts and next term's services.
-       $this->middleware(function ($req, $next) {
-           abort_unless($this->canEdit(), 403);
-           return $next($req);
-       })->only(['edit', 'update']);
        $this->middleware(function ($req, $next) {
            abort_unless(Qs::userIsTeamSAT() || Qs::userIsAccountant(), 403);
            return $next($req);
@@ -53,11 +48,6 @@ class StudentRecordController extends Controller
         $this->user = $user;
         $this->student = $student;
    }
-
-    protected function canEdit(): bool
-    {
-        return Qs::userIsTeamSA() || Qs::userIsAccountant();
-    }
 
     /** Set a new password for a student (admins only; the person doing it types the password). */
     public function reset_pass(Request $req, $st_id)
@@ -265,7 +255,7 @@ class StudentRecordController extends Controller
             'address' => $address ?: $req->address,
             'user_type' => 'parent',
             'code' => strtoupper(Str::random(10)),
-            'username' => Qs::uniqueUsername(Qs::getAppCode().'/PARENT/'.date('Y/m').'/'),
+            'username' => Qs::nameUsername((string) $req->input("{$p}_name")),
             'password' => Hash::make('parent'),
             'photo' => Qs::getDefaultUserImage(),
         ]);
@@ -561,7 +551,7 @@ class StudentRecordController extends Controller
                 'urls' => array_filter([
                     'show' => route('students.show', $srHash),
                     'marksheet' => route('marks.year_selector', $userHash),
-                    'edit' => $this->canEdit() ? route('students.edit', $srHash) : null,
+                    'edit' => $isSA ? route('students.edit', $srHash) : null,
                     'reset_pass' => Qs::userIsTeamAdmin() ? route('st.reset_pass', $userHash) : null,
                     'not_graduated' => ($isSA && $grad) ? route('st.not_graduated', $srHash) : null,
                     'destroy' => $isSuper ? route('students.destroy', $userHash) : null,
@@ -685,7 +675,7 @@ class StudentRecordController extends Controller
             'urls' => array_filter([
                 'back' => Qs::userIsTeamSAT() ? route($sr->grad ? 'students.graduated' : 'students.index') : null,
                 'marksheet' => route('marks.year_selector', $userHash),
-                'edit' => $this->canEdit() ? route('students.edit', $srHash) : null,
+                'edit' => Qs::userIsTeamSA() ? route('students.edit', $srHash) : null,
                 'reset_pass' => Qs::userIsTeamAdmin() ? route('st.reset_pass', $userHash) : null,
                 'invoice' => $canFees ? route('payments.invoice', $userHash) : null,
                 'send_invoice' => $canFees ? route('payments.send_invoice', $userHash) : null,

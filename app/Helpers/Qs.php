@@ -40,6 +40,19 @@ class Qs
         return strtoupper($prefix.mt_rand($max + 1, $max * 10 + 9)); // the range is crowded: use a longer number
     }
 
+    /** A short login made from a person's name: first.last, with a number when it is taken. */
+    public static function nameUsername(string $name): string
+    {
+        $parts = array_values(array_filter(array_map(function ($p) {
+            return preg_replace('/[^a-z0-9]/', '', strtolower($p));
+        }, preg_split('/\s+/', trim($name)))));
+        $base = $parts ? ($parts[0].(count($parts) > 1 ? '.'.$parts[count($parts) - 1] : '')) : 'user';
+        $name = $base;
+        for ($i = 2; \App\User::where('username', $name)->exists(); $i++) $name = $base.$i;
+
+        return $name;
+    }
+
     /** Rebuild an absolute URL to this app's storage/asset folders against the current host. */
     public static function localAsset($url)
     {

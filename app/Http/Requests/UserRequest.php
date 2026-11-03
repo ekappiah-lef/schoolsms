@@ -27,7 +27,7 @@ class UserRequest extends FormRequest
             'gender' => 'required|string',
             'phone' => 'sometimes|nullable|string|min:6|max:20',
             'email' => 'sometimes|nullable|email|max:100|unique:users',
-            'username' => 'sometimes|nullable|alpha_dash|min:8|max:100|unique:users',
+            'username' => ['sometimes', 'nullable', 'regex:/^[A-Za-z0-9._-]+$/', 'min:4', 'max:100', 'unique:users'],
             'photo' => 'sometimes|nullable|image|mimes:jpeg,gif,png,jpg|max:2048',
             'address' => 'required|string|min:6|max:120',
             'state_id' => 'required',

@@ -120,7 +120,33 @@ class SmokeTest extends TestCase
         $acc = $this->user('accountant');
         $this->actingAs($acc)->get(route('students.index'))->assertOk();
         $sr = \App\Models\StudentRecord::where('grad', 0)->first();
-        if ($sr) $this->actingAs($acc)->get(route('students.edit', \App\Helpers\Qs::hash($sr->id)))->assertOk();
+        if ($sr) $this->actingAs($acc)->get(route('students.edit', \App\Helpers\Qs::hash($sr->id)))->assertStatus(302);
+    }
+
+    public function testStaffUsernameIsShort()
+    {
+        $this->assertMatchesRegularExpression('/^ama\.mensah\d*$/', \App\Helpers\Qs::nameUsername('Ama Serwaa Mensah'));
+    }
+
+    public function testPromotedStudentStillOwesTheOldClass()
+    {
+        $sr = \App\Models\StudentRecord::where('grad', 0)->first();
+        $to = \App\Models\MyClass::where('id', '!=', optional($sr)->my_class_id)->first();
+        if (!$sr || !$to) return $this->assertTrue(true);
+        $year = \App\Helpers\Qs::getCurrentSession();
+        $start = (int) substr($year, 0, 4);
+        $next = ($start + 1).'-'.($start + 2);
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $old = \App\Models\Payment::create(['title' => 'Old class fee', 'amount' => 500, 'my_class_id' => $sr->my_class_id, 'student_category' => 'all', 'year' => $year, 'term' => 1, 'ref_no' => uniqid()]);
+            \App\Models\PaymentRecord::create(['student_id' => $sr->user_id, 'payment_id' => $old->id, 'year' => $year, 'amt_paid' => 100]);
+            $owedBefore = \App\Support\Fees::termInvoice($sr->user_id)['total'];
+            $sr->update(['my_class_id' => $to->id, 'session' => $next]);
+            $this->assertEquals($owedBefore, \App\Support\Fees::termInvoice($sr->user_id)['total']);
+            $this->assertGreaterThanOrEqual(400, \App\Support\Fees::nextTermFees($sr->fresh(), $year, 3)['owed']);
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
     }
 
     public function testEditPageServicesStartNextTermAndImportedBusKeepsItsBill()

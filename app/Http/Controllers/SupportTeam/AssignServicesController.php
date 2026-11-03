@@ -4,13 +4,14 @@ namespace App\Http\Controllers\SupportTeam;
 
 use App\Helpers\Qs;
 use App\Http\Controllers\Controller;
+use App\Models\FeeDiscount;
 use App\Models\StudentRecord;
 use App\Support\Fees;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
-/** Give one student feeding, bus or extra-curricular: billed for the whole of this term. */
+/** The accountant's page for one student: discount, and feeding, bus or extra-curricular for next term or this term. */
 class AssignServicesController extends Controller
 {
     public function __construct()
@@ -36,9 +37,14 @@ class AssignServicesController extends Controller
                 'class' => trim(optional($sr->my_class)->name.' '.optional($sr->section)->name),
                 'class_id' => $sr->my_class_id,
                 'services' => Fees::selectionFor($sr->user_id, $year),
+                'next_services' => Fees::nextServices($sr, $year),
+                'fee_discount_id' => $sr->fee_discount_id ? (string) $sr->fee_discount_id : '',
+                'next_discount_id' => $sr->next_discount_id ? (string) $sr->next_discount_id : '',
+                'staff_child' => (bool) $sr->staff_child,
                 'invoice' => route('payments.invoice', Qs::hash($sr->user_id)),
             ] : null,
             'catalogue' => Fees::catalogue(),
+            'discounts' => Fees::discountOptions(),
             'urls' => ['self' => route('finance.assign'), 'save' => route('finance.assign.save')],
         ]);
     }
@@ -52,9 +58,22 @@ class AssignServicesController extends Controller
         unset($sel['sales']);
         if (!empty($sel['bus_direction']) && empty($sel['bus_route_id'])) return Qs::json('Choose the bus location, or set the bus to “No bus”.', false);
 
-        $kept = Fees::syncOptional($sr->user_id, Qs::getCurrentSession(), $sel);
-        $sr->update(['next_services' => null]);
-        \App\Support\ClearEnroll::studentChanged((int) $sr->user_id);
+        $year = Qs::getCurrentSession();
+        $standing = FeeDiscount::where('next_term_only', false)->find((int) $req->input('fee_discount_id'));
+        $once = FeeDiscount::where('next_term_only', true)->find((int) $req->input('next_discount_id'));
+        $discountChanged = (int) $sr->fee_discount_id !== (int) optional($standing)->id;
+        $sr->update(['fee_discount_id' => optional($standing)->id, 'next_discount_id' => optional($once)->id, 'staff_child' => $req->boolean('staff_child')]);
+        if ($discountChanged) Fees::applyDiscount($sr->fresh(), $year);
+
+        // Next term: this term's services and bills stay as they are. This term: billed now.
+        $kept = [];
+        if ($req->input('term') === 'current') {
+            $kept = Fees::syncOptional($sr->user_id, $year, $sel);
+            $sr->update(['next_services' => null]);
+        } else {
+            Fees::planServices($sr, $year, $sel);
+        }
+        if ($discountChanged || $req->input('term') === 'current') \App\Support\ClearEnroll::studentChanged((int) $sr->user_id);
 
         return Qs::json('Saved.'.($kept ? ' Stopped from next term (this term stays billed): '.implode(', ', $kept).'.' : ''), true);
     }

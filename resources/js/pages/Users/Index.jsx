@@ -60,7 +60,6 @@ export default function UsersIndex({ userTypes, users, options, editing, staffVi
     };
 
     const typeTitle = editing ? editing.type : userTypes.find((t) => t.id === form.data.user_type)?.title;
-    const isAdminType = ['super_admin', 'admin'].includes(typeTitle);
     const counts = useMemo(() => Object.fromEntries(userTypes.map((t) => [t.title, users.filter((u) => u.type === t.title).length])), [userTypes, users]);
     const rows = type === 'all' ? users : users.filter((u) => (staffView ? u.category : u.type) === type);
     const teaching = users.filter((u) => u.category === 'teaching').length;
@@ -146,8 +145,8 @@ export default function UsersIndex({ userTypes, users, options, editing, staffVi
                                 <input className={fieldInput} type="email" value={form.data.email} onChange={(e) => form.set('email', e.target.value)} placeholder="name@example.com" />
                             </Field>
                             {!editing && (
-                                <Field label="Username" error={form.errors.username} hint={isAdminType ? 'At least 8 characters; letters, numbers, - and _.' : 'Staff get a staff ID as their username.'}>
-                                    <input className={fieldInput} value={form.data.username} onChange={(e) => form.set('username', e.target.value)} disabled={!isAdminType && !!typeTitle} />
+                                <Field label="Username" error={form.errors.username}>
+                                    <input className={fieldInput} value={form.data.username} onChange={(e) => form.set('username', e.target.value)} />
                                 </Field>
                             )}
                             {!editing && (
