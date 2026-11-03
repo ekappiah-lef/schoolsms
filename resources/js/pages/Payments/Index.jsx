@@ -7,7 +7,6 @@ import { withAppLayout } from "@/layouts/AppLayout";
 import { EmptyState, PageHeader, Panel } from "@/components/app/page";
 import { Meter } from "@/components/app/charts";
 import { useConfirmAction } from "@/components/app/confirm-action";
-import { NextTermBills } from "@/components/fees/next-term-bills";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { submitForm } from "@/lib/http";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +19,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatMoney } from "@/lib/utils";
+import { formatDate, formatMoney } from "@/lib/utils";
 
 const TERMS = { 1: "1st term", 2: "2nd term", 3: "3rd term" };
 
@@ -28,6 +27,7 @@ export default function PaymentsIndex({
     year,
     session,
     currentTerm,
+    approval,
     years,
     payments,
     categories,
@@ -43,6 +43,18 @@ export default function PaymentsIndex({
     const start = Number(String(year).slice(0, 4));
     const nextLabel = term === "3" ? `${TERMS[1]} ${start + 1}-${start + 2}` : `${TERMS[Number(term) + 1]} ${year}`;
     const toCopy = payments.filter((p) => String(p.term) === term && p.category !== "opening").length;
+    const approvable = approval && approval.year === year && String(approval.term) === term;
+    const [approving, setApproving] = useState(false);
+    const [approveBusy, setApproveBusy] = useState(false);
+    const approve = async (yes) => {
+        setApproveBusy(true);
+        const r = await submitForm(urls.approve, { approve: yes ? 1 : 0 });
+        setApproveBusy(false);
+        setApproving(false);
+        if (!r.ok) return toast.error(r.message);
+        toast.success(r.message);
+        router.reload({ preserveState: true });
+    };
     const copy = async () => {
         setCopyBusy(true);
         const r = await submitForm(urls.copyTerm, { year, term });
@@ -77,6 +89,18 @@ export default function PaymentsIndex({
     return (
         <>
             <Head title="Fee setup" />
+            {approvable && (
+                <ConfirmDialog
+                    open={approving}
+                    onOpenChange={(o) => !approveBusy && setApproving(o)}
+                    title={`Approve ${TERMS[term]} fees?`}
+                    description={`Bills go out on ${formatDate(approval.date, "d MMM yyyy")}.`}
+                    confirmLabel="Approve"
+                    tone="primary"
+                    loading={approveBusy}
+                    onConfirm={() => approve(true)}
+                />
+            )}
             <ConfirmDialog
                 open={copying}
                 onOpenChange={(o) => !copyBusy && setCopying(o)}
@@ -91,7 +115,6 @@ export default function PaymentsIndex({
                 title="Fee setup"
                 actions={
                     <>
-                        {urls.nextBills && <NextTermBills url={urls.nextBills} />}
                         <Button asChild>
                             <Link href={urls.config}>
                                 Finance configuration
@@ -112,6 +135,22 @@ export default function PaymentsIndex({
                 title={year ? `Fees for ${year}${term ? ` · ${TERMS[term]}` : ""}` : "Fees"}
                 actions={
                     <>
+                        {approvable && (approval.sent ? (
+                            <Badge>Bills sent</Badge>
+                        ) : approval.approved ? (
+                            <>
+                                <Badge>Approved · {formatDate(approval.date, "d MMM yyyy")}</Badge>
+                                <Button size="sm" loading={approveBusy} onClick={() => approve(false)}>
+                                    Cancel approval
+                                </Button>
+                            </>
+                        ) : (
+                            toCopy > 0 && (
+                                <Button size="sm" variant="primary" onClick={() => setApproving(true)}>
+                                    Approve
+                                </Button>
+                            )
+                        ))}
                         {term && toCopy > 0 && (
                             <Button size="sm" onClick={() => setCopying(true)}>
                                 <Copy />

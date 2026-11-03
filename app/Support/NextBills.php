@@ -3,8 +3,8 @@
 namespace App\Support;
 
 use App\Helpers\Qs;
-use App\Models\MyClass;
 use App\Models\NotificationLog;
+use App\Models\Payment;
 use App\Models\StudentRecord;
 use App\User;
 use Carbon\Carbon;
@@ -37,9 +37,9 @@ class NextBills
         $now = Fees::termNow($year);
         $key = $year.':'.$now;
         $start = (int) substr($year, 0, 4);
-        $label = $now < 3 ? ['1st', '2nd', '3rd'][$now].' term '.$year : '1st term '.($start + 1).'-'.($start + 2);
+        [$nextYear, $nextTerm] = $now < 3 ? [$year, $now + 1] : [($start + 1).'-'.($start + 2), 1];
 
-        return ['key' => $key, 'label' => $label, 'date' => $term->ends_on->toDateString(),
+        return ['key' => $key, 'year' => $nextYear, 'term' => $nextTerm, 'date' => $term->ends_on->toDateString(),
             'approved' => self::get('next_bills_approved') === $key, 'sent' => self::get('next_bills_sent') === $key];
     }
 
@@ -49,37 +49,15 @@ class NextBills
         if ($s && !$s['sent']) self::put('next_bills_approved', $yes ? $s['key'] : null);
     }
 
-    /** For the director's check: what each class will be billed. */
-    public static function summary(): array
-    {
-        $rows = [];
-        $notSet = $clear = 0;
-        foreach (StudentRecord::where('grad', 0)->where('not_billed', false)->get() as $sr) {
-            $bill = Fees::nextTermBill($sr);
-            if (!$bill) { $notSet++; continue; }
-            if ($bill['total'] <= 0) { $clear++; continue; }
-            $r = $rows[$sr->my_class_id] ?? ['students' => 0, 'next' => 0.0, 'owed' => 0.0, 'total' => 0.0];
-            $r['students']++;
-            $r['next'] += $bill['current']['balance'];
-            $r['owed'] += $bill['forward']['total'];
-            $r['total'] += $bill['total'];
-            $rows[$sr->my_class_id] = $r;
-        }
-        $classes = [];
-        foreach (ClassOrder::sort(MyClass::all()) as $c) {
-            if (isset($rows[$c->id])) $classes[] = ['class' => $c->name] + array_map(function ($v) { return Money::r($v); }, $rows[$c->id]);
-        }
-
-        return ['status' => self::status(), 'classes' => $classes, 'not_set' => $notSet, 'clear' => $clear];
-    }
-
     /** Dashboard notice for the director, while approval is waiting. */
     public static function waiting(): ?array
     {
         $s = self::status();
         if (!$s || $s['approved'] || $s['sent'] || today()->lt(Carbon::parse($s['date'])->subDays(self::ALERT_DAYS))) return null;
 
-        return ['date' => $s['date'], 'url' => route('payments.manage')];
+        $url = Payment::where('year', $s['year'])->exists() ? route('payments.show', $s['year']) : route('payments.index');
+
+        return ['date' => $s['date'], 'url' => $url.'?term='.$s['term']];
     }
 
     /** The daily check: send when approved and due, otherwise alert the director when it is time. */
@@ -121,7 +99,7 @@ class NextBills
     {
         $school = Qs::getSystemName();
         $when = Carbon::parse($date)->format('j M Y');
-        $body = "{$school}: next term's bills go out on {$when} once approved. Please check the fees and approve them under Payments.";
+        $body = "{$school}: next term's bills go out on {$when} once approved. Please check the fees and approve them in Fee setup.";
         $n = 0;
         foreach (User::where('user_type', 'super_admin')->get() as $u) {
             foreach (array_filter(['sms' => $u->phone, 'email' => $u->email]) as $channel => $to) {

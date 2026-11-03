@@ -231,13 +231,13 @@ class PaymentController extends Controller
         return response()->json(['ok' => true, 'msg' => "{$created} fees copied".($skipped ? ", {$skipped} already there" : '').'.', 'year' => $year, 'term' => $term]);
     }
 
-    /** The director's check of next term's bills, and approving them to go out on the term's last day. */
+    /** The director approves next term's fees (Fee setup): the bills go out on the term's last day. */
     public function nextBills(Request $req)
     {
         if (!Qs::userIsTeamAdmin()) return Qs::json(__('msg.denied'), false);
-        if ($req->filled('approve')) \App\Support\NextBills::approve($req->input('approve') === '1');
+        \App\Support\NextBills::approve($req->input('approve') === '1');
 
-        return response()->json(['ok' => true] + \App\Support\NextBills::summary());
+        return Qs::json($req->input('approve') === '1' ? 'Approved.' : 'Approval cancelled.', true);
     }
 
     public function receipts($pr_id)
@@ -387,7 +387,7 @@ class PaymentController extends Controller
                     return ['id' => $c->id, 'name' => $c->name];
                 })->values(),
                 'students' => $students,
-                'urls' => ['select' => route('payments.select_class'), 'sendInvoices' => $class_id ? route('payments.send_class_invoices', $class_id) : null, 'nextBills' => Qs::userIsTeamAdmin() ? route('payments.next_bills') : null, 'sendAll' => route('payments.send_all_bills')],
+                'urls' => ['select' => route('payments.select_class'), 'sendInvoices' => $class_id ? route('payments.send_class_invoices', $class_id) : null, 'sendAll' => route('payments.send_all_bills')],
             ];
         }, 'pages.support_team.payments.manage', $d);
     }
@@ -407,6 +407,7 @@ class PaymentController extends Controller
             'year' => $year,
             'session' => $this->year,
             'currentTerm' => Fees::termNow($year ?: $this->year),
+            'approval' => Qs::userIsTeamAdmin() ? \App\Support\NextBills::status() : null,
             'years' => $this->pay->getPaymentYears()->pluck('year')->sort()->reverse()->values(),
             'payments' => $payments->map(function ($p) use ($usage) {
                 $u = $usage[$p->id] ?? null;
@@ -437,7 +438,7 @@ class PaymentController extends Controller
                 'config' => route('finance.config'),
                 'create' => route('payments.create'),
                 'copyTerm' => route('payments.copy_term'),
-                'nextBills' => Qs::userIsTeamAdmin() ? route('payments.next_bills') : null,
+                'approve' => route('payments.next_bills'),
                 'year' => route('payments.show', ':year'),
                 'manage' => route('payments.manage'),
             ],

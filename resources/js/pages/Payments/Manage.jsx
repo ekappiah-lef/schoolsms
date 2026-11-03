@@ -6,7 +6,6 @@ import { ConfirmDialog, Modal } from "@/components/ui/dialog";
 import { submitForm } from "@/lib/http";
 import { usePaged } from "@/components/app/data-table";
 import { withAppLayout } from "@/layouts/AppLayout";
-import { NextTermBills } from "@/components/fees/next-term-bills";
 import { EmptyState, PageHeader, Panel } from "@/components/app/page";
 import { Meter } from "@/components/app/charts";
 import { Avatar } from "@/components/ui/avatar";
@@ -99,7 +98,6 @@ export default function PaymentsManage({
                     </span>
                 )}
                 {classId && urls.sendInvoices && <SendClassInvoices url={urls.sendInvoices} className={className} count={students.length} />}
-                {urls.nextBills && <NextTermBills url={urls.nextBills} />}
                 {urls.sendAll && <SendAllBills url={urls.sendAll} />}
             </div>
 
