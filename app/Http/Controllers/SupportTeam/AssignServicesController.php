@@ -5,6 +5,7 @@ namespace App\Http\Controllers\SupportTeam;
 use App\Helpers\Qs;
 use App\Http\Controllers\Controller;
 use App\Models\FeeDiscount;
+use App\Models\OptionalFeeCharge;
 use App\Models\StudentRecord;
 use App\Support\Fees;
 use Illuminate\Http\Request;
@@ -45,8 +46,42 @@ class AssignServicesController extends Controller
             ] : null,
             'catalogue' => Fees::catalogue(),
             'discounts' => Fees::discountOptions(),
-            'urls' => ['self' => route('finance.assign'), 'save' => route('finance.assign.save')],
+            'directBills' => DB::table('optional_fee_charges as c')->join('users as u', 'u.id', '=', 'c.student_id')
+                ->where(['c.group' => 'direct', 'c.year' => $year])->orderByDesc('c.id')
+                ->get(['c.id', 'c.label', 'c.amount', 'c.amt_paid', 'c.created_at', 'u.name'])
+                ->map(function ($c) {
+                    return ['id' => $c->id, 'student' => $c->name, 'label' => $c->label, 'amount' => (float) $c->amount, 'paid' => (float) $c->amt_paid, 'date' => $c->created_at,
+                        'remove' => (float) $c->amt_paid > 0 ? null : route('finance.assign.direct.remove', $c->id)];
+                }),
+            'urls' => ['self' => route('finance.assign'), 'save' => route('finance.assign.save'), 'direct' => route('finance.assign.direct')],
         ]);
+    }
+
+    /** Bill direct: one amount for one student in the school's own words (e.g. arrears the migration missed). */
+    public function direct(Request $req)
+    {
+        $d = $req->validate(['label' => 'required|string|max:120', 'amount' => 'required|numeric|min:0.01|max:1000000'], [], ['label' => 'What it is for']);
+        $sr = StudentRecord::where(['user_id' => (int) Qs::decodeHash((string) $req->input('student')), 'grad' => 0])->first();
+        if (!$sr) return Qs::json('Choose a student.', false);
+        $year = Qs::getCurrentSession();
+        OptionalFeeCharge::create(['student_id' => $sr->user_id, 'year' => $year, 'term' => Fees::termNow($year), 'group' => 'direct',
+            'label' => trim($d['label']), 'amount' => \App\Support\Money::r($d['amount']), 'amt_paid' => 0]);
+        \App\Support\ClearEnroll::studentChanged((int) $sr->user_id);
+
+        return Qs::json('Billed.', true);
+    }
+
+    /** A direct bill entered by mistake: removed only while nothing has been paid on it. */
+    public function removeDirect($id)
+    {
+        $c = OptionalFeeCharge::where('group', 'direct')->find((int) $id);
+        if (!$c) return Qs::json(__('msg.rnf'), false);
+        if ($c->amt_paid > 0) return Qs::json('This bill has payments on it and cannot be removed.', false);
+        $student = (int) $c->student_id;
+        $c->delete();
+        \App\Support\ClearEnroll::studentChanged($student);
+
+        return Qs::json('Removed.', true);
     }
 
     public function save(Request $req)

@@ -207,6 +207,38 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testDirectBillIsOnTheInvoiceAndLeavesServicesAlone()
+    {
+        $sr = \App\Models\StudentRecord::where('grad', 0)->first();
+        if (!$sr) return $this->assertTrue(true);
+        $year = \App\Helpers\Qs::getCurrentSession();
+        $acc = $this->user('accountant');
+        $hash = \App\Helpers\Qs::hash($sr->user_id);
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $before = \App\Support\Fees::termInvoice($sr->user_id)['total'];
+            $services = \App\Support\Fees::selectionFor($sr->user_id, $year);
+            $this->actingAs($acc)->post(route('finance.assign.direct'), ['student' => $hash, 'label' => 'Lunch arrears', 'amount' => 150])->assertOk();
+            $invoice = \App\Support\Fees::termInvoice($sr->user_id);
+            $this->assertEquals($before + 150, $invoice['total']);
+            $this->assertTrue(collect($invoice['table'])->contains('label', 'Lunch arrears'));
+            $this->assertEquals($services, \App\Support\Fees::selectionFor($sr->user_id, $year));
+            $this->actingAs($acc)->get('/finance/assign?student='.$hash)->assertOk()->assertSee('Lunch arrears');
+            $this->actingAs($this->user('super_admin'))->get(route('finance.dashboard'))->assertOk();
+
+            $c = \App\Models\OptionalFeeCharge::where(['student_id' => $sr->user_id, 'group' => 'direct'])->first();
+            $c->update(['amt_paid' => 10]);
+            $this->actingAs($acc)->delete(route('finance.assign.direct.remove', $c->id))->assertOk();
+            $this->assertNotNull($c->fresh());
+            $c->update(['amt_paid' => 0]);
+            $this->actingAs($acc)->delete(route('finance.assign.direct.remove', $c->id))->assertOk();
+            $this->assertNull($c->fresh());
+            $this->assertEquals($before, \App\Support\Fees::termInvoice($sr->user_id)['total']);
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testParentHasTimetablesInTheirMenu()
     {
         $this->actingAs($this->user('parent'));

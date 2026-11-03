@@ -165,14 +165,14 @@ class Fees
             [$py, $pt] = $term > 1 ? [$year, $term - 1] : [((int) substr($year, 0, 4) - 1).'-'.substr($year, 0, 4), 3];
             foreach ($students as $sr) {
                 if ($sr->status === 'away') continue;
-                if (OptionalFeeCharge::where(['student_id' => $sr->user_id, 'year' => $year, 'term' => $term])->where('group', '!=', 'sales')->exists()) continue;
+                if (OptionalFeeCharge::where(['student_id' => $sr->user_id, 'year' => $year, 'term' => $term])->whereNotIn('group', ['sales', 'direct'])->exists()) continue;
                 $plan = self::plannedServices($sr, $key);
                 if ($plan !== null) {
                     self::syncOptional($sr->user_id, $year, $plan);
                     continue;
                 }
                 if (!$done) continue;
-                $last = OptionalFeeCharge::where(['student_id' => $sr->user_id, 'year' => $py, 'term' => $pt])->where('group', '!=', 'sales')->get();
+                $last = OptionalFeeCharge::where(['student_id' => $sr->user_id, 'year' => $py, 'term' => $pt])->whereNotIn('group', ['sales', 'direct'])->get();
                 if ($last->isNotEmpty()) self::syncOptional($sr->user_id, $year, self::selectionOf($last));
             }
             DB::table('settings')->updateOrInsert(['type' => 'services_billed_term'], ['description' => $key]);
@@ -345,7 +345,7 @@ class Fees
         $wanted = collect(self::chargesFromSelection($sel, $studentId));
         // Started mid-term (admission or a new service): only the school days left are charged.
         $share = $byDays ? self::termShareLeft() : 1.0;
-        $existing = OptionalFeeCharge::where(['student_id' => $studentId, 'year' => $year, 'term' => $term])->where('group', '!=', 'sales')->get();
+        $existing = OptionalFeeCharge::where(['student_id' => $studentId, 'year' => $year, 'term' => $term])->whereNotIn('group', ['sales', 'direct'])->get();
         $key = function ($r) { return ($r['fee_option_id'] ?? '').'|'.($r['bus_route_id'] ?? '').'|'.($r['bus_direction'] ?? ''); };
 
         $kept = [];
@@ -450,7 +450,7 @@ class Fees
 
     public static function selectionFor(int $studentId, string $year): array
     {
-        $all = OptionalFeeCharge::where('student_id', $studentId)->where('group', '!=', 'sales')
+        $all = OptionalFeeCharge::where('student_id', $studentId)->whereNotIn('group', ['sales', 'direct'])
             ->where(function ($q) use ($year) {
                 $q->where('year', '<', $year)->orWhere(function ($q) use ($year) { $q->where('year', $year)->where('term', '<=', self::termNow($year)); });
             })->get();
@@ -701,7 +701,7 @@ class Fees
             ->filter(function ($l) { return $l['balance'] != 0; })->values();
         foreach ($charges->reject($chargeNow)->sortBy(function ($c) { return $c->year.'-'.self::chargeTerm($c); }) as $c) {
             $group = OptionalFeeCharge::GROUPS[$c->group] ?? ucfirst($c->group);
-            $name = $c->group === 'sales' ? $group.': '.$c->label : (strpos($c->label, $group) === 0 ? $c->label : $group.' ('.$c->label.')');
+            $name = $c->group === 'direct' ? $c->label : ($c->group === 'sales' ? $group.': '.$c->label : (strpos($c->label, $group) === 0 ? $c->label : $group.' ('.$c->label.')'));
             $l = $line($name.' · Term '.self::chargeTerm($c).' · '.str_replace('-', ' – ', $c->year), $c->amount, $c->amt_paid);
             if ($l['balance'] > 0) $forward->push($l);
         }
@@ -723,7 +723,11 @@ class Fees
             $l = $line($pr->payment->title, $pr->billAmount() - Money::r($pr->discount), $pr->amt_paid);
             if ($l['balance'] != 0) $table[] = $l;
         }
+        foreach ($charges->filter($chargeNow)->where('group', 'direct') as $c) {
+            $table[] = $line($c->label, $c->amount, $c->amt_paid);
+        }
         foreach (OptionalFeeCharge::GROUPS as $g => $label) {
+            if ($g === 'direct') continue;
             $cs = $charges->filter($chargeNow)->where('group', $g);
             if ($cs->isEmpty()) continue;
             $amt = Money::r($cs->sum('amount'));
@@ -812,7 +816,7 @@ class Fees
             $k = $c->year.':'.self::chargeTerm($c);
             $due = max(Money::r($c->amount) - Money::r($c->amt_paid), 0);
             if ($k <= $upTo) $owed += $due;
-            elseif ($k === $nKey && $c->group !== 'sales') {
+            elseif ($k === $nKey && !in_array($c->group, ['sales', 'direct'], true)) {
                 $services += $due;
                 $billedNextServices = true;
             }

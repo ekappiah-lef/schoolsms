@@ -197,6 +197,8 @@ Route::group(['middleware' => 'auth'], function () {
         Route::get('finance/transactions/{id}/voucher/pdf', 'FinanceTransactionController@voucherPdf')->name('finance.transactions.voucher_pdf');
         Route::get('finance/assign', 'AssignServicesController@index')->name('finance.assign');
         Route::post('finance/assign', 'AssignServicesController@save')->name('finance.assign.save');
+        Route::post('finance/assign/direct', 'AssignServicesController@direct')->name('finance.assign.direct');
+        Route::delete('finance/assign/direct/{charge}', 'AssignServicesController@removeDirect')->name('finance.assign.direct.remove');
         Route::get('finance/services/{group}', 'ServiceRosterController@show')->where('group', 'feeding|bus|extracurricular|sales')->name('finance.services');
         Route::post('finance/services/{group}/add', 'ServiceRosterController@add')->where('group', 'feeding|bus|extracurricular')->name('finance.services.add');
 

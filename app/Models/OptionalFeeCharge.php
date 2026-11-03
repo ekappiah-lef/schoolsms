@@ -6,7 +6,7 @@ use Eloquent;
 
 class OptionalFeeCharge extends Eloquent
 {
-    public const GROUPS = ['feeding' => 'Feeding', 'bus' => 'Bus', 'extracurricular' => 'Extra-curricular', 'sales' => 'Sales'];
+    public const GROUPS = ['feeding' => 'Feeding', 'bus' => 'Bus', 'extracurricular' => 'Extra-curricular', 'sales' => 'Sales', 'direct' => 'Direct bill'];
 
     protected $fillable = ['student_id', 'year', 'term', 'group', 'label', 'fee_option_id', 'bus_route_id', 'bus_direction', 'inventory_item_id', 'qty', 'handed_down_from', 'amount', 'amt_paid', 'stopped'];
 
