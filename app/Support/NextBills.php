@@ -34,9 +34,12 @@ class NextBills
         $term = SchoolCalendar::current();
         if (!$term) return null;
         $year = Qs::getCurrentSession();
-        $key = $year.':'.Fees::termNow($year);
+        $now = Fees::termNow($year);
+        $key = $year.':'.$now;
+        $start = (int) substr($year, 0, 4);
+        $label = $now < 3 ? ['1st', '2nd', '3rd'][$now].' term '.$year : '1st term '.($start + 1).'-'.($start + 2);
 
-        return ['key' => $key, 'date' => $term->ends_on->toDateString(),
+        return ['key' => $key, 'label' => $label, 'date' => $term->ends_on->toDateString(),
             'approved' => self::get('next_bills_approved') === $key, 'sent' => self::get('next_bills_sent') === $key];
     }
 

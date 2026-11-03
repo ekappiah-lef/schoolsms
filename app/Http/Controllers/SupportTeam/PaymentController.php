@@ -437,6 +437,7 @@ class PaymentController extends Controller
                 'config' => route('finance.config'),
                 'create' => route('payments.create'),
                 'copyTerm' => route('payments.copy_term'),
+                'nextBills' => Qs::userIsTeamAdmin() ? route('payments.next_bills') : null,
                 'year' => route('payments.show', ':year'),
                 'manage' => route('payments.manage'),
             ],

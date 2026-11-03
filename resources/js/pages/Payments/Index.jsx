@@ -7,6 +7,7 @@ import { withAppLayout } from "@/layouts/AppLayout";
 import { EmptyState, PageHeader, Panel } from "@/components/app/page";
 import { Meter } from "@/components/app/charts";
 import { useConfirmAction } from "@/components/app/confirm-action";
+import { NextTermBills } from "@/components/fees/next-term-bills";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { submitForm } from "@/lib/http";
 import { Badge } from "@/components/ui/badge";
@@ -90,6 +91,7 @@ export default function PaymentsIndex({
                 title="Fee setup"
                 actions={
                     <>
+                        {urls.nextBills && <NextTermBills url={urls.nextBills} />}
                         <Button asChild>
                             <Link href={urls.config}>
                                 Finance configuration
