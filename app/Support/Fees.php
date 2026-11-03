@@ -72,6 +72,8 @@ class Fees
     {
         $category = $p->student_category ?: 'all';
         if (!in_array($category, ['all', 'old', 'new'], true)) return false;
+        // Promoted into a later year: their new class's fees must not be billed to the year they left.
+        if ($sr->session && $sr->session > $year) return false;
         if ($sr->admitted_session !== $year) return $category !== 'new';
 
         // Admitted this year: nothing for the terms before they joined. In the term they join the new-student fee

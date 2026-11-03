@@ -153,6 +153,30 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testPromotedStudentIsNotBilledTheNewClassForTheOldYear()
+    {
+        $sr = \App\Models\StudentRecord::where('grad', 0)->first();
+        $to = \App\Models\MyClass::where('id', '!=', optional($sr)->my_class_id)->first();
+        if (!$sr || !$to) return $this->assertTrue(true);
+        $year = \App\Helpers\Qs::getCurrentSession();
+        $start = (int) substr($year, 0, 4);
+        $next = ($start + 1).'-'.($start + 2);
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $make = function ($y, $amount) use ($to) {
+                return \App\Models\Payment::create(['title' => 'Promotion test', 'amount' => $amount, 'my_class_id' => $to->id, 'student_category' => 'all', 'year' => $y, 'term' => 1, 'ref_no' => uniqid()]);
+            };
+            $old = $make($year, 200);
+            $new = $make($next, 220);
+            $sr->update(['my_class_id' => $to->id, 'session' => $next]);
+            \App\Support\Fees::billSchoolFees($sr->fresh(), $year);
+            $this->assertSame(0, \App\Models\PaymentRecord::where(['student_id' => $sr->user_id, 'payment_id' => $old->id])->count());
+            $this->assertTrue(\App\Support\Fees::paymentsFor($sr->fresh(), $next)->contains('id', $new->id));
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testParentHasTimetablesInTheirMenu()
     {
         $this->actingAs($this->user('parent'));
