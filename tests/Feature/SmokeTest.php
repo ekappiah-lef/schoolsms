@@ -272,6 +272,35 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testPaymentKeepsDatePaidAndDateEntered()
+    {
+        $acc = $this->user('accountant');
+        $sr = \App\Models\StudentRecord::where('grad', 0)->first();
+        if (!$sr) return $this->assertTrue(true);
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $fee = \App\Models\Payment::create(['title' => 'Date test', 'amount' => 500, 'student_category' => 'opening', 'year' => \App\Helpers\Qs::getCurrentSession(), 'term' => 1, 'ref_no' => uniqid()]);
+            $pr = \App\Models\PaymentRecord::create(['student_id' => $sr->user_id, 'payment_id' => $fee->id, 'year' => $fee->year, 'amount' => 500]);
+            $url = route('payments.pay_now', \App\Helpers\Qs::hash($pr->id));
+
+            $this->actingAs($acc)->postJson($url, ['amt_paid' => 100, 'paid_on' => today()->addDay()->toDateString()])->assertStatus(422);
+
+            $paid = today()->subDays(10);
+            $balanceBefore = \App\Support\FinanceSummary::balanceAt($paid->copy()->endOfDay());
+            $this->actingAs($acc)->postJson($url, ['amt_paid' => 100, 'paid_on' => $paid->toDateString()])->assertOk();
+            $r = \App\Models\Receipt::where('pr_id', $pr->id)->first();
+            $this->assertSame($paid->toDateString(), $r->paid_on->toDateString());
+            $this->assertSame(today()->toDateString(), $r->created_at->toDateString());
+            $this->assertEquals($balanceBefore + 100, \App\Support\FinanceSummary::balanceAt($paid->copy()->endOfDay()));
+
+            // Without a date (e.g. mobile money coming in): today.
+            $this->actingAs($acc)->postJson($url, ['amt_paid' => 50])->assertOk();
+            $this->assertSame(today()->toDateString(), \App\Models\Receipt::where('pr_id', $pr->id)->latest('id')->first()->paid_on->toDateString());
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testParentHasTimetablesInTheirMenu()
     {
         $this->actingAs($this->user('parent'));

@@ -41,7 +41,7 @@ class FinanceLog
                 self::add('void_receipt', 'school_receipt', $r->id, [
                     'student_id' => $pr->student_id, 'amount' => \App\Support\Money::r($r->amt_paid), 'reason' => $reason,
                     'before' => ['number' => 'SF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'bill' => optional($pr->payment)->title.' · '.$pr->year.(optional($pr->payment)->term ? ' · Term '.$pr->payment->term : ''),
-                        'amount' => \App\Support\Money::r($r->amt_paid), 'method' => $r->method, 'reference' => $r->reference, 'paid_on' => (string) $r->created_at],
+                        'amount' => \App\Support\Money::r($r->amt_paid), 'paid_on' => $r->paid_on, 'entered' => $r->created_at, 'method' => $r->method, 'reference' => $r->reference],
                 ]);
                 $total += \App\Support\Money::r($r->amt_paid);
             }
@@ -63,7 +63,7 @@ class FinanceLog
                 self::add('void_receipt', 'optional_receipt', $r->id, [
                     'student_id' => $c->student_id, 'amount' => \App\Support\Money::r($r->amt_paid), 'reason' => $reason,
                     'before' => ['number' => 'OF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'bill' => $c->label.' · '.$c->year,
-                        'amount' => \App\Support\Money::r($r->amt_paid), 'method' => $r->method, 'reference' => $r->reference, 'paid_on' => (string) $r->created_at],
+                        'amount' => \App\Support\Money::r($r->amt_paid), 'paid_on' => $r->paid_on, 'entered' => $r->created_at, 'method' => $r->method, 'reference' => $r->reference],
                 ]);
                 $total += \App\Support\Money::r($r->amt_paid);
             }

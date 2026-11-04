@@ -117,8 +117,8 @@ class FinancePeriod
     public static function firstActivity(): Carbon
     {
         return collect([
-            DB::table('receipts')->min('created_at'),
-            DB::table('optional_fee_receipts')->min('created_at'),
+            DB::table('receipts')->min('paid_on'),
+            DB::table('optional_fee_receipts')->min('paid_on'),
             DB::table('finance_transactions')->min('date'),
         ])->filter()->map(function ($d) { return Carbon::parse($d); })->min() ?? now();
     }

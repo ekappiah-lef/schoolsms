@@ -542,7 +542,7 @@ class Fees
                     return ['name' => $i->name, 'amount' => Money::r($i->amount)];
                 })->values(),
                 'receipts' => $pr->receipt->sortByDesc('id')->map(function ($r) use ($withUrls) {
-                    return ['id' => 's'.$r->id, 'number' => 'SF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'amount' => Money::r($r->amt_paid), 'balance' => Money::r($r->balance), 'date' => optional($r->created_at)->toIso8601String(),
+                    return ['id' => 's'.$r->id, 'number' => 'SF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'amount' => Money::r($r->amt_paid), 'balance' => Money::r($r->balance), 'date' => optional($r->paid_on)->toDateString(),
                         'urls' => $withUrls ? \App\Http\Controllers\SupportTeam\ReceiptController::urls('school', $r->id) : null];
                 })->values(),
                 'urls' => $withUrls ? [
@@ -570,7 +570,7 @@ class Fees
                 'balance' => $c->balance,
                 'cleared' => $c->balance <= 0,
                 'receipts' => $c->receipts->sortByDesc('id')->map(function ($r) use ($withUrls) {
-                    return ['id' => 'o'.$r->id, 'number' => 'OF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'amount' => Money::r($r->amt_paid), 'balance' => Money::r($r->balance), 'date' => optional($r->created_at)->toIso8601String(),
+                    return ['id' => 'o'.$r->id, 'number' => 'OF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'amount' => Money::r($r->amt_paid), 'balance' => Money::r($r->balance), 'date' => optional($r->paid_on)->toDateString(),
                         'urls' => $withUrls ? \App\Http\Controllers\SupportTeam\ReceiptController::urls('optional', $r->id) : null];
                 })->values(),
                 'urls' => $withUrls ? [
@@ -621,15 +621,15 @@ class Fees
                 'text' => $c->label.($c->group !== 'sales' && $c->term ? ' · Term '.$c->term : ''), 'debit' => Money::r($c->amount), 'credit' => 0.0]);
         }
         $receipts = DB::table('receipts as r')->join('payment_records as pr', 'pr.id', '=', 'r.pr_id')->whereIn('pr.student_id', $studentIds)
-            ->get(['r.id', 'r.created_at', 'r.amt_paid', 'r.method', 'pr.student_id']);
+            ->get(['r.id', 'r.paid_on', 'r.amt_paid', 'r.method', 'pr.student_id']);
         foreach ($receipts as $r) {
-            $lines->push(['at' => \Carbon\Carbon::parse($r->created_at), 'student' => $names[$r->student_id] ?? '', 'ref' => 'SF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT),
+            $lines->push(['at' => \Carbon\Carbon::parse($r->paid_on), 'student' => $names[$r->student_id] ?? '', 'ref' => 'SF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT),
                 'text' => 'Payment'.($r->method ? ' · '.$r->method : ''), 'debit' => 0.0, 'credit' => Money::r($r->amt_paid)]);
         }
         $receipts = DB::table('optional_fee_receipts as r')->join('optional_fee_charges as c', 'c.id', '=', 'r.charge_id')->whereIn('c.student_id', $studentIds)
-            ->get(['r.id', 'r.created_at', 'r.amt_paid', 'r.method', 'c.student_id']);
+            ->get(['r.id', 'r.paid_on', 'r.amt_paid', 'r.method', 'c.student_id']);
         foreach ($receipts as $r) {
-            $lines->push(['at' => \Carbon\Carbon::parse($r->created_at), 'student' => $names[$r->student_id] ?? '', 'ref' => 'OF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT),
+            $lines->push(['at' => \Carbon\Carbon::parse($r->paid_on), 'student' => $names[$r->student_id] ?? '', 'ref' => 'OF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT),
                 'text' => 'Payment'.($r->method ? ' · '.$r->method : ''), 'debit' => 0.0, 'credit' => Money::r($r->amt_paid)]);
         }
 

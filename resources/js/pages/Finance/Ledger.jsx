@@ -87,7 +87,11 @@ export default function Ledger({
             [
                 {
                     label: "Date",
-                    value: (r) => formatDate(r.at, "dd/MM/yyyy HH:mm"),
+                    value: (r) => formatDate(r.at, "dd/MM/yyyy"),
+                },
+                {
+                    label: "Date entered",
+                    value: (r) => (r.entered ? formatDate(r.entered, "dd/MM/yyyy HH:mm") : ""),
                 },
                 { label: "Source", value: (r) => r.source },
                 { label: "Item / category", value: (r) => r.category },
@@ -240,12 +244,9 @@ export default function Ledger({
                                         >
                                             <td className="whitespace-nowrap px-4 py-2.5 text-fg-muted">
                                                 {formatDate(r.at, "dd/MM/yyyy")}
-                                                {r.key[0] !== "t" && (
+                                                {r.entered && (
                                                     <div className="text-xs text-fg-subtle">
-                                                        {formatDate(
-                                                            r.at,
-                                                            "HH:mm",
-                                                        )}
+                                                        Entered {formatDate(r.entered, "dd/MM/yyyy HH:mm")}
                                                     </div>
                                                 )}
                                             </td>

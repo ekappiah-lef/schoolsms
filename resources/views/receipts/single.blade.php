@@ -52,7 +52,8 @@
             <td style="text-align: right;">
                 <div class="label">Receipt</div>
                 <div style="font-weight: bold; font-size: 13px;">{{ $r['number'] }}</div>
-                <div class="muted">{{ optional($r['date'])->format('d/m/Y H:i') }}</div>
+                <div class="muted">Date paid: {{ optional($r['date'])->format('d/m/Y') }}</div>
+                <div class="muted">Date entered: {{ optional($r['entered'])->format('d/m/Y H:i') }}</div>
             </td>
         </tr>
     </table>

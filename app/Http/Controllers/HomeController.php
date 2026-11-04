@@ -365,15 +365,15 @@ class HomeController extends Controller
                     'fee' => optional($r->pr->payment)->title,
                     'amount' => \App\Support\Money::r($r->amt_paid),
                     'balance' => \App\Support\Money::r($r->balance),
-                    'date' => optional($r->created_at)->toIso8601String(),
+                    'date' => optional($r->paid_on)->toDateString(),
                     'url' => route('payments.invoice', Qs::hash($r->pr->student_id)),
                 ];
             })->values();
 
         // Receipts per month for the last six months (collection trend).
         $from = now()->startOfMonth()->subMonths(5);
-        $monthly = Receipt::where('created_at', '>=', $from)
-            ->select(DB::raw("DATE_FORMAT(created_at, '%Y-%m') as ym"), DB::raw('sum(amt_paid) as total'), DB::raw('count(*) as receipts'))
+        $monthly = Receipt::where('paid_on', '>=', $from->toDateString())
+            ->select(DB::raw("DATE_FORMAT(paid_on, '%Y-%m') as ym"), DB::raw('sum(amt_paid) as total'), DB::raw('count(*) as receipts'))
             ->groupBy('ym')->pluck('total', 'ym');
         $trend = [];
         for ($i = 0; $i < 6; $i++) {

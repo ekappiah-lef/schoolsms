@@ -24,7 +24,8 @@ class OptionalFeeController extends Controller
             'amt_paid' => 'required|'.Money::rule().'|min:0.01|max:'.max($c->balance, 0.01),
             'method' => 'nullable|in:'.implode(',', \App\Support\Fees::METHODS),
             'reference' => 'nullable|string|max:100',
-        ], [], ['amt_paid' => 'Amount paid']);
+            'paid_on' => 'nullable|date|before_or_equal:today',
+        ], ['paid_on.before_or_equal' => 'The date paid cannot be in the future.'], ['amt_paid' => 'Amount paid']);
 
         $c->amt_paid = Money::r($c->amt_paid + $req->amt_paid);
         $c->save();
@@ -36,6 +37,7 @@ class OptionalFeeController extends Controller
             'year' => $c->year,
             'method' => $req->input('method') ?: 'Cash',
             'reference' => $req->input('reference') ?: null,
+            'paid_on' => $req->input('paid_on') ?: null,
         ]);
         \App\Support\ClearEnroll::studentChanged((int) $c->student_id, \App\Support\Money::r($req->amt_paid), 'OF-'.str_pad($receipt->id, 6, '0', STR_PAD_LEFT));
 

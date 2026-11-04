@@ -300,7 +300,8 @@ class PaymentController extends Controller
             'amt_paid' => 'required|'.Money::rule().'|min:0.01|max:'.max($owed, 0.01),
             'method' => 'nullable|in:'.implode(',', Fees::METHODS),
             'reference' => 'nullable|string|max:100',
-        ], ['amt_paid.max' => 'Only '.Money::fmt($owed).' is owed on this bill.', 'amt_paid.regex' => 'Enter the amount with at most 2 decimals, e.g. 100.50.'], ['amt_paid' => 'Amount Paid']);
+            'paid_on' => 'nullable|date|before_or_equal:today',
+        ], ['paid_on.before_or_equal' => 'The date paid cannot be in the future.', 'amt_paid.max' => 'Only '.Money::fmt($owed).' is owed on this bill.', 'amt_paid.regex' => 'Enter the amount with at most 2 decimals, e.g. 100.50.'], ['amt_paid' => 'Amount Paid']);
         if ($owed <= 0) {
             return response()->json(['message' => 'This bill is already fully paid.', 'errors' => ['amt_paid' => ['This bill is already fully paid.']]], 422);
         }
@@ -317,6 +318,7 @@ class PaymentController extends Controller
         $d2['year'] = $pr->year;
         $d2['method'] = $req->input('method') ?: 'Cash';
         $d2['reference'] = $req->input('reference') ?: null;
+        $d2['paid_on'] = $req->input('paid_on') ?: null;
 
         $receipt = $this->pay->createReceipt($d2);
         // ClearEnroll gets the student's new balance (after the page has answered).

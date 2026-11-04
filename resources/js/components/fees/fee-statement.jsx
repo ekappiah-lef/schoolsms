@@ -354,6 +354,8 @@ export function PayInline({ title, balance, url, onPaid }) {
     const [value, setValue] = useState('');
     const [method, setMethod] = useState('Cash');
     const [txn, setTxn] = useState('');
+    const today = new Date().toLocaleDateString('en-CA');
+    const [paidOn, setPaidOn] = useState(today);
     const [processing, setProcessing] = useState(false);
     const amount = Number(value);
     const invalid = value !== '' && (!Number.isFinite(amount) || amount < 0.01 || amount > balance || Math.abs(Math.round(amount * 100) - amount * 100) > 1e-6);
@@ -361,9 +363,9 @@ export function PayInline({ title, balance, url, onPaid }) {
 
     const pay = async (e) => {
         e.preventDefault();
-        if (!value || invalid) return;
+        if (!value || invalid || !paidOn) return;
         setProcessing(true);
-        const result = await submitForm(url, { amt_paid: amount, method, reference: txn.trim() });
+        const result = await submitForm(url, { amt_paid: amount, method, reference: txn.trim(), paid_on: paidOn });
         setProcessing(false);
         if (result.ok) {
             const receipt = result.data?.receipt;
@@ -376,12 +378,22 @@ export function PayInline({ title, balance, url, onPaid }) {
             setTxn('');
             onPaid?.();
         } else {
-            toast.error(result.errors?.amt_paid ?? result.message);
+            toast.error(result.errors?.amt_paid ?? result.errors?.paid_on ?? result.message);
         }
     };
 
     return (
-        <form onSubmit={pay} className="flex min-w-[460px] items-start gap-2">
+        <form onSubmit={pay} className="flex min-w-[600px] items-start gap-2">
+            <input
+                type="date"
+                value={paidOn}
+                max={today}
+                onChange={(e) => setPaidOn(e.target.value)}
+                aria-label="Date paid"
+                title="Date paid"
+                required
+                className="h-8 w-[132px] shrink-0 rounded-md border-0 bg-surface px-2 text-xs shadow-field focus:shadow-[0_0_0_2px_rgb(var(--primary))]"
+            />
             <select
                 value={method}
                 onChange={(e) => setMethod(e.target.value)}
@@ -428,7 +440,7 @@ export function PayInline({ title, balance, url, onPaid }) {
                     {invalid ? `Enter 0.01 – ${formatMoney(balance)}` : after !== null ? (after === 0 ? 'Clears this item' : `Balance after: ${formatMoney(after)}`) : ''}
                 </div>
             </div>
-            <Button type="submit" size="sm" variant="primary" loading={processing} disabled={!value || invalid}>
+            <Button type="submit" size="sm" variant="primary" loading={processing} disabled={!value || invalid || !paidOn}>
                 Pay
             </Button>
         </form>

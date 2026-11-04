@@ -328,10 +328,10 @@ class FinanceSummary
      */
     public static function cashflow(TermSelection $sel): array
     {
-        $schoolQ = $sel->apply(DB::table('receipts'), 'created_at');
+        $schoolQ = $sel->apply(DB::table('receipts'), 'paid_on');
         $schoolFees = Money::r((clone $schoolQ)->sum('amt_paid'));
 
-        $optional = $sel->apply(DB::table('optional_fee_receipts as r')->join('optional_fee_charges as c', 'c.id', '=', 'r.charge_id'), 'r.created_at')
+        $optional = $sel->apply(DB::table('optional_fee_receipts as r')->join('optional_fee_charges as c', 'c.id', '=', 'r.charge_id'), 'r.paid_on')
             ->groupBy('c.group')->select('c.group', DB::raw('sum(r.amt_paid) as total'), DB::raw('count(*) as n'))->get()->keyBy('group');
         $optionalLines = collect(OptionalFeeCharge::GROUPS)->map(function ($label, $g) use ($optional) {
             return ['key' => $g, 'label' => $label, 'total' => \App\Support\Money::r(optional($optional[$g] ?? null)->total), 'count' => (int) optional($optional[$g] ?? null)->n];
@@ -395,8 +395,8 @@ class FinanceSummary
     /** Fee payments received in the selection, by mode (Cash, Mobile payment, Bank transfer, Cheque). */
     public static function byMethod(TermSelection $sel): array
     {
-        $rows = $sel->apply(DB::table('receipts'), 'created_at')->select('method', DB::raw('sum(amt_paid) as total'), DB::raw('count(*) as n'))->groupBy('method')->get()
-            ->concat($sel->apply(DB::table('optional_fee_receipts'), 'created_at')->select('method', DB::raw('sum(amt_paid) as total'), DB::raw('count(*) as n'))->groupBy('method')->get());
+        $rows = $sel->apply(DB::table('receipts'), 'paid_on')->select('method', DB::raw('sum(amt_paid) as total'), DB::raw('count(*) as n'))->groupBy('method')->get()
+            ->concat($sel->apply(DB::table('optional_fee_receipts'), 'paid_on')->select('method', DB::raw('sum(amt_paid) as total'), DB::raw('count(*) as n'))->groupBy('method')->get());
         $order = array_flip(Fees::METHODS);
 
         return $rows->groupBy(function ($r) { return $r->method ?: 'Cash'; })->map(function ($g, $m) {
@@ -464,18 +464,18 @@ class FinanceSummary
             $method === 'Cash' ? $q->where(function ($w) { $w->where('r.method', 'Cash')->orWhereNull('r.method')->orWhere('r.method', ''); }) : $q->where('r.method', $method);
         };
         $school = $sel->apply(DB::table('receipts as r')->join('payment_records as pr', 'pr.id', '=', 'r.pr_id')->join('payments as p', 'p.id', '=', 'pr.payment_id')
-            ->join('users as u', 'u.id', '=', 'pr.student_id')->leftJoin('my_classes as c', 'c.id', '=', 'p.my_class_id'), 'r.created_at')->where($match)
-            ->select('r.id', 'r.created_at', 'r.amt_paid', 'r.reference', 'p.title', 'p.term', 'p.year', 'u.id as student_id', 'u.name', 'c.name as class_name')->get()
+            ->join('users as u', 'u.id', '=', 'pr.student_id')->leftJoin('my_classes as c', 'c.id', '=', 'p.my_class_id'), 'r.paid_on')->where($match)
+            ->select('r.id', 'r.paid_on', 'r.created_at', 'r.amt_paid', 'r.reference', 'p.title', 'p.term', 'p.year', 'u.id as student_id', 'u.name', 'c.name as class_name')->get()
             ->map(function ($r) {
-                return ['key' => 's'.$r->id, 'at' => (string) $r->created_at, 'student' => $r->name, 'class' => $r->class_name, 'for' => $r->title.' · '.$r->year,
+                return ['key' => 's'.$r->id, 'at' => $r->paid_on.' 12:00:00', 'entered' => (string) $r->created_at, 'student' => $r->name, 'class' => $r->class_name, 'for' => $r->title.' · '.$r->year,
                     'reference' => $r->reference, 'amount' => \App\Support\Money::r($r->amt_paid), 'url' => route('payments.invoice', \App\Helpers\Qs::hash($r->student_id))];
             });
         $optional = $sel->apply(DB::table('optional_fee_receipts as r')->join('optional_fee_charges as ch', 'ch.id', '=', 'r.charge_id')
             ->join('users as u', 'u.id', '=', 'ch.student_id')
-            ->leftJoin('student_records as sr', 'sr.user_id', '=', 'ch.student_id')->leftJoin('my_classes as c', 'c.id', '=', 'sr.my_class_id'), 'r.created_at')->where($match)
-            ->select('r.id', 'r.created_at', 'r.amt_paid', 'r.reference', 'ch.label', 'ch.year', 'u.id as student_id', 'u.name', 'c.name as class_name')->get()
+            ->leftJoin('student_records as sr', 'sr.user_id', '=', 'ch.student_id')->leftJoin('my_classes as c', 'c.id', '=', 'sr.my_class_id'), 'r.paid_on')->where($match)
+            ->select('r.id', 'r.paid_on', 'r.created_at', 'r.amt_paid', 'r.reference', 'ch.label', 'ch.year', 'u.id as student_id', 'u.name', 'c.name as class_name')->get()
             ->map(function ($r) {
-                return ['key' => 'o'.$r->id, 'at' => (string) $r->created_at, 'student' => $r->name, 'class' => $r->class_name, 'for' => $r->label.' · '.$r->year,
+                return ['key' => 'o'.$r->id, 'at' => $r->paid_on.' 12:00:00', 'entered' => (string) $r->created_at, 'student' => $r->name, 'class' => $r->class_name, 'for' => $r->label.' · '.$r->year,
                     'reference' => $r->reference, 'amount' => \App\Support\Money::r($r->amt_paid), 'url' => route('payments.invoice', \App\Helpers\Qs::hash($r->student_id))];
             });
 
@@ -487,8 +487,8 @@ class FinanceSummary
     /** Cash at a moment: everything received up to then minus everything spent up to then. */
     public static function balanceAt(Carbon $at): float
     {
-        $in = \App\Support\Money::r(DB::table('receipts')->where('created_at', '<=', $at)->sum('amt_paid'))
-            + \App\Support\Money::r(DB::table('optional_fee_receipts')->where('created_at', '<=', $at)->sum('amt_paid'))
+        $in = \App\Support\Money::r(DB::table('receipts')->where('paid_on', '<=', $at->toDateString())->sum('amt_paid'))
+            + \App\Support\Money::r(DB::table('optional_fee_receipts')->where('paid_on', '<=', $at->toDateString())->sum('amt_paid'))
             + \App\Support\Money::r(DB::table('finance_transactions')->where('type', 'income')->where('date', '<=', $at->toDateString())->sum('amount'));
         $out = \App\Support\Money::r(DB::table('finance_transactions')->where('type', 'expense')->where('date', '<=', $at->toDateString())->sum('amount'));
 
@@ -517,8 +517,8 @@ class FinanceSummary
             $within = $sel->apply(clone $query, $col, $date)->groupBy('method')->select('method', DB::raw("sum($sum) as t"))->pluck('t', 'method');
             return [$before, $within];
         };
-        [$sfB, $sfW] = $byMethod(DB::table('receipts'), 'created_at', false, 'amt_paid');
-        [$ofB, $ofW] = $byMethod(DB::table('optional_fee_receipts'), 'created_at', false, 'amt_paid');
+        [$sfB, $sfW] = $byMethod(DB::table('receipts'), 'paid_on', false, 'amt_paid');
+        [$ofB, $ofW] = $byMethod(DB::table('optional_fee_receipts'), 'paid_on', false, 'amt_paid');
         [$inB, $inW] = $byMethod(DB::table('finance_transactions')->where('type', 'income'), 'date', true, 'amount');
         [$exB, $exW] = $byMethod(DB::table('finance_transactions')->where('type', 'expense'), 'date', true, 'amount');
 
@@ -550,7 +550,7 @@ class FinanceSummary
 
         $line('Brought forward', 'Balance brought forward', array_sum($opening), 'credit');
         $line('Income', 'School fees', (float) $sfW->sum(), 'credit');
-        $groups = $sel->apply(DB::table('optional_fee_receipts as r')->join('optional_fee_charges as c', 'c.id', '=', 'r.charge_id'), 'r.created_at')
+        $groups = $sel->apply(DB::table('optional_fee_receipts as r')->join('optional_fee_charges as c', 'c.id', '=', 'r.charge_id'), 'r.paid_on')
             ->groupBy('c.group')->select('c.group', DB::raw('sum(r.amt_paid) as t'))->pluck('t', 'group');
         foreach (OptionalFeeCharge::GROUPS as $g => $label) $line('Income', $label, (float) ($groups[$g] ?? 0), 'credit');
         $other = $sel->apply(DB::table('finance_transactions')->where('type', 'income'), 'date', true)->groupBy('category')
@@ -584,11 +584,11 @@ class FinanceSummary
             ->join('payments as p', 'p.id', '=', 'pr.payment_id')
             ->join('users as u', 'u.id', '=', 'pr.student_id')
             ->leftJoin('student_records as sr', 'sr.user_id', '=', 'pr.student_id')
-            ->leftJoin('my_classes as c', 'c.id', '=', 'sr.my_class_id'), 'r.created_at')
-            ->select('r.id', 'r.created_at', 'r.amt_paid', 'r.balance', 'r.method', 'p.title', 'p.year', 'u.id as student_id', 'u.name', 'c.name as class_name')->get()
+            ->leftJoin('my_classes as c', 'c.id', '=', 'sr.my_class_id'), 'r.paid_on')
+            ->select('r.id', 'r.paid_on', 'r.created_at', 'r.amt_paid', 'r.balance', 'r.method', 'p.title', 'p.year', 'u.id as student_id', 'u.name', 'c.name as class_name')->get()
             ->map(function ($r) {
                 return [
-                    'key' => 's'.$r->id, 'at' => (string) $r->created_at, 'dir' => 'in', 'source' => 'School fees', 'category' => $r->title.' · '.$r->year,
+                    'key' => 's'.$r->id, 'at' => $r->paid_on.' 12:00:00', 'entered' => (string) $r->created_at, 'dir' => 'in', 'source' => 'School fees', 'category' => $r->title.' · '.$r->year,
                     'party' => $r->name, 'detail' => trim(implode(' · ', array_filter([$r->class_name, $r->method, 'balance left '.Money::fmt($r->balance)]))),
                     'ref' => 'SF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'amount' => \App\Support\Money::r($r->amt_paid),
                     'url' => route('receipts.show', ['school', \App\Helpers\Qs::hash($r->id)]),
@@ -600,11 +600,11 @@ class FinanceSummary
             ->join('optional_fee_charges as ch', 'ch.id', '=', 'r.charge_id')
             ->join('users as u', 'u.id', '=', 'ch.student_id')
             ->leftJoin('student_records as sr', 'sr.user_id', '=', 'ch.student_id')
-            ->leftJoin('my_classes as c', 'c.id', '=', 'sr.my_class_id'), 'r.created_at')
-            ->select('r.id', 'r.created_at', 'r.amt_paid', 'r.balance', 'r.method', 'ch.group', 'ch.label', 'ch.year', 'u.id as student_id', 'u.name', 'c.name as class_name')->get()
+            ->leftJoin('my_classes as c', 'c.id', '=', 'sr.my_class_id'), 'r.paid_on')
+            ->select('r.id', 'r.paid_on', 'r.created_at', 'r.amt_paid', 'r.balance', 'r.method', 'ch.group', 'ch.label', 'ch.year', 'u.id as student_id', 'u.name', 'c.name as class_name')->get()
             ->map(function ($r) {
                 return [
-                    'key' => 'o'.$r->id, 'at' => (string) $r->created_at, 'dir' => 'in',
+                    'key' => 'o'.$r->id, 'at' => $r->paid_on.' 12:00:00', 'entered' => (string) $r->created_at, 'dir' => 'in',
                     'source' => OptionalFeeCharge::GROUPS[$r->group] ?? ucfirst($r->group), 'category' => $r->label.' · '.$r->year,
                     'party' => $r->name, 'detail' => trim(implode(' · ', array_filter([$r->class_name, $r->method, 'balance left '.Money::fmt($r->balance)]))),
                     'ref' => 'OF-'.str_pad($r->id, 6, '0', STR_PAD_LEFT), 'amount' => \App\Support\Money::r($r->amt_paid),
@@ -643,10 +643,10 @@ class FinanceSummary
         $from = $ranges[0][0]->copy()->startOfMonth();
         $to = end($ranges)[1]->copy()->min(now()->endOfMonth());
         $fmt = "DATE_FORMAT(%s, '%%Y-%%m')";
-        $school = $sel->apply(DB::table('receipts'), 'created_at')->groupBy('ym')
-            ->select(DB::raw(sprintf($fmt, 'created_at').' as ym'), DB::raw('sum(amt_paid) as t'))->pluck('t', 'ym');
-        $optional = $sel->apply(DB::table('optional_fee_receipts'), 'created_at')->groupBy('ym')
-            ->select(DB::raw(sprintf($fmt, 'created_at').' as ym'), DB::raw('sum(amt_paid) as t'))->pluck('t', 'ym');
+        $school = $sel->apply(DB::table('receipts'), 'paid_on')->groupBy('ym')
+            ->select(DB::raw(sprintf($fmt, 'paid_on').' as ym'), DB::raw('sum(amt_paid) as t'))->pluck('t', 'ym');
+        $optional = $sel->apply(DB::table('optional_fee_receipts'), 'paid_on')->groupBy('ym')
+            ->select(DB::raw(sprintf($fmt, 'paid_on').' as ym'), DB::raw('sum(amt_paid) as t'))->pluck('t', 'ym');
         $tx = $sel->apply(DB::table('finance_transactions'), 'date', true)->groupBy('ym', 'type')
             ->select(DB::raw(sprintf($fmt, 'date').' as ym'), 'type', DB::raw('sum(amount) as t'))->get();
 
