@@ -207,33 +207,66 @@ class SmokeTest extends TestCase
         }
     }
 
-    public function testDirectBillIsOnTheInvoiceAndLeavesServicesAlone()
+    public function testDirectBillForAnEarlierTerm()
     {
         $sr = \App\Models\StudentRecord::where('grad', 0)->first();
         if (!$sr) return $this->assertTrue(true);
         $year = \App\Helpers\Qs::getCurrentSession();
+        $start = (int) substr($year, 0, 4);
+        $last = ($start - 1).'-'.$start;
         $acc = $this->user('accountant');
+        $super = $this->user('super_admin');
         $hash = \App\Helpers\Qs::hash($sr->user_id);
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
             $before = \App\Support\Fees::termInvoice($sr->user_id)['total'];
             $services = \App\Support\Fees::selectionFor($sr->user_id, $year);
-            $this->actingAs($acc)->post(route('finance.assign.direct'), ['student' => $hash, 'label' => 'Lunch arrears', 'amount' => 150])->assertOk();
+            $thisYear = \App\Support\FinanceSummary::fees(\App\Support\TermSelection::year($year))['total']['expected'];
+            $this->actingAs($acc)->post(route('finance.assign.direct'), ['student' => $hash, 'label' => 'Lunch arrears', 'amount' => 150, 'year' => $last, 'term' => 3])->assertOk();
             $invoice = \App\Support\Fees::termInvoice($sr->user_id);
             $this->assertEquals($before + 150, $invoice['total']);
-            $this->assertTrue(collect($invoice['table'])->contains('label', 'Lunch arrears'));
+            $this->assertEquals(150, collect($invoice['forward']['lines'])->firstWhere('label', 'Lunch arrears · Term 3 · '.str_replace('-', ' – ', $last))['balance']);
             $this->assertEquals($services, \App\Support\Fees::selectionFor($sr->user_id, $year));
-            $this->actingAs($acc)->get('/finance/assign?student='.$hash)->assertOk()->assertSee('Lunch arrears');
-            $this->actingAs($this->user('super_admin'))->get(route('finance.dashboard'))->assertOk();
+            $this->assertEquals($thisYear, \App\Support\FinanceSummary::fees(\App\Support\TermSelection::year($year))['total']['expected']);
+            $this->actingAs($acc)->get(route('finance.direct_bills'))->assertOk()->assertSee('Lunch arrears');
+            $this->actingAs($acc)->get('/finance/assign?student='.$hash)->assertOk()->assertDontSee('Lunch arrears');
 
-            $c = \App\Models\OptionalFeeCharge::where(['student_id' => $sr->user_id, 'group' => 'direct'])->first();
-            $c->update(['amt_paid' => 10]);
+            $c = \App\Models\OptionalFeeCharge::where(['student_id' => $sr->user_id, 'group' => 'direct'])->latest('id')->first();
             $this->actingAs($acc)->delete(route('finance.assign.direct.remove', $c->id))->assertOk();
             $this->assertNotNull($c->fresh());
-            $c->update(['amt_paid' => 0]);
-            $this->actingAs($acc)->delete(route('finance.assign.direct.remove', $c->id))->assertOk();
+
+            // It is paid like any other bill, oldest first; once paid only part way it cannot be removed.
+            \App\Support\Fees::applyPayment($sr->user_id, 50, 'Cash');
+            $this->assertEquals(50, $c->fresh()->amt_paid);
+            $this->assertEquals($before + 100, \App\Support\Fees::termInvoice($sr->user_id)['total']);
+            $this->actingAs($super)->delete(route('finance.assign.direct.remove', $c->id))->assertOk();
+            $this->assertNotNull($c->fresh());
+
+            \App\Models\OptionalFeeReceipt::where('charge_id', $c->id)->delete();
+            $c->refresh()->update(['amt_paid' => 0]);
+            $this->actingAs($super)->delete(route('finance.assign.direct.remove', $c->id))->assertOk();
             $this->assertNull($c->fresh());
-            $this->assertEquals($before, \App\Support\Fees::termInvoice($sr->user_id)['total']);
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
+    public function testOneDiscountBoxKeepsNextTermOnlyApart()
+    {
+        $sr = \App\Models\StudentRecord::where('grad', 0)->first();
+        if (!$sr) return $this->assertTrue(true);
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $sr->update(['fee_discount_id' => null, 'next_discount_id' => null]);
+            $mk = function ($once) { return \App\Models\FeeDiscount::create(['name' => 'Test '.(int) $once, 'kind' => 'percent', 'percent' => 5, 'next_term_only' => $once, 'active' => true]); };
+            $standing = $mk(false);
+            $once = $mk(true);
+            $post = function ($discount) use ($sr) {
+                $this->actingAs($this->user('accountant'))->post(route('finance.assign.save'), ['student' => \App\Helpers\Qs::hash($sr->user_id), 'discount' => $discount, 'services' => '{}'])->assertOk();
+                return $sr->fresh();
+            };
+            $this->assertEquals($once->id, $post($once->id)->next_discount_id);
+            $this->assertEquals([$standing->id, $once->id], [$post($standing->id)->fee_discount_id, $sr->fresh()->next_discount_id]);
         } finally {
             \Illuminate\Support\Facades\DB::rollBack();
         }

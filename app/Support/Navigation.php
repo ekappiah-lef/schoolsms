@@ -138,6 +138,7 @@ class Navigation
                 self::item('Sales & inventory', 'shopping-bag', 'finance.sales'),
                 self::group('Services', 'utensils', [
                     self::item('Assign services', null, 'finance.assign'),
+                    self::item('Direct bills', null, 'finance.direct_bills'),
                     $service('Feeding', 'feeding'),
                     $service('Bus', 'bus'),
                     $service('Extra-curricular', 'extracurricular'),

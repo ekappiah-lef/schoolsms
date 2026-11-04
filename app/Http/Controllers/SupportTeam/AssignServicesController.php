@@ -39,32 +39,48 @@ class AssignServicesController extends Controller
                 'class_id' => $sr->my_class_id,
                 'services' => Fees::selectionFor($sr->user_id, $year),
                 'next_services' => Fees::nextServices($sr, $year),
-                'fee_discount_id' => $sr->fee_discount_id ? (string) $sr->fee_discount_id : '',
-                'next_discount_id' => $sr->next_discount_id ? (string) $sr->next_discount_id : '',
+                'discount' => (string) ($sr->fee_discount_id ?: $sr->next_discount_id ?: ''),
                 'staff_child' => (bool) $sr->staff_child,
                 'invoice' => route('payments.invoice', Qs::hash($sr->user_id)),
             ] : null,
             'catalogue' => Fees::catalogue(),
             'discounts' => Fees::discountOptions(),
-            'directBills' => DB::table('optional_fee_charges as c')->join('users as u', 'u.id', '=', 'c.student_id')
-                ->where(['c.group' => 'direct', 'c.year' => $year])->orderByDesc('c.id')
-                ->get(['c.id', 'c.label', 'c.amount', 'c.amt_paid', 'c.created_at', 'u.name'])
-                ->map(function ($c) {
-                    return ['id' => $c->id, 'student' => $c->name, 'label' => $c->label, 'amount' => (float) $c->amount, 'paid' => (float) $c->amt_paid, 'date' => $c->created_at,
-                        'remove' => (float) $c->amt_paid > 0 ? null : route('finance.assign.direct.remove', $c->id)];
-                }),
+            'direct' => ['year' => $year, 'term' => Fees::termNow($year), 'years' => $this->directYears($year)],
             'urls' => ['self' => route('finance.assign'), 'save' => route('finance.assign.save'), 'direct' => route('finance.assign.direct')],
         ]);
     }
 
-    /** Bill direct: one amount for one student in the school's own words (e.g. arrears the migration missed). */
+    /** This school year and the three before it. */
+    protected function directYears(string $year): array
+    {
+        $start = (int) substr($year, 0, 4);
+
+        return array_map(function ($i) use ($start) { return ($start - $i).'-'.($start - $i + 1); }, [0, 1, 2, 3]);
+    }
+
+    /** Every direct bill; only the super admin can remove one, and only while nothing is paid on it. */
+    public function directBills()
+    {
+        return Inertia::render('Finance/DirectBills', [
+            'bills' => DB::table('optional_fee_charges as c')->join('users as u', 'u.id', '=', 'c.student_id')
+                ->where('c.group', 'direct')->orderByDesc('c.id')
+                ->get(['c.id', 'c.label', 'c.year', 'c.term', 'c.amount', 'c.amt_paid', 'c.created_at', 'u.name'])
+                ->map(function ($c) {
+                    return ['id' => $c->id, 'student' => $c->name, 'label' => $c->label, 'year' => $c->year, 'term' => (int) $c->term, 'amount' => (float) $c->amount, 'paid' => (float) $c->amt_paid, 'date' => $c->created_at,
+                        'remove' => Qs::userIsSuperAdmin() && (float) $c->amt_paid <= 0 ? route('finance.assign.direct.remove', $c->id) : null];
+                }),
+        ]);
+    }
+
+    /** Bill direct: one amount for one student for the term it belongs to (e.g. arrears the migration missed). */
     public function direct(Request $req)
     {
-        $d = $req->validate(['label' => 'required|string|max:120', 'amount' => 'required|numeric|min:0.01|max:1000000'], [], ['label' => 'What it is for']);
+        $current = Qs::getCurrentSession();
+        $d = $req->validate(['label' => 'required|string|max:120', 'amount' => 'required|numeric|min:0.01|max:1000000', 'year' => 'required|in:'.implode(',', $this->directYears($current)), 'term' => 'required|in:1,2,3'], [], ['label' => 'Reason']);
+        if ($d['year'] === $current && (int) $d['term'] > Fees::termNow($current)) return Qs::json('That term has not started yet.', false);
         $sr = StudentRecord::where(['user_id' => (int) Qs::decodeHash((string) $req->input('student')), 'grad' => 0])->first();
         if (!$sr) return Qs::json('Choose a student.', false);
-        $year = Qs::getCurrentSession();
-        OptionalFeeCharge::create(['student_id' => $sr->user_id, 'year' => $year, 'term' => Fees::termNow($year), 'group' => 'direct',
+        OptionalFeeCharge::create(['student_id' => $sr->user_id, 'year' => $d['year'], 'term' => (int) $d['term'], 'group' => 'direct',
             'label' => trim($d['label']), 'amount' => \App\Support\Money::r($d['amount']), 'amt_paid' => 0]);
         \App\Support\ClearEnroll::studentChanged((int) $sr->user_id);
 
@@ -72,9 +88,10 @@ class AssignServicesController extends Controller
     }
 
     /** A direct bill entered by mistake: removed only while nothing has been paid on it. */
-    public function removeDirect($id)
+    public function removeDirect($charge)
     {
-        $c = OptionalFeeCharge::where('group', 'direct')->find((int) $id);
+        if (!Qs::userIsSuperAdmin()) return Qs::json(__('msg.denied'), false);
+        $c = OptionalFeeCharge::where('group', 'direct')->find((int) $charge);
         if (!$c) return Qs::json(__('msg.rnf'), false);
         if ($c->amt_paid > 0) return Qs::json('This bill has payments on it and cannot be removed.', false);
         $student = (int) $c->student_id;
@@ -94,10 +111,16 @@ class AssignServicesController extends Controller
         if (!empty($sel['bus_direction']) && empty($sel['bus_route_id'])) return Qs::json('Choose the bus location, or set the bus to “No bus”.', false);
 
         $year = Qs::getCurrentSession();
-        $standing = FeeDiscount::where('next_term_only', false)->find((int) $req->input('fee_discount_id'));
-        $once = FeeDiscount::where('next_term_only', true)->find((int) $req->input('next_discount_id'));
-        $discountChanged = (int) $sr->fee_discount_id !== (int) optional($standing)->id;
-        $sr->update(['fee_discount_id' => optional($standing)->id, 'next_discount_id' => optional($once)->id, 'staff_child' => $req->boolean('staff_child')]);
+        // One Discount box: a "next term only" type (e.g. 5% early payment) is kept apart from the standing one.
+        $picked = FeeDiscount::find((int) $req->input('discount'));
+        $standing = $sr->fee_discount_id;
+        $once = $sr->next_discount_id;
+        if ($picked && $picked->next_term_only) $once = $picked->id;
+        elseif ($picked) $standing = $picked->id;
+        elseif ($standing) $standing = null;
+        else $once = null;
+        $discountChanged = (int) $sr->fee_discount_id !== (int) $standing;
+        $sr->update(['fee_discount_id' => $standing, 'next_discount_id' => $once, 'staff_child' => $req->boolean('staff_child')]);
         if ($discountChanged) Fees::applyDiscount($sr->fresh(), $year);
 
         // Next term: this term's services and bills stay as they are. This term: billed now.
