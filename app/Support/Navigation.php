@@ -49,7 +49,9 @@ class Navigation
                 $students[] = self::item('Graduated', null, 'students.graduated');
             }
             $academics[] = self::group('Students', 'graduation-cap', $students);
+        }
 
+        if (Qs::userIsTeamSAT()) {
             $exams = [];
             if (Qs::userIsTeamSA()) {
                 $exams[] = self::item('Exam list', null, 'exams.index', ['exams.index', 'exams.edit']);

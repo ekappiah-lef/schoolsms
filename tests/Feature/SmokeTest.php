@@ -310,6 +310,11 @@ class SmokeTest extends TestCase
         try {
             \App\Support\SchoolConfig::set('features', ['accountant_views_students']);
             $this->actingAs($acc)->get(route('students.index'))->assertOk();
+            $this->actingAs($acc);
+            $labels = collect(\App\Support\Navigation::build())->flatMap(function ($section) { return collect($section['items'] ?? [])->pluck('label'); });
+            $this->assertTrue($labels->contains('Students'));
+            $this->assertFalse($labels->contains('Examinations'));
+            $this->assertFalse($labels->contains('Attendance'));
             $this->actingAs($acc)->get(route('students.show', \App\Helpers\Qs::hash($sr->id)))->assertOk()->assertDontSee(route('students.edit', \App\Helpers\Qs::hash($sr->id)), false);
             $this->actingAs($acc)->get(route('students.edit', \App\Helpers\Qs::hash($sr->id)))->assertStatus(302);
             \App\Support\SchoolConfig::set('features', []);
