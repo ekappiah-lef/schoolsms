@@ -20,6 +20,12 @@ class School
         return in_array($feature, self::features(), true);
     }
 
+    /** Schools with accountant_views_students: the accountant can look students up (never edit them). */
+    public static function accountantSeesStudents(): bool
+    {
+        return self::has('accountant_views_students') && optional(auth()->user())->user_type === 'accountant';
+    }
+
     /** Switches the pages need to know about. */
     public static function forPage(): array
     {

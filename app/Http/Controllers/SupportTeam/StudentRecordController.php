@@ -38,7 +38,10 @@ class StudentRecordController extends Controller
    {
        $this->middleware('teamSA', ['only' => ['edit', 'update', 'reset_pass', 'create', 'store', 'graduated'] ]);
        $this->middleware('super_admin', ['only' => ['destroy',] ]);
-       $this->middleware('teamSAT', ['only' => ['index', 'search'] ]);
+       $this->middleware(function ($req, $next) {
+           abort_unless(Qs::userIsTeamSAT() || \App\Support\School::accountantSeesStudents(), 403);
+           return $next($req);
+       })->only(['index', 'search']);
 
         $this->loc = $loc;
         $this->my_class = $my_class;
@@ -306,7 +309,7 @@ class StudentRecordController extends Controller
         if(!$sr){return Qs::goWithDanger();}
 
         /* Prevent Other Students/Parents from viewing Profile of others */
-        if(Auth::user()->id != $data['sr']->user_id && !Qs::userIsTeamSAT() && !Qs::userIsMyChild($data['sr']->user_id, Auth::user()->id)){
+        if(Auth::user()->id != $data['sr']->user_id && !Qs::userIsTeamSAT() && !\App\Support\School::accountantSeesStudents() && !Qs::userIsMyChild($data['sr']->user_id, Auth::user()->id)){
             return redirect(route('dashboard'))->with('pop_error', __('msg.denied'));
         }
         if (!\App\Support\TeacherScope::canSeeStudent($sr)) {
@@ -641,7 +644,7 @@ class StudentRecordController extends Controller
                 'admission_date' => $sr->admission_date,
                 'discount' => ($fd = \App\Support\Fees::standingDiscount($sr->fee_discount_id)) ? ['name' => $fd->name, 'label' => $fd->label()] : null,
                 'next_discount' => $sr->next_discount_id && ($nd = \App\Models\FeeDiscount::find($sr->next_discount_id)) ? ['name' => $nd->name, 'label' => $nd->label()] : null,
-                'details' => Qs::userIsTeamSAT() || Auth::id() === $u->id || Qs::userIsMyChild($u->id, Auth::id())
+                'details' => Qs::userIsTeamSAT() || \App\Support\School::accountantSeesStudents() || Auth::id() === $u->id || Qs::userIsMyChild($u->id, Auth::id())
                     ? optional(StudentDetail::where('user_id', $u->id)->first())->only(StudentDetail::FIELDS)
                     : null,
             ],

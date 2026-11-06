@@ -22,6 +22,7 @@ return [
         'departments_by_class_type' => 'Departments cover class types (e.g. Lower Grade, Upper Grade): the head approves the marks of every subject in those classes.',
         'subject_teachers_per_section' => 'A subject can have its own teacher(s) in each section; each enters marks only for their sections.',
         'multiple_class_teachers' => 'A section can have several class teachers (each sees the class, takes the register and writes comments).',
+        'accountant_views_students' => 'The accountant sees All students and the student profiles (to find a student and open their payments), but cannot edit them.',
         'hod_marks_approval' => 'Heads of department check and approve the marks of their subjects; approved marks are locked and reports wait for approval.',
     ],
 

@@ -118,7 +118,7 @@ class SmokeTest extends TestCase
     public function testAccountantGoesThroughStudents()
     {
         $acc = $this->user('accountant');
-        $this->actingAs($acc)->get(route('students.index'))->assertStatus(302);
+        $this->assertNotEquals(200, $this->actingAs($acc)->get(route('students.index'))->getStatusCode());
         $sr = \App\Models\StudentRecord::where('grad', 0)->first();
         if ($sr) {
             $this->actingAs($acc)->get(route('students.edit', \App\Helpers\Qs::hash($sr->id)))->assertStatus(302);
@@ -298,6 +298,24 @@ class SmokeTest extends TestCase
             $this->assertSame(today()->toDateString(), \App\Models\Receipt::where('pr_id', $pr->id)->latest('id')->first()->paid_on->toDateString());
         } finally {
             \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
+    public function testAccountantLooksUpStudentsWhereTheSchoolAllowsIt()
+    {
+        $acc = $this->user('accountant');
+        $sr = \App\Models\StudentRecord::where('grad', 0)->first();
+        if (!$sr) return $this->assertTrue(true);
+        $before = \App\Support\SchoolConfig::get('features');
+        try {
+            \App\Support\SchoolConfig::set('features', ['accountant_views_students']);
+            $this->actingAs($acc)->get(route('students.index'))->assertOk();
+            $this->actingAs($acc)->get(route('students.show', \App\Helpers\Qs::hash($sr->id)))->assertOk()->assertDontSee(route('students.edit', \App\Helpers\Qs::hash($sr->id)), false);
+            $this->actingAs($acc)->get(route('students.edit', \App\Helpers\Qs::hash($sr->id)))->assertStatus(302);
+            \App\Support\SchoolConfig::set('features', []);
+            $this->actingAs($acc)->get(route('students.index'))->assertStatus(403);
+        } finally {
+            \App\Support\SchoolConfig::set('features', $before);
         }
     }
 
