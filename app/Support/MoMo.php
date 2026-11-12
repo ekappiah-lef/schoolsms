@@ -123,18 +123,22 @@ class MoMo
     /** Record the outcome; a successful payment is applied to the fees (once, inside a lock). */
     protected static function settle(MomoPayment $p, string $status, ?string $txn, $reason): void
     {
-        DB::transaction(function () use ($p, $status, $txn, $reason) {
+        $applied = [];
+        DB::transaction(function () use ($p, $status, $txn, $reason, &$applied) {
             $p = MomoPayment::where('id', $p->id)->lockForUpdate()->first();
             if ($p->status !== 'pending') {
                 return;
             }
             if ($status === 'SUCCESSFUL') {
-                Fees::applyPayment($p->student_id, \App\Support\Money::r($p->amount), 'Mobile payment', 'MTN MoMo '.($txn ?: $p->reference));
+                $applied = Fees::applyPayment($p->student_id, \App\Support\Money::r($p->amount), 'Mobile payment', 'MTN MoMo '.($txn ?: $p->reference));
                 $p->update(['status' => 'successful', 'financial_transaction_id' => $txn, 'applied_at' => now()]);
             } else {
                 $p->update(['status' => 'failed', 'reason' => is_string($reason) ? mb_substr($reason, 0, 250) : 'Payment was not completed']);
             }
         });
+        foreach ($applied as $a) {
+            \App\Http\Controllers\SupportTeam\ReceiptController::autoSend($a['kind'] === 'school' ? 'school' : 'optional', (int) $a['id'], true);
+        }
     }
 
     protected static function token(): string

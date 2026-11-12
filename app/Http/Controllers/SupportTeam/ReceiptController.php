@@ -50,9 +50,10 @@ class ReceiptController extends Controller
     }
 
     /** Schools with auto_send_receipts: the parent gets the receipt once the page has answered. Returns whether it will be sent. */
-    public static function autoSend(string $kind, int $id): bool
+    public static function autoSend(string $kind, int $id, bool $always = false): bool
     {
-        if (!\App\Support\School::has('auto_send_receipts')) return false;
+        // Online payments (Paystack, MoMo) always send it; payments typed in at the office follow the switch.
+        if (!$always && !\App\Support\School::has('auto_send_receipts')) return false;
         dispatch(function () use ($kind, $id) {
             if ($r = self::data($kind, $id)) Notices::sendReceipt($r);
         })->afterResponse();

@@ -181,7 +181,7 @@ class Paystack
             }
         });
         foreach ($applied as $a) {
-            \App\Http\Controllers\SupportTeam\ReceiptController::autoSend($a['kind'] === 'school' ? 'school' : 'optional', (int) $a['id']);
+            \App\Http\Controllers\SupportTeam\ReceiptController::autoSend($a['kind'] === 'school' ? 'school' : 'optional', (int) $a['id'], true);
         }
     }
 

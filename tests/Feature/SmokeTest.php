@@ -379,6 +379,9 @@ class SmokeTest extends TestCase
 
             $this->get(route('paystack.callback', ['reference' => $p->reference]))->assertRedirect();
             $this->assertSame('successful', $p->fresh()->status);
+            // The parent gets the receipt by itself, whatever the school's receipt switch.
+            $to = \App\Support\Notices::recipients($sr);
+            if ($to['phones'] || $to['emails']) $this->assertGreaterThan(0, \App\Models\NotificationLog::where(['student_id' => $sr->user_id, 'kind' => 'receipt'])->where('created_at', '>=', now()->subMinute())->count());
             $this->assertEquals($before - 50, \App\Support\Fees::termInvoice($sr->user_id)['total']);
 
             // Coming back again, or Paystack's signed webhook, does not apply it twice.
