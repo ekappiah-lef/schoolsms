@@ -60,7 +60,23 @@ class ControlApiController extends Controller
             'demo_mode' => (bool) array_filter(explode(',', (string) config('sms.allowlist'))),
             'schemes' => collect(config('school.schemes'))->map(function ($s, $k) { return $s['title'] ?? ucfirst(str_replace('_', ' ', $k)); }),
             'available_features' => config('school.FEATURES'),
+            'keys' => self::keyStatus(),
         ]);
+    }
+
+    /** What is set for each key the Control Centre manages: plain values, and only the last 4 characters of secrets. */
+    protected static function keyStatus(): array
+    {
+        $out = [];
+        foreach (\App\Http\Controllers\Control\ControlController::KEYS as $k) {
+            $v = getenv($k);
+            if ($v === false) $v = $_ENV[$k] ?? $_SERVER[$k] ?? null;
+            $v = trim((string) $v, " \t\"'");
+            $secret = (bool) preg_match('/PASSWORD|_KEY$|TOKEN|API_USER/', $k);
+            $out[$k] = $secret ? ['set' => $v !== '', 'hint' => $v !== '' ? substr($v, -4) : null] : ['set' => $v !== '', 'value' => $v];
+        }
+
+        return $out;
     }
 
     public function config(Request $req)

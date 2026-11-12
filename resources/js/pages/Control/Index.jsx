@@ -86,7 +86,7 @@ export default function ControlIndex({ schools, unregistered, jobs, urls }) {
                                             <td className="px-3 py-3">
                                                 <StatusBadge status={s.status} healthy={s.healthy} />
                                             </td>
-                                            <td className="px-3 py-3 font-mono text-xs">{s.version || '—'}</td>
+                                            <td className="px-3 py-3 text-xs">{s.version || '—'}</td>
                                             <td className="tabular px-3 py-3 text-right">{s.students ?? '—'}</td>
                                             <td className="px-3 py-3">{s.demo === null || s.demo === undefined ? '—' : s.demo ? <Badge tone="warning">Demo mode</Badge> : <Badge tone="success">Live</Badge>}</td>
                                             <td className="px-5 py-3 text-fg-muted">{s.last_backup ? formatDate(s.last_backup, 'd MMM yyyy HH:mm') : '—'}</td>

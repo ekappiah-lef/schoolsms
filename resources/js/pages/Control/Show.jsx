@@ -6,19 +6,67 @@ import { withAppLayout } from '@/layouts/AppLayout';
 import { Field, ModuleHeader, NativeSelect, fieldInput } from '@/components/app/module';
 import { Panel, StatCard, StatStrip } from '@/components/app/page';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Modal } from '@/components/ui/dialog';
 import { submitForm } from '@/lib/http';
 import { formatDate } from '@/lib/utils';
 import { FeatureList } from './Create';
 import { JobLog, StatusBadge } from './parts';
 
-const KEY_GROUPS = [
-    ['Email', ['MAIL_DRIVER', 'MAIL_HOST', 'MAIL_PORT', 'MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_ENCRYPTION', 'MAIL_FROM_ADDRESS', 'MAIL_FROM_NAME']],
-    ['SMS', ['SMS_DRIVER', 'SMS_SENDER_ID', 'SMSONLINEGH_API_KEY']],
-    ['Demo mode (only these contacts receive messages; clear it to go live)', ['NOTICE_ALLOWLIST']],
-    ['MTN MoMo', ['MOMO_DRIVER', 'MOMO_COLLECTION_SUBSCRIPTION_KEY', 'MOMO_API_USER', 'MOMO_API_KEY']],
-    ['ClearEnroll', ['CLEARENROLL_API_URL', 'CLEARENROLL_API_KEY']],
-    ['WhatsApp', ['WHATSAPP_ENABLED', 'WHATSAPP_PROVIDER', 'WHATSAPP_API_KEY', 'WHATSAPP_TEMPLATE', 'WHATSAPP_TEMPLATE_LANG', 'WHATSAPP_TOKEN', 'WHATSAPP_PHONE_NUMBER_ID']],
-    ['Staff clock-in devices', ['STAFF_CLOCK_DEVICES', 'STAFF_CLOCK_TOKEN']],
+const SECRET = /PASSWORD|_KEY$|TOKEN|API_USER/;
+
+/** Each service the school uses: its fields (key, label) and whether it is set up. */
+const SERVICES = [
+    {
+        title: 'SMS',
+        fields: [['SMS_SENDER_ID', 'Sender name'], ['SMSONLINEGH_API_KEY', 'SMSOnlineGH API key'], ['SMS_DRIVER', 'Provider']],
+        ready: (k) => k.SMSONLINEGH_API_KEY?.set && k.SMS_DRIVER?.value !== 'log',
+        summary: (k) => k.SMS_SENDER_ID?.value,
+    },
+    {
+        title: 'Email',
+        fields: [
+            ['MAIL_FROM_ADDRESS', 'Sender email'], ['MAIL_FROM_NAME', 'Sender name'], ['MAIL_USERNAME', 'SMTP login'], ['MAIL_PASSWORD', 'SMTP password'],
+            ['MAIL_HOST', 'SMTP server'], ['MAIL_PORT', 'Port'], ['MAIL_ENCRYPTION', 'Encryption'], ['MAIL_DRIVER', 'Mailer'],
+        ],
+        ready: (k) => k.MAIL_PASSWORD?.set && k.MAIL_HOST?.set,
+        summary: (k) => k.MAIL_FROM_ADDRESS?.value,
+    },
+    {
+        title: 'Messages to parents',
+        fields: [['NOTICE_ALLOWLIST', 'Only these contacts (demo)']],
+        ready: (k) => !k.NOTICE_ALLOWLIST?.set,
+        on: 'Live',
+        off: 'Demo',
+        summary: (k) => k.NOTICE_ALLOWLIST?.value,
+    },
+    {
+        title: 'ClearEnroll',
+        fields: [['CLEARENROLL_API_URL', 'Address'], ['CLEARENROLL_API_KEY', 'API key']],
+        ready: (k) => k.CLEARENROLL_API_KEY?.set,
+        summary: (k) => k.CLEARENROLL_API_URL?.value,
+    },
+    {
+        title: 'MTN MoMo',
+        fields: [['MOMO_DRIVER', 'Mode'], ['MOMO_COLLECTION_SUBSCRIPTION_KEY', 'Subscription key'], ['MOMO_API_USER', 'API user'], ['MOMO_API_KEY', 'API key']],
+        ready: (k) => ['sandbox', 'production'].includes(k.MOMO_DRIVER?.value) && k.MOMO_API_KEY?.set,
+        summary: (k) => k.MOMO_DRIVER?.value,
+    },
+    {
+        title: 'WhatsApp',
+        fields: [
+            ['WHATSAPP_ENABLED', 'On (true / false)'], ['WHATSAPP_PROVIDER', 'Provider'], ['WHATSAPP_API_KEY', '360dialog API key'], ['WHATSAPP_TEMPLATE', 'Template'],
+            ['WHATSAPP_TEMPLATE_LANG', 'Template language'], ['WHATSAPP_TOKEN', 'Meta token'], ['WHATSAPP_PHONE_NUMBER_ID', 'Meta phone number ID'],
+        ],
+        ready: (k) => ['true', '1'].includes(String(k.WHATSAPP_ENABLED?.value).toLowerCase()),
+        summary: (k) => k.WHATSAPP_PROVIDER?.value,
+    },
+    {
+        title: 'Staff clock-in',
+        fields: [['STAFF_CLOCK_DEVICES', 'Devices'], ['STAFF_CLOCK_TOKEN', 'Device token']],
+        ready: (k) => k.STAFF_CLOCK_DEVICES?.set,
+        summary: (k) => k.STAFF_CLOCK_DEVICES?.value,
+    },
 ];
 
 /** One school: what it is running, its switches, scheme and settings, its keys, and server actions. */
@@ -51,7 +99,7 @@ export default function ControlShow({ school, live, liveError, logins, features,
 
                 <StatStrip>
                     <StatCard label="Status" value={<StatusBadge status={school.status} healthy={school.server?.healthy} />} context={school.url?.replace('https://', '')} />
-                    <StatCard label="Version" value={<span className="font-mono text-base">{live?.version || school.server?.version || '—'}</span>} />
+                    <StatCard label="Version" value={<span className="text-base">{live?.version || school.server?.version || '—'}</span>} />
                     <StatCard label="Students" value={live?.counts?.students ?? '—'} context={live ? `${live.counts.staff} staff · ${live.counts.classes} classes` : null} />
                     <StatCard label="Last backup" value={<span className="text-base">{school.server?.last_backup ? formatDate(school.server.last_backup, 'd MMM HH:mm') : '—'}</span>} context={live ? (live.demo_mode ? 'Demo mode' : 'Live') : null} />
                 </StatStrip>
@@ -59,7 +107,7 @@ export default function ControlShow({ school, live, liveError, logins, features,
                 {liveError && <Panel title="School">{<p className="text-sm text-fg-muted">{liveError}</p>}</Panel>}
                 {logins && <FirstLogins logins={logins} url={school.url} doneUrl={urls.logins_seen} />}
                 {live && <Config live={live} features={features} schemes={schemes} url={urls.config} />}
-                {live && <Keys url={urls.keys} />}
+                {live && <Keys url={urls.keys} keys={live.keys ?? {}} />}
                 {school.status !== 'creating' && <Actions urls={urls} />}
                 {jobs.length > 0 && <JobLog jobs={jobs} />}
             </div>
@@ -168,52 +216,81 @@ function Config({ live, features, schemes, url }) {
     );
 }
 
-function Keys({ url }) {
-    const [values, setValues] = useState({});
+function Keys({ url, keys }) {
+    const [editing, setEditing] = useState(null);
+    return (
+        <Panel title="Services" flush>
+            <ul>
+                {SERVICES.map((svc) => {
+                    const ok = svc.ready(keys);
+                    const hint = svc.summary(keys);
+                    return (
+                        <li key={svc.title} className="flex items-center gap-4 border-b border-border px-5 py-3.5 last:border-0">
+                            <div className="min-w-0 flex-1">
+                                <div className="font-medium">{svc.title}</div>
+                                {hint && <div className="truncate text-sm text-fg-muted">{hint}</div>}
+                            </div>
+                            <Badge tone={ok ? 'success' : 'neutral'}>{ok ? svc.on ?? 'Set up' : svc.off ?? 'Not set'}</Badge>
+                            <Button size="sm" onClick={() => setEditing(svc)}>
+                                Edit
+                            </Button>
+                        </li>
+                    );
+                })}
+            </ul>
+            {editing && <KeyEditor svc={editing} keys={keys} url={url} onClose={() => setEditing(null)} />}
+        </Panel>
+    );
+}
+
+function KeyEditor({ svc, keys, url, onClose }) {
+    const start = Object.fromEntries(svc.fields.map(([k]) => [k, SECRET.test(k) ? '' : keys[k]?.value ?? '']));
+    const [values, setValues] = useState(start);
     const [saving, setSaving] = useState(false);
+    const changed = svc.fields.map(([k]) => k).filter((k) => values[k] !== start[k]);
     const save = async () => {
         setSaving(true);
-        const r = await submitForm(url, { values: JSON.stringify(values) });
+        const send = Object.fromEntries(changed.map((k) => [k, values[k]]));
+        const clear = changed.filter((k) => values[k] === '');
+        const r = await submitForm(url, { values: JSON.stringify(send), ...Object.fromEntries(clear.map((k, i) => [`clear[${i}]`, k])) });
         setSaving(false);
         r.ok ? toast.success(r.message) : toast.error(r.message);
         if (r.ok) {
-            setValues({});
+            onClose();
             router.reload();
         }
     };
     return (
-        <Panel
-            title="Keys and messaging"
-            actions={
-                <Button variant="primary" onClick={save} loading={saving} disabled={!Object.values(values).some((v) => v !== '')}>
-                    <Save />
-                    Save keys
-                </Button>
+        <Modal
+            open
+            onOpenChange={(o) => !o && !saving && onClose()}
+            title={svc.title}
+            footer={
+                <>
+                    <Button variant="secondary" onClick={onClose} disabled={saving}>
+                        Cancel
+                    </Button>
+                    <Button variant="primary" onClick={save} loading={saving} disabled={!changed.length}>
+                        Save
+                    </Button>
+                </>
             }
         >
-            <p className="mb-4 text-sm text-fg-muted">Only fill in what you want to change; empty boxes keep the current value. Saving restarts the school.</p>
-            <div className="space-y-5">
-                {KEY_GROUPS.map(([title, keys]) => (
-                    <div key={title}>
-                        <div className="mb-2 text-sm font-semibold">{title}</div>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                            {keys.map((k) => (
-                                <label key={k} className="block">
-                                    <span className="mb-1 block font-mono text-2xs text-fg-muted">{k}</span>
-                                    <input
-                                        className={fieldInput}
-                                        type={/PASSWORD|KEY|TOKEN/.test(k) ? 'password' : 'text'}
-                                        autoComplete="off"
-                                        value={values[k] ?? ''}
-                                        onChange={(e) => setValues((x) => ({ ...x, [k]: e.target.value }))}
-                                    />
-                                </label>
-                            ))}
-                        </div>
-                    </div>
+            <div className="grid gap-4">
+                {svc.fields.map(([k, label]) => (
+                    <Field key={k} label={label}>
+                        <input
+                            className={fieldInput}
+                            type={SECRET.test(k) ? 'password' : 'text'}
+                            autoComplete="off"
+                            placeholder={SECRET.test(k) && keys[k]?.set ? `•••• ${keys[k].hint}` : ''}
+                            value={values[k]}
+                            onChange={(e) => setValues((x) => ({ ...x, [k]: e.target.value }))}
+                        />
+                    </Field>
                 ))}
             </div>
-        </Panel>
+        </Modal>
     );
 }
 
