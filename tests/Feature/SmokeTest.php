@@ -324,6 +324,34 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testReceiptGoesOutByItselfWhereTheSchoolAllowsIt()
+    {
+        $acc = $this->user('accountant');
+        $sr = \App\Models\StudentRecord::where('grad', 0)->whereNotNull('my_parent_id')->first();
+        if (!$sr) return $this->assertTrue(true);
+        config(['sms.driver' => 'log', 'sms.allowlist' => '0000000000', 'mail.default' => 'array', 'mail.driver' => 'array']);
+        $before = \App\Support\SchoolConfig::get('features');
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $fee = \App\Models\Payment::create(['title' => 'Receipt test', 'amount' => 500, 'student_category' => 'opening', 'year' => \App\Helpers\Qs::getCurrentSession(), 'term' => 1, 'ref_no' => uniqid()]);
+            $pr = \App\Models\PaymentRecord::create(['student_id' => $sr->user_id, 'payment_id' => $fee->id, 'year' => $fee->year, 'amount' => 500]);
+            $url = route('payments.pay_now', \App\Helpers\Qs::hash($pr->id));
+            $logs = function () use ($sr) { return \App\Models\NotificationLog::where(['student_id' => $sr->user_id, 'kind' => 'receipt'])->count(); };
+
+            \App\Support\SchoolConfig::set('features', []);
+            $n = $logs();
+            $this->actingAs($acc)->postJson($url, ['amt_paid' => 10])->assertOk()->assertJson(['sent' => false]);
+            $this->assertSame($n, $logs());
+
+            \App\Support\SchoolConfig::set('features', ['auto_send_receipts']);
+            $this->actingAs($acc)->postJson($url, ['amt_paid' => 10])->assertOk()->assertJson(['sent' => true]);
+            $this->assertGreaterThan($n, $logs());
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+            \App\Support\SchoolConfig::set('features', $before);
+        }
+    }
+
     public function testParentHasTimetablesInTheirMenu()
     {
         $this->actingAs($this->user('parent'));

@@ -41,7 +41,7 @@ class OptionalFeeController extends Controller
         ]);
         \App\Support\ClearEnroll::studentChanged((int) $c->student_id, \App\Support\Money::r($req->amt_paid), 'OF-'.str_pad($receipt->id, 6, '0', STR_PAD_LEFT));
 
-        return response()->json(['ok' => true, 'msg' => __('msg.update_ok'), 'receipt' => ReceiptController::urls('optional', $receipt->id)]);
+        return response()->json(['ok' => true, 'msg' => __('msg.update_ok'), 'receipt' => ReceiptController::urls('optional', $receipt->id), 'sent' => ReceiptController::autoSend('optional', $receipt->id)]);
     }
 
     /** Reverse every payment on a charge (administrators only, with a reason); receipts go to the audit trail. */

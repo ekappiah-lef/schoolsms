@@ -23,6 +23,7 @@ return [
         'subject_teachers_per_section' => 'A subject can have its own teacher(s) in each section; each enters marks only for their sections.',
         'multiple_class_teachers' => 'A section can have several class teachers (each sees the class, takes the register and writes comments).',
         'accountant_views_students' => 'The accountant sees All students and the student profiles (to find a student and open their payments), but cannot edit them.',
+        'auto_send_receipts' => 'A receipt is emailed and sent by SMS to the parent as soon as a payment is recorded.',
         'hod_marks_approval' => 'Heads of department check and approve the marks of their subjects; approved marks are locked and reports wait for approval.',
     ],
 

@@ -49,6 +49,17 @@ class ReceiptController extends Controller
         return self::renderPdf($r)->download($r['number'].'.pdf');
     }
 
+    /** Schools with auto_send_receipts: the parent gets the receipt once the page has answered. Returns whether it will be sent. */
+    public static function autoSend(string $kind, int $id): bool
+    {
+        if (!\App\Support\School::has('auto_send_receipts')) return false;
+        dispatch(function () use ($kind, $id) {
+            if ($r = self::data($kind, $id)) Notices::sendReceipt($r);
+        })->afterResponse();
+
+        return true;
+    }
+
     public function send($kind, $id)
     {
         $r = self::data($kind, (int) $id);

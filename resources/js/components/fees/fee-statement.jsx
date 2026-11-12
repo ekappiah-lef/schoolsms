@@ -369,9 +369,10 @@ export function PayInline({ title, balance, url, onPaid }) {
         setProcessing(false);
         if (result.ok) {
             const receipt = result.data?.receipt;
-            toast.success(`${formatMoney(amount)} (${method}) recorded for ${title}`, {
+            const sent = !!result.data?.sent;
+            toast.success(`${formatMoney(amount)} (${method}) recorded for ${title}${sent ? '. Receipt sent to the parent' : ''}`, {
                 duration: 10000,
-                action: receipt ? { label: 'Send receipt', onClick: () => sendReceipt(receipt.send) } : undefined,
+                action: receipt && !sent ? { label: 'Send receipt', onClick: () => sendReceipt(receipt.send) } : undefined,
                 cancel: receipt ? { label: 'View', onClick: () => window.open(receipt.view, '_blank') } : undefined,
             });
             setValue('');

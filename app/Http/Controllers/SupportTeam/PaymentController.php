@@ -323,7 +323,7 @@ class PaymentController extends Controller
         $receipt = $this->pay->createReceipt($d2);
         // ClearEnroll gets the student's new balance (after the page has answered).
         \App\Support\ClearEnroll::studentChanged((int) $pr->student_id, \App\Support\Money::r($req->amt_paid), 'SF-'.str_pad($receipt->id, 6, '0', STR_PAD_LEFT));
-        return response()->json(['ok' => true, 'msg' => __('msg.update_ok'), 'receipt' => ReceiptController::urls('school', $receipt->id)]);
+        return response()->json(['ok' => true, 'msg' => __('msg.update_ok'), 'receipt' => ReceiptController::urls('school', $receipt->id), 'sent' => ReceiptController::autoSend('school', $receipt->id)]);
     }
 
     public function manage($class_id = NULL)
