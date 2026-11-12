@@ -83,7 +83,7 @@ class Paystack
                 return $p->fresh();
             }
             self::settle($p, true, $d);
-        } elseif (in_array($status, ['failed', 'abandoned', 'reversed'], true)) {
+        } elseif (in_array($status, ['failed', 'reversed'], true)) {   // "abandoned": not paid yet, the parent may still finish
             self::settle($p, false, $d);
         }
 
