@@ -167,7 +167,9 @@ def create_school(job):
     env.update({'APP_KEY': 'base64:' + base64.b64encode(secrets.token_bytes(32)).decode(), 'APP_URL': f'https://{domain}',
                 'DB_DATABASE': db, 'DB_USERNAME': db, 'DB_PASSWORD': dbpass, 'MARIADB_DATABASE': db, 'MARIADB_USER': db, 'MARIADB_PASSWORD': dbpass,
                 'MARIADB_ROOT_PASSWORD': root, 'CLEARENROLL_API_KEY': '', 'MOMO_DRIVER': 'fake', 'CONTROL_API_TOKEN': token,
-                'MAIL_FROM_ADDRESS': f'{slug}@{MAIL_DOMAIN}'})
+                'MAIL_FROM_ADDRESS': f'{slug}@{MAIL_DOMAIN}',
+                # MoMo belongs to each school's own MTN merchant account: never the test school's keys.
+                'MOMO_DRIVER': 'fake', 'MOMO_COLLECTION_SUBSCRIPTION_KEY': '', 'MOMO_API_USER': '', 'MOMO_API_KEY': '', 'MOMO_CALLBACK_URL': ''})
     sender = (job.get('sms_sender') or '').strip()[:11]
     if sender:
         env['SMS_SENDER_ID'] = env_value(sender)
