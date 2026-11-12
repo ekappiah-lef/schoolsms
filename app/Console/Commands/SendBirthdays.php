@@ -22,7 +22,7 @@ class SendBirthdays extends Command
 
     protected $description = 'Send birthday wishes to staff, and to parents on their child\'s birthday';
 
-    const STAFF = ['teacher', 'non_teaching', 'accountant', 'academic_admin', 'admin', 'librarian'];
+    const STAFF = ['teacher', 'non_teaching', 'accountant', 'academic_admin', 'academic_head', 'admin', 'librarian'];
 
     public function handle()
     {

@@ -24,7 +24,7 @@ use Inertia\Inertia;
  */
 class MessageController extends Controller
 {
-    const STAFF = ['super_admin', 'admin', 'academic_admin', 'teacher', 'accountant', 'librarian', 'non_teaching'];
+    const STAFF = ['super_admin', 'admin', 'academic_admin', 'academic_head', 'teacher', 'accountant', 'librarian', 'non_teaching'];
 
     public function __construct()
     {

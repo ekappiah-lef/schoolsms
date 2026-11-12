@@ -122,7 +122,7 @@ Route::group(['middleware' => 'auth'], function () {
         Route::group(['prefix' => 'timetables'], function(){
             Route::get('/', 'TimeTableController@index')->name('tt.index');
 
-            Route::group(['middleware' => 'teamSA'], function() {
+            Route::group(['middleware' => 'academicLead'], function() {
                 Route::post('/', 'TimeTableController@store')->name('tt.store');
                 Route::put('/{tt}', 'TimeTableController@update')->name('tt.update');
                 Route::delete('/{tt}', 'TimeTableController@delete')->name('tt.delete');
@@ -131,7 +131,7 @@ Route::group(['middleware' => 'auth'], function () {
             /*************** TimeTable Records *****************/
             Route::group(['prefix' => 'records'], function(){
 
-                Route::group(['middleware' => 'teamSA'], function(){
+                Route::group(['middleware' => 'academicLead'], function(){
                     Route::get('manage/{ttr}', 'TimeTableController@manage')->name('ttr.manage');
                     Route::post('/', 'TimeTableController@store_record')->name('ttr.store');
                     Route::get('edit/{ttr}', 'TimeTableController@edit_record')->name('ttr.edit');
@@ -145,7 +145,7 @@ Route::group(['middleware' => 'auth'], function () {
             });
 
             /*************** Time Slots *****************/
-            Route::group(['prefix' => 'time_slots', 'middleware' => 'teamSA'], function(){
+            Route::group(['prefix' => 'time_slots', 'middleware' => 'academicLead'], function(){
                 Route::post('/', 'TimeTableController@store_time_slot')->name('ts.store');
                 Route::post('/use/{ttr}', 'TimeTableController@use_time_slot')->name('ts.use');
                 Route::get('edit/{ts}', 'TimeTableController@edit_time_slot')->name('ts.edit');
@@ -246,7 +246,7 @@ Route::group(['middleware' => 'auth'], function () {
         Route::group(['prefix' => 'marks'], function(){
 
            // FOR teamSA
-            Route::group(['middleware' => 'teamSA'], function(){
+            Route::group(['middleware' => 'academicLead'], function(){
                 Route::get('tabulation/{exam?}/{class?}/{sec_id?}', 'MarkController@tabulation')->name('marks.tabulation');
                 Route::post('tabulation', 'MarkController@tabulation_select')->name('marks.tabulation_select');
                 Route::get('tabulation/print/{exam}/{class}/{sec_id}', 'MarkController@print_tabulation')->name('marks.print_tabulation');

@@ -17,7 +17,7 @@ use Inertia\Inertia;
  */
 class StaffAttendanceController extends Controller
 {
-    const STAFF = ['teacher', 'non_teaching', 'accountant', 'academic_admin', 'admin', 'librarian'];
+    const STAFF = ['teacher', 'non_teaching', 'accountant', 'academic_admin', 'academic_head', 'admin', 'librarian'];
 
     public function __construct()
     {

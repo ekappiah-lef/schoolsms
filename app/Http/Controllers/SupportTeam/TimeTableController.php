@@ -81,7 +81,7 @@ class TimeTableController extends Controller
     {
         $periods = DB::table('time_tables')->groupBy('ttr_id')->select('ttr_id', DB::raw('count(*) as n'))->pluck('n', 'ttr_id');
         $slots = DB::table('time_slots')->groupBy('ttr_id')->select('ttr_id', DB::raw('count(*) as n'))->pluck('n', 'ttr_id');
-        $isSA = Qs::userIsTeamSA();
+        $isSA = Qs::userIsAcademicLead();
         $classes = ClassOrder::sort($this->my_class->all()->load('class_type'));
 
         // A parent sees which of their children each timetable is for.
@@ -384,7 +384,7 @@ class TimeTableController extends Controller
                 'others' => $others,
                 'urls' => array_filter([
                     'print' => route('ttr.print', $ttr->id),
-                    'manage' => Qs::userIsTeamSA() ? route('ttr.manage', $ttr->id) : null,
+                    'manage' => Qs::userIsAcademicLead() ? route('ttr.manage', $ttr->id) : null,
                     'index' => Qs::userIsStudent() ? null : route('tt.index'),
                 ]),
             ];

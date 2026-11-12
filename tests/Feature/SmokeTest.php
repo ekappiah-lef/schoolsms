@@ -459,6 +459,36 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testAcademicHeadRunsAcademicsButNotAdmissions()
+    {
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $head = $this->user('teacher')->replicate();
+            $head->forceFill(['user_type' => 'academic_head', 'username' => 'head.test'.uniqid(), 'email' => 'head'.uniqid().'@example.test', 'code' => strtoupper(uniqid())])->save();
+            $sr = \App\Models\StudentRecord::where('grad', 0)->first();
+            $this->actingAs($head);
+
+            foreach (['tt.index', 'exams.index', 'grades.index', 'marks.index', 'students.index'] as $r) {
+                $this->get(route($r))->assertOk();
+            }
+            $this->assertTrue(\App\Helpers\Qs::userIsAcademicLead());
+            $this->assertFalse(\App\Helpers\Qs::userIsTeamSA());
+            foreach (['students.create', 'students.promotion', 'payments.index', 'settings'] as $r) {
+                $this->assertNotEquals(200, $this->get(route($r))->getStatusCode(), $r);
+            }
+            if ($sr) $this->assertNotEquals(200, $this->get(route('students.edit', \App\Helpers\Qs::hash($sr->id)))->getStatusCode());
+
+            $labels = collect(\App\Support\Navigation::build())->flatMap(function ($section) {
+                return collect($section['items'] ?? [])->flatMap(function ($i) { return array_merge([$i['label']], collect($i['children'] ?? [])->pluck('label')->all()); });
+            });
+            foreach (['Exam list', 'Grades', 'Tabulation sheet', 'Report cards'] as $l) $this->assertTrue($labels->contains($l), $l);
+            foreach (['Admit student', 'Promote students', 'Student payments'] as $l) $this->assertFalse($labels->contains($l), $l);
+            $this->assertTrue(\Illuminate\Support\Facades\DB::table('user_types')->where('title', 'academic_head')->exists());
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testParentHasTimetablesInTheirMenu()
     {
         $this->actingAs($this->user('parent'));

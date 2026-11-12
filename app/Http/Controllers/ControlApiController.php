@@ -49,7 +49,7 @@ class ControlApiController extends Controller
             'counts' => [
                 'students' => DB::table('student_records')->where('grad', 0)->count(),
                 'teachers' => $count('teacher'),
-                'staff' => $count(['teacher', 'non_teaching', 'accountant', 'academic_admin', 'admin', 'librarian']),
+                'staff' => $count(['teacher', 'non_teaching', 'accountant', 'academic_admin', 'academic_head', 'admin', 'librarian']),
                 'parents' => $count('parent'),
                 'classes' => DB::table('my_classes')->count(),
             ],

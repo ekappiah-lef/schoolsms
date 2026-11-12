@@ -34,7 +34,7 @@ class UserController extends Controller
     }
 
     /** Who counts as staff of the school (super admins run the system and are not listed). */
-    const STAFF_TYPES = ['teacher', 'non_teaching', 'accountant', 'academic_admin', 'admin', 'librarian'];
+    const STAFF_TYPES = ['teacher', 'non_teaching', 'accountant', 'academic_admin', 'academic_head', 'admin', 'librarian'];
 
     /** The Staff page: teaching and non-teaching staff. The academic admin always works from it. */
     protected static function staffView(): bool

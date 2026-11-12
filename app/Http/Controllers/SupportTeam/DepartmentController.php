@@ -43,7 +43,7 @@ class DepartmentController extends Controller
                 ];
             }),
             'subjects' => $subjects->pluck('name')->unique()->values(),
-            'teachers' => User::whereIn('user_type', ['teacher', 'academic_admin'])->orderBy('name')->get(['id', 'name'])->map(function ($u) { return ['value' => (string) $u->id, 'label' => $u->name]; }),
+            'teachers' => User::whereIn('user_type', ['teacher', 'academic_admin', 'academic_head'])->orderBy('name')->get(['id', 'name'])->map(function ($u) { return ['value' => (string) $u->id, 'label' => $u->name]; }),
             'urls' => ['store' => route('departments.store'), 'update' => route('departments.update', ':id'), 'destroy' => route('departments.destroy', ':id')],
         ]);
     }

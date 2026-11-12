@@ -115,12 +115,23 @@ class Qs
 
     public static function getTeamSAT()
     {
-        return ['admin', 'super_admin', 'academic_admin', 'teacher'];
+        return ['admin', 'super_admin', 'academic_admin', 'academic_head', 'teacher'];
+    }
+
+    /** Who runs the academics: admins, the academic admin and the academic head (timetables, exams, grades, approving results). */
+    public static function getTeamAcademicLead()
+    {
+        return ['admin', 'super_admin', 'academic_admin', 'academic_head'];
+    }
+
+    public static function userIsAcademicLead()
+    {
+        return in_array(Auth::user()->user_type, self::getTeamAcademicLead());
     }
 
     public static function getTeamAcademic()
     {
-        return ['admin', 'super_admin', 'academic_admin', 'teacher', 'student'];
+        return ['admin', 'super_admin', 'academic_admin', 'academic_head', 'teacher', 'student'];
     }
 
     public static function getTeamAdministrative()
@@ -227,7 +238,7 @@ class Qs
 
     public static function getStaff($remove=[])
     {
-        $data =  ['super_admin', 'admin', 'academic_admin', 'teacher', 'accountant', 'librarian', 'non_teaching'];
+        $data =  ['super_admin', 'admin', 'academic_admin', 'academic_head', 'teacher', 'accountant', 'librarian', 'non_teaching'];
         return $remove ? array_values(array_diff($data, $remove)) : $data;
     }
 

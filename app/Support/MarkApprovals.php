@@ -79,7 +79,7 @@ class MarkApprovals
     public static function canReview($subjectId): bool
     {
         if (!self::on()) return false;
-        if (Qs::userIsTeamSA()) return true;
+        if (Qs::userIsAcademicLead()) return true;
         $subject = Subject::find($subjectId, ['id', 'department_id', 'teacher_id', 'my_class_id']);
         $dept = self::departmentFor($subject);
 

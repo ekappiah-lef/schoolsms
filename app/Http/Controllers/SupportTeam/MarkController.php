@@ -188,7 +188,7 @@ class MarkController extends Controller
             'scoreColumns' => \App\Support\Assessment::summaryColumns(),
             'skills' => ['af' => $af, 'ps' => $ps],
             'canComment' => Qs::userIsTeamSAT(),
-            'canHeadComment' => Qs::userIsTeamSA(),
+            'canHeadComment' => Qs::userIsAcademicLead(),
         ];
     }
 
@@ -196,7 +196,7 @@ class MarkController extends Controller
     {
         \App\Support\SchoolCalendar::syncDaily();
         /* Prevent Other Students/Parents from viewing Result of others */
-        if(Auth::user()->id != $student_id && !Qs::userIsTeamSA() && !Qs::userIsMyChild($student_id, Auth::user()->id)){
+        if(Auth::user()->id != $student_id && !Qs::userIsAcademicLead() && !Qs::userIsMyChild($student_id, Auth::user()->id)){
             return redirect(route('dashboard'))->with('pop_error', __('msg.denied'));
         }
 
@@ -418,7 +418,7 @@ class MarkController extends Controller
                     'update' => route('marks.update', [$exam_id, $class_id, $section_id, $subject_id]),
                     'approval' => \App\Support\MarkApprovals::on() ? route('marks.approval', [$exam_id, $class_id, $section_id, $subject_id]) : null,
                     'register' => route('marks.register', [$exam_id, $class_id, $section_id, $subject_id]),
-                    'tabulation' => Qs::userIsTeamSA() ? route('marks.tabulation', [$exam_id, $class_id, $section_id]) : null,
+                    'tabulation' => Qs::userIsAcademicLead() ? route('marks.tabulation', [$exam_id, $class_id, $section_id]) : null,
                 ]),
             ]);
         }, 'pages.support_team.marks.manage', $d);
@@ -539,12 +539,12 @@ class MarkController extends Controller
     /** Subject marks waiting for (or done by) the HOD: their department's sheets; every sheet for the academic admin and admins. */
     public function approvals(Request $req)
     {
-        if (!\App\Support\MarkApprovals::on() || !(Qs::userIsTeamSA() || \App\Support\MarkApprovals::isHod())) {
+        if (!\App\Support\MarkApprovals::on() || !(Qs::userIsAcademicLead() || \App\Support\MarkApprovals::isHod())) {
             return redirect()->route('marks.index');
         }
         $status = in_array($req->query('status'), ['submitted', 'approved', 'returned', 'all'], true) ? $req->query('status') : 'submitted';
         $q = \App\Models\MarkApproval::with('subject.teacher', 'subject.department')->where('year', $this->year);
-        if (!Qs::userIsTeamSA()) {
+        if (!Qs::userIsAcademicLead()) {
             \App\Support\MarkApprovals::byClassType()
                 ? $q->whereHas('subject.my_class', function ($c) { $c->whereIn('class_type_id', \App\Support\MarkApprovals::headedClassTypeIds()); })
                 : $q->whereHas('subject', function ($s) { $s->whereIn('department_id', \App\Support\MarkApprovals::headedDepartmentIds()); });
@@ -578,7 +578,7 @@ class MarkController extends Controller
         if (!$this->mayEditRecord($exr_id)) {
             return Qs::json('Only the class teacher can comment on these results.', false);
         }
-        $d = Qs::userIsTeamSA() ? $req->only(['t_comment', 'p_comment']) : $req->only(['t_comment']);
+        $d = Qs::userIsAcademicLead() ? $req->only(['t_comment', 'p_comment']) : $req->only(['t_comment']);
 
         $this->exam->updateRecord(['id' => $exr_id], $d);
         return Qs::jsonUpdateOk();
