@@ -560,6 +560,108 @@ export function OnlinePay({ url, maxAmount, test }) {
     );
 }
 
+const NETWORKS = [['mtn', 'MTN MoMo'], ['vod', 'Telecel Cash'], ['atl', 'AirtelTigo Money']];
+const networkOf = (phone) => {
+    const n = String(phone ?? '').replace(/\D/g, '');
+    const p = (n.startsWith('233') ? `0${n.slice(3)}` : n).slice(0, 3);
+    if (['024', '025', '053', '054', '055', '059'].includes(p)) return 'mtn';
+    if (['020', '050'].includes(p)) return 'vod';
+    if (['026', '027', '056', '057'].includes(p)) return 'atl';
+    return '';
+};
+
+/** Student payments: send a payment prompt to the parent's phone through Paystack (any network). */
+export function PaystackPrompt({ url, maxAmount, defaultPhone = '', onPaid }) {
+    const [phone, setPhone] = useState(defaultPhone ?? '');
+    const [network, setNetwork] = useState(networkOf(defaultPhone) || 'mtn');
+    const [amount, setAmount] = useState(maxAmount > 0 ? String(maxAmount) : '');
+    const [state, setState] = useState({ step: 'form' });
+    const [otp, setOtp] = useState('');
+    const [busy, setBusy] = useState(false);
+    if (!url || maxAmount <= 0) return null;
+
+    const poll = async (statusUrl, started) => {
+        try {
+            const j = await (await fetch(statusUrl, { headers: { Accept: 'application/json' } })).json();
+            if (j.status === 'successful') {
+                setState({ step: 'done', amount: j.amount });
+                toast.success(`${formatMoney(j.amount)} received.`);
+                onPaid?.();
+                return;
+            }
+            if (j.status === 'failed') return setState({ step: 'failed', reason: j.reason });
+        } catch {
+            /* keep waiting */
+        }
+        if (Date.now() - started > 3 * 60 * 1000) return setState({ step: 'failed', reason: 'No answer yet. If money was taken it will show here shortly; otherwise try again.' });
+        setTimeout(() => poll(statusUrl, started), 3000);
+    };
+    const follow = (data, urls) => {
+        if (data.next.step === 'otp') return setState({ step: 'otp', text: data.next.text, ...urls });
+        setState({ step: 'waiting', text: data.next.text, ...urls });
+        poll(urls.status_url, Date.now());
+    };
+    const start = async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        const r = await submitForm(url, { phone, network, amount: Number(amount) });
+        setBusy(false);
+        if (!r.ok) return toast.error(r.errors ? Object.values(r.errors)[0] : r.message);
+        follow(r.data, { status_url: r.data.status_url, otp_url: r.data.otp_url });
+    };
+    const sendOtp = async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        const r = await submitForm(state.otp_url, { otp });
+        setBusy(false);
+        if (!r.ok) return toast.error(r.errors ? Object.values(r.errors)[0] : r.message);
+        follow(r.data, { status_url: state.status_url, otp_url: state.otp_url });
+    };
+    const field = 'h-9 rounded-md border border-border bg-surface px-2.5 text-sm text-fg';
+
+    return (
+        <div className="rounded-lg border border-border bg-muted p-4">
+            <div className="mb-3 text-sm font-semibold">Send a payment prompt to the parent's phone</div>
+            {state.step === 'form' && (
+                <form onSubmit={start} className="flex flex-wrap items-end gap-2">
+                    <label className="flex flex-col gap-1 text-xs text-fg-muted">
+                        Mobile money number
+                        <input className={`${field} w-44`} inputMode="tel" value={phone} onChange={(e) => { setPhone(e.target.value); const n = networkOf(e.target.value); if (n) setNetwork(n); }} required />
+                    </label>
+                    <label className="flex flex-col gap-1 text-xs text-fg-muted">
+                        Network
+                        <select className={`${field} w-44`} value={network} onChange={(e) => setNetwork(e.target.value)}>
+                            {NETWORKS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                        </select>
+                    </label>
+                    <label className="flex flex-col gap-1 text-xs text-fg-muted">
+                        Amount (GHS)
+                        <input className={`tabular ${field} w-32`} type="number" step="0.01" min="1" max={maxAmount} value={amount} onChange={(e) => setAmount(e.target.value)} required />
+                    </label>
+                    <Button type="submit" variant="primary" loading={busy}>Send prompt</Button>
+                </form>
+            )}
+            {state.step === 'otp' && (
+                <form onSubmit={sendOtp} className="flex flex-wrap items-end gap-2">
+                    <label className="flex flex-col gap-1 text-xs text-fg-muted">
+                        {state.text || 'Code sent to the parent'}
+                        <input className={`${field} w-40`} inputMode="numeric" value={otp} onChange={(e) => setOtp(e.target.value)} required />
+                    </label>
+                    <Button type="submit" variant="primary" loading={busy}>Continue</Button>
+                </form>
+            )}
+            {state.step === 'waiting' && <p className="text-sm">{state.text || 'Waiting for the parent to approve on their phone…'}</p>}
+            {state.step === 'done' && <p className="text-sm font-medium text-success-fg">{formatMoney(state.amount)} received.</p>}
+            {state.step === 'failed' && (
+                <div className="flex items-center gap-3">
+                    <p className="text-sm text-danger-fg">{state.reason}</p>
+                    <Button size="sm" onClick={() => setState({ step: 'form' })}>Try again</Button>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export function MomoPay({ url, maxAmount, defaultPhone = '', test, onPaid, staff = false }) {
     const [phone, setPhone] = useState(defaultPhone ?? '');
     const [amount, setAmount] = useState(maxAmount > 0 ? String(maxAmount) : '');

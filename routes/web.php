@@ -27,6 +27,7 @@ Route::match(['post', 'put'], 'momo/callback', 'MomoController@callback')->name(
 Route::post('pay/online/{student}', 'PaystackController@start')->name('paystack.pay')->middleware(['signed', 'throttle:10,1']);
 Route::get('pay/online/callback', 'PaystackController@callback')->name('paystack.callback')->middleware('throttle:30,1');
 Route::post('paystack/webhook', 'PaystackController@webhook')->name('paystack.webhook');
+Route::get('pay/online/status/{reference}', 'PaystackController@status')->name('paystack.status')->middleware('throttle:60,1');
 
 /* LEF Control Centre → this school (no login: secret token per school) */
 Route::get('control-api/status', 'ControlApiController@status')->middleware('throttle:60,1');
@@ -58,6 +59,8 @@ Route::group(['middleware' => 'auth'], function () {
             Route::post('schools/{slug}/action', 'ControlController@action')->name('control.action');
             Route::post('schools/{slug}/password', 'ControlController@password')->name('control.password');
             Route::post('schools/{slug}/logins-seen', 'ControlController@loginsSeen')->name('control.logins_seen');
+            Route::post('schools/{slug}/payouts', 'ControlController@payouts')->name('control.payouts');
+            Route::post('paystack', 'ControlController@paystackKeys')->name('control.paystack');
         });
     }
 
@@ -165,6 +168,8 @@ Route::group(['middleware' => 'auth'], function () {
             Route::post('pay_now/{id}', 'PaymentController@pay_now')->name('payments.pay_now');
             Route::post('invoice/{id}/send', 'PaymentController@sendInvoice')->name('payments.send_invoice');
             Route::post('invoice/{id}/momo', '\App\Http\Controllers\MomoController@staffStart')->name('payments.momo');
+            Route::post('invoice/{id}/paystack', '\App\Http\Controllers\PaystackController@staffCharge')->name('payments.paystack');
+            Route::post('paystack/otp/{reference}', '\App\Http\Controllers\PaystackController@otp')->name('paystack.otp');
             Route::post('manage/{class_id}/send-invoices', 'PaymentController@sendClassInvoices')->name('payments.send_class_invoices');
             Route::post('send-bills', 'PaymentController@sendAllBills')->name('payments.send_all_bills');
             Route::post('next-bills', 'PaymentController@nextBills')->name('payments.next_bills');

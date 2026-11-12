@@ -76,7 +76,7 @@ const SERVICES = [
 ];
 
 /** One school: what it is running, its switches, scheme and settings, its keys, and server actions. */
-export default function ControlShow({ school, live, liveError, logins, features, schemes, jobs, urls }) {
+export default function ControlShow({ school, live, liveError, logins, features, schemes, payouts, jobs, urls }) {
     const busy = jobs.some((j) => j.status === 'pending') || ['creating', 'setting_up'].includes(school.status);
     useEffect(() => {
         if (!busy) return undefined;
@@ -113,6 +113,7 @@ export default function ControlShow({ school, live, liveError, logins, features,
                 {liveError && <Panel title="School">{<p className="text-sm text-fg-muted">{liveError}</p>}</Panel>}
                 {logins && <FirstLogins logins={logins} url={school.url} doneUrl={urls.logins_seen} />}
                 {live && <Config live={live} features={features} schemes={schemes} url={urls.config} />}
+                {live && <Payouts school={school} payouts={payouts} url={urls.payouts} />}
                 {live && <Keys url={urls.keys} keys={live.keys ?? {}} />}
                 {school.status !== 'creating' && <Actions urls={urls} />}
                 {jobs.length > 0 && <JobLog jobs={jobs} />}
@@ -297,6 +298,69 @@ function KeyEditor({ svc, keys, url, onClose }) {
                 ))}
             </div>
         </Modal>
+    );
+}
+
+function Payouts({ school, payouts, url }) {
+    const cur = payouts.current;
+    const [d, setD] = useState({ business_name: cur?.business_name ?? school.name, bank: '', account_number: '' });
+    const [editing, setEditing] = useState(!cur);
+    const [saving, setSaving] = useState(false);
+    const bankName = (code) => payouts.banks.find((b) => b.code === code)?.name ?? code;
+    const save = async () => {
+        setSaving(true);
+        const r = await submitForm(url, { ...d, code: cur?.code ?? '' });
+        setSaving(false);
+        r.ok ? toast.success(r.message) : toast.error(r.message);
+        if (r.ok) router.reload();
+    };
+    return (
+        <Panel
+            title="Payouts"
+            actions={payouts.lef.ready && cur && !editing && <Button size="sm" onClick={() => setEditing(true)}>Change</Button>}
+        >
+            {!payouts.lef.ready ? (
+                <p className="text-sm text-fg-muted">Add LEF's Paystack keys on the Schools page.</p>
+            ) : (
+                <div className="space-y-4">
+                    {cur && (
+                        <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+                            <div><dt className="text-fg-muted">Paid to</dt><dd className="font-medium">{cur.business_name}</dd></div>
+                            <div><dt className="text-fg-muted">Bank or network</dt><dd className="font-medium">{cur.bank}</dd></div>
+                            <div><dt className="text-fg-muted">Account</dt><dd className="font-medium">{cur.account_number}</dd></div>
+                            <div><dt className="text-fg-muted">LEF share</dt><dd className="font-medium">{cur.percentage_charge ?? 0}% · Paystack fee paid by the school</dd></div>
+                            <div><dt className="text-fg-muted">Subaccount</dt><dd className="font-medium">{cur.code}</dd></div>
+                            <div><dt className="text-fg-muted">Mode</dt><dd className="font-medium">{payouts.lef.test ? 'Test' : 'Live'}</dd></div>
+                        </dl>
+                    )}
+                    {editing && (
+                        <div className="grid gap-4 sm:grid-cols-3">
+                            <Field label="Name on the account">
+                                <input className={fieldInput} value={d.business_name} onChange={(e) => setD({ ...d, business_name: e.target.value })} />
+                            </Field>
+                            <Field label="Bank or network">
+                                <NativeSelect value={d.bank} onChange={(v) => setD({ ...d, bank: v })}>
+                                    <option value="">Choose…</option>
+                                    {payouts.banks.map((b) => (
+                                        <option key={b.code} value={b.code}>{b.name}</option>
+                                    ))}
+                                </NativeSelect>
+                            </Field>
+                            <Field label="Account or mobile money number">
+                                <input className={fieldInput} value={d.account_number} onChange={(e) => setD({ ...d, account_number: e.target.value })} />
+                            </Field>
+                            <div className="flex gap-2 sm:col-span-3">
+                                <Button variant="primary" onClick={save} loading={saving} disabled={!d.business_name || !d.bank || !d.account_number}>
+                                    <Save />
+                                    {cur ? 'Save changes' : 'Set up payouts'}
+                                </Button>
+                                {cur && <Button variant="secondary" onClick={() => setEditing(false)} disabled={saving}>Cancel</Button>}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </Panel>
     );
 }
 

@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { toast } from 'sonner';
 import { ExternalLink, Link2, Plus } from 'lucide-react';
 import { withAppLayout } from '@/layouts/AppLayout';
-import { ModuleHeader } from '@/components/app/module';
+import { Field, ModuleHeader, fieldInput } from '@/components/app/module';
 import { EmptyState, Panel } from '@/components/app/page';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { formatDate } from '@/lib/utils';
 import { JobLog, StatusBadge } from './parts';
 
 /** LEF Control Centre: every school, with its version, health and last backup. */
-export default function ControlIndex({ schools, unregistered, jobs, urls }) {
+export default function ControlIndex({ schools, unregistered, jobs, paystack, urls }) {
     const busy = jobs.some((j) => j.status === 'pending') || schools.some((s) => ['creating', 'setting_up'].includes(s.status));
     // While something is being created or changed, refresh every few seconds.
     useEffect(() => {
@@ -56,6 +56,8 @@ export default function ControlIndex({ schools, unregistered, jobs, urls }) {
                         </div>
                     </Panel>
                 )}
+
+                <LefPaystack paystack={paystack} url={urls.paystack} />
 
                 <Panel title={`${schools.length} ${schools.length === 1 ? 'school' : 'schools'}`} flush>
                     {schools.length ? (
@@ -107,3 +109,51 @@ export default function ControlIndex({ schools, unregistered, jobs, urls }) {
 }
 
 ControlIndex.layout = withAppLayout;
+
+/** LEF's Paystack account: each school is a subaccount of it (set on the school's page, under Payouts). */
+function LefPaystack({ paystack, url }) {
+    const [editing, setEditing] = useState(!paystack.ready);
+    const [k, setK] = useState({ secret: '', public: '' });
+    const [saving, setSaving] = useState(false);
+    const save = async () => {
+        setSaving(true);
+        const r = await submitForm(url, k);
+        setSaving(false);
+        r.ok ? toast.success(r.message) : toast.error(Object.values(r.errors ?? {})[0] ?? r.message);
+        if (r.ok) {
+            setK({ secret: '', public: '' });
+            router.reload();
+        }
+    };
+    return (
+        <Panel
+            title="Paystack (LEF)"
+            actions={
+                <>
+                    {paystack.ready && <Badge tone={paystack.test ? 'neutral' : 'success'}>{paystack.test ? 'Test' : 'Live'}</Badge>}
+                    {paystack.ready && !editing && <Button size="sm" onClick={() => setEditing(true)}>Change keys</Button>}
+                </>
+            }
+        >
+            {paystack.ready && !editing && (
+                <p className="text-sm text-fg-muted">
+                    Secret key •••• {paystack.secret_hint} · Public key •••• {paystack.public_hint}
+                </p>
+            )}
+            {editing && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Secret key">
+                        <input className={fieldInput} type="password" autoComplete="off" value={k.secret} onChange={(e) => setK({ ...k, secret: e.target.value })} />
+                    </Field>
+                    <Field label="Public key">
+                        <input className={fieldInput} type="password" autoComplete="off" value={k.public} onChange={(e) => setK({ ...k, public: e.target.value })} />
+                    </Field>
+                    <div className="flex gap-2 sm:col-span-2">
+                        <Button variant="primary" onClick={save} loading={saving} disabled={!k.secret || !k.public}>Save</Button>
+                        {paystack.ready && <Button variant="secondary" onClick={() => setEditing(false)} disabled={saving}>Cancel</Button>}
+                    </div>
+                </div>
+            )}
+        </Panel>
+    );
+}

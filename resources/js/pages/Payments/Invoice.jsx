@@ -8,7 +8,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Segmented } from '@/components/ui/tabs';
-import { FeeTotals, MomoPay, OptionalFeesInvoice, PaymentHistory, SchoolFeesInvoice, TermInvoice } from '@/components/fees/fee-statement';
+import { FeeTotals, MomoPay, PaystackPrompt, OptionalFeesInvoice, PaymentHistory, SchoolFeesInvoice, TermInvoice } from '@/components/fees/fee-statement';
 
 /** A student's two invoices (school fees with breakdown, additional services) and payments. */
 export default function PaymentsInvoice({ student, year, years, statement, invoice, parentPhone, momoTest, urls }) {
@@ -68,7 +68,11 @@ export default function PaymentsInvoice({ student, year, years, statement, invoi
 
             <div className="space-y-6">
                 <TermInvoice invoice={invoice} sendUrl={urls.sendInvoice} />
-                <MomoPay url={urls.momo} maxAmount={invoice?.total ?? 0} defaultPhone={parentPhone} test={momoTest} staff onPaid={reload} />
+                {urls.paystack ? (
+                    <PaystackPrompt url={urls.paystack} maxAmount={invoice?.total ?? 0} defaultPhone={parentPhone} onPaid={reload} />
+                ) : (
+                    <MomoPay url={urls.momo} maxAmount={invoice?.total ?? 0} defaultPhone={parentPhone} test={momoTest} staff onPaid={reload} />
+                )}
                 <FeeTotals
                     school={statement.school.totals}
                     optional={statement.optional.totals}

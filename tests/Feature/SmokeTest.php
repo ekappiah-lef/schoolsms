@@ -404,6 +404,58 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testStaffSendsAPaystackPromptToTheParentsPhone()
+    {
+        $acc = $this->user('accountant');
+        $sr = \App\Models\StudentRecord::where('grad', 0)->get()->first(function ($s) { return \App\Support\Fees::termInvoice($s->user_id)['total'] >= 50; });
+        if (!$sr) return $this->assertTrue(true);
+        config(['paystack.secret_key' => 'sk_test_unit', 'paystack.subaccount' => 'ACCT_school', 'paystack.base_url' => 'https://paystack.test', 'sms.driver' => 'log', 'sms.allowlist' => '0000000000', 'mail.default' => 'array']);
+        $sent = [];
+        $charge = ['status' => 'send_otp', 'display_text' => 'Enter the code sent to the phone'];
+        $verify = ['status' => 'ongoing'];
+        \Illuminate\Support\Facades\Http::fake(function ($request) use (&$sent, &$charge, &$verify) {
+            $sent[] = ['url' => $request->url(), 'body' => $request->data()];
+            if (strpos($request->url(), '/transaction/initialize') !== false) return \Illuminate\Support\Facades\Http::response(['status' => true, 'data' => ['authorization_url' => 'https://checkout.paystack.test/x']]);
+            if (strpos($request->url(), '/charge/submit_otp') !== false) return \Illuminate\Support\Facades\Http::response(['status' => true, 'data' => ['status' => 'pay_offline', 'display_text' => 'Approve on your phone']]);
+            if (strpos($request->url(), '/charge') !== false) return \Illuminate\Support\Facades\Http::response(['status' => true, 'data' => $charge]);
+            return \Illuminate\Support\Facades\Http::response(['status' => true, 'data' => $verify]);
+        });
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $before = \App\Support\Fees::termInvoice($sr->user_id)['total'];
+            $this->assertSame('vod', \App\Support\Paystack::network('050 123 4567'));
+            $this->assertSame('mtn', \App\Support\Paystack::network('+233 24 123 4567'));
+            $this->assertSame('atl', \App\Support\Paystack::network('0271234567'));
+
+            $r = $this->actingAs($acc)->postJson(route('payments.paystack', \App\Helpers\Qs::hash($sr->user_id)), ['phone' => '0501234567', 'network' => 'vod', 'amount' => 50])
+                ->assertOk()->assertJsonPath('next.step', 'otp');
+            $charged = collect($sent)->first(function ($x) { return strpos($x['url'], '/charge') !== false; });
+            $this->assertSame(['phone' => '0501234567', 'provider' => 'vod'], $charged['body']['mobile_money']);
+            $this->assertSame(5000, $charged['body']['amount']);
+            $this->assertSame('ACCT_school', $charged['body']['subaccount']);
+            $this->assertSame('subaccount', $charged['body']['bearer']);
+
+            $this->actingAs($acc)->postJson($r->json('otp_url'), ['otp' => '123456'])->assertOk()->assertJsonPath('next.step', 'prompt');
+            $this->getJson($r->json('status_url'))->assertJson(['status' => 'pending']);
+            $this->assertEquals($before, \App\Support\Fees::termInvoice($sr->user_id)['total']);
+
+            $verify = ['status' => 'success', 'channel' => 'mobile_money', 'amount' => 5000, 'currency' => 'GHS', 'id' => 9];
+            $this->getJson($r->json('status_url'))->assertJson(['status' => 'successful']);
+            $this->getJson($r->json('status_url'))->assertJson(['status' => 'successful']);
+            $this->assertEquals($before - 50, \App\Support\Fees::termInvoice($sr->user_id)['total']);
+
+            // Parents' checkout carries the school's subaccount too; teachers cannot send prompts.
+            $sent = [];
+            \App\Support\Paystack::start($sr, 5, null);
+            $init = collect($sent)->first(function ($x) { return strpos($x['url'], '/transaction/initialize') !== false; });
+            $this->assertSame(['ACCT_school', 'subaccount'], [$init['body']['subaccount'], $init['body']['bearer']]);
+            $this->actingAs($this->user('teacher'))->postJson(route('payments.paystack', \App\Helpers\Qs::hash($sr->user_id)), ['phone' => '0241234567', 'network' => 'mtn', 'amount' => 5])
+                ->assertJson(['ok' => false]);
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testParentHasTimetablesInTheirMenu()
     {
         $this->actingAs($this->user('parent'));

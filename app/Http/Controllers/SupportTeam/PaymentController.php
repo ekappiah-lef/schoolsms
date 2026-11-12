@@ -142,6 +142,7 @@ class PaymentController extends Controller
                 'urls' => [
                     'sendInvoice' => route('payments.send_invoice', Qs::hash($st_id)),
                     'momo' => \App\Support\MoMo::configured() ? route('payments.momo', Qs::hash($st_id)) : null,
+                    'paystack' => \App\Support\Paystack::configured() ? route('payments.paystack', Qs::hash($st_id)) : null,
                     'all' => route('payments.invoice', Qs::hash($st_id)),
                     'year' => route('payments.invoice', [Qs::hash($st_id), ':year']),
                     'manage' => route('payments.manage', $sr->my_class_id),

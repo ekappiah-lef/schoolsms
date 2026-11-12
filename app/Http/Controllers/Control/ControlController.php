@@ -37,6 +37,7 @@ class ControlController extends Controller
         }
 
         return Inertia::render('Control/Index', [
+            'paystack' => \App\Control\PaystackLef::summary(),
             'schools' => DB::table('control_schools')->orderBy('name')->get()->map(function ($s) {
                 $last = json_decode((string) $s->last_status, true) ?: [];
                 return ['slug' => $s->slug, 'name' => $s->name, 'url' => $s->domain ? 'https://'.$s->domain : null, 'status' => $s->status,
@@ -48,7 +49,7 @@ class ControlController extends Controller
                 ->reject(function ($n, $slug) { return DB::table('control_schools')->where('slug', $slug)->exists(); })
                 ->map(function ($n, $slug) { return ['slug' => $slug, 'name' => $n]; })->values(),
             'jobs' => $this->jobs(null),
-            'urls' => ['create' => route('control.create'), 'register' => route('control.register'), 'self' => route('control.index')],
+            'urls' => ['create' => route('control.create'), 'paystack' => route('control.paystack'), 'register' => route('control.register'), 'self' => route('control.index')],
         ]);
     }
 
@@ -110,13 +111,47 @@ class ControlController extends Controller
             'keys' => self::KEYS,
             'features' => config('school.FEATURES'),
             'schemes' => collect(config('school.schemes'))->map(function ($x, $k) { return $x['title'] ?? ucfirst(str_replace('_', ' ', $k)); }),
+            'payouts' => [
+                'lef' => \App\Control\PaystackLef::summary(),
+                'banks' => \App\Control\PaystackLef::banks(),
+                'current' => \App\Control\PaystackLef::subaccount($status['keys']['PAYSTACK_SUBACCOUNT']['value'] ?? null),
+            ],
             'jobs' => $this->jobs($slug),
             'urls' => [
                 'self' => route('control.show', $slug), 'index' => route('control.index'),
                 'config' => route('control.config', $slug), 'keys' => route('control.keys', $slug), 'action' => route('control.action', $slug),
                 'password' => route('control.password', $slug), 'logins_seen' => route('control.logins_seen', $slug),
+                'payouts' => route('control.payouts', $slug),
             ],
         ]);
+    }
+
+    /** LEF's Paystack keys (all schools are subaccounts of LEF's account). */
+    public function paystackKeys(Request $req)
+    {
+        $d = $req->validate(['secret' => ['required', 'regex:/^sk_(test|live)_\w+$/'], 'public' => ['required', 'regex:/^pk_(test|live)_\w+$/']],
+            ['secret.regex' => 'A Paystack secret key starts with sk_test_ or sk_live_.', 'public.regex' => 'A Paystack public key starts with pk_test_ or pk_live_.']);
+        \App\Control\PaystackLef::saveKeys($d['secret'], $d['public']);
+
+        return Qs::json('Saved.', true);
+    }
+
+    /** Where a school is paid: its Paystack subaccount (LEF 0%, the school bears Paystack's fee), then the school uses it. */
+    public function payouts(Request $req, $slug)
+    {
+        $s = self::school($slug);
+        if (!\App\Control\PaystackLef::ready()) return Qs::json('Add LEF\'s Paystack keys first.', false);
+        $d = $req->validate(['business_name' => 'required|string|max:120', 'bank' => 'required|string|max:30', 'account_number' => 'required|string|max:30', 'code' => 'nullable|string|max:40'],
+            [], ['business_name' => 'Name on the account', 'bank' => 'Bank or network', 'account_number' => 'Account or mobile money number']);
+        try {
+            $code = \App\Control\PaystackLef::saveSubaccount($d['code'] ?? null, $d['business_name'], $d['bank'], preg_replace('/\s+/', '', $d['account_number']), $s->name);
+        } catch (\RuntimeException $e) {
+            return Qs::json($e->getMessage(), false);
+        }
+        $k = \App\Control\PaystackLef::keys();
+        Control::dispatch('set_env', ['slug' => $slug, 'values' => ['PAYSTACK_SECRET_KEY' => $k['secret'], 'PAYSTACK_PUBLIC_KEY' => $k['public'], 'PAYSTACK_SUBACCOUNT' => $code]], $slug);
+
+        return Qs::json('Saved. '.$s->name.' is paid into this account; the school restarts in about a minute.', true);
     }
 
     /** Switches, assessment scheme and settings: applied at once in the school. */
