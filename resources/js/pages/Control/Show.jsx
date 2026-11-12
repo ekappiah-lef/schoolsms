@@ -47,6 +47,12 @@ const SERVICES = [
         summary: (k) => k.CLEARENROLL_API_URL?.value,
     },
     {
+        title: 'Paystack',
+        fields: [['PAYSTACK_SECRET_KEY', 'Secret key'], ['PAYSTACK_PUBLIC_KEY', 'Public key'], ['PAYSTACK_SUBACCOUNT', 'Subaccount code']],
+        ready: (k) => k.PAYSTACK_SECRET_KEY?.set,
+        summary: (k) => k.PAYSTACK_SUBACCOUNT?.value,
+    },
+    {
         title: 'MTN MoMo',
         fields: [['MOMO_DRIVER', 'Mode'], ['MOMO_COLLECTION_SUBSCRIPTION_KEY', 'Subscription key'], ['MOMO_API_USER', 'API user'], ['MOMO_API_KEY', 'API key']],
         ready: (k) => ['sandbox', 'production'].includes(k.MOMO_DRIVER?.value) && k.MOMO_API_KEY?.set,

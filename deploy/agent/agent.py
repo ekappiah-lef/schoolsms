@@ -27,7 +27,8 @@ RESERVED = {'control', 'www', 'api', 'mail', 'admin', 'edusuite', 'test', 'demo'
 ENV_KEYS = {'MAIL_DRIVER', 'MAIL_HOST', 'MAIL_PORT', 'MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_ENCRYPTION', 'MAIL_FROM_ADDRESS', 'MAIL_FROM_NAME',
             'SMS_DRIVER', 'SMS_SENDER_ID', 'SMSONLINEGH_API_KEY', 'NOTICE_ALLOWLIST', 'MOMO_DRIVER', 'MOMO_COLLECTION_SUBSCRIPTION_KEY', 'MOMO_API_USER',
             'MOMO_API_KEY', 'MOMO_CALLBACK_URL', 'CLEARENROLL_API_URL', 'CLEARENROLL_API_KEY', 'WHATSAPP_ENABLED', 'WHATSAPP_PROVIDER', 'WHATSAPP_API_KEY', 'WHATSAPP_TOKEN', 'WHATSAPP_PHONE_NUMBER_ID',
-            'WHATSAPP_TEMPLATE', 'WHATSAPP_TEMPLATE_LANG', 'STAFF_CLOCK_DEVICES', 'STAFF_CLOCK_TOKEN'}
+            'WHATSAPP_TEMPLATE', 'WHATSAPP_TEMPLATE_LANG', 'STAFF_CLOCK_DEVICES', 'STAFF_CLOCK_TOKEN',
+            'PAYSTACK_SECRET_KEY', 'PAYSTACK_PUBLIC_KEY', 'PAYSTACK_SUBACCOUNT'}
 
 
 def run(cmd, cwd=None, check=True, timeout=900):
@@ -169,7 +170,8 @@ def create_school(job):
                 'MARIADB_ROOT_PASSWORD': root, 'CLEARENROLL_API_KEY': '', 'MOMO_DRIVER': 'fake', 'CONTROL_API_TOKEN': token,
                 'MAIL_FROM_ADDRESS': f'{slug}@{MAIL_DOMAIN}',
                 # MoMo belongs to each school's own MTN merchant account: never the test school's keys.
-                'MOMO_DRIVER': 'fake', 'MOMO_COLLECTION_SUBSCRIPTION_KEY': '', 'MOMO_API_USER': '', 'MOMO_API_KEY': '', 'MOMO_CALLBACK_URL': ''})
+                'MOMO_DRIVER': 'fake', 'MOMO_COLLECTION_SUBSCRIPTION_KEY': '', 'MOMO_API_USER': '', 'MOMO_API_KEY': '', 'MOMO_CALLBACK_URL': '',
+                'PAYSTACK_SECRET_KEY': '', 'PAYSTACK_PUBLIC_KEY': '', 'PAYSTACK_SUBACCOUNT': ''})
     sender = (job.get('sms_sender') or '').strip()[:11]
     if sender:
         env['SMS_SENDER_ID'] = env_value(sender)

@@ -45,6 +45,12 @@ class FeeStatementController extends Controller
                 'url' => \Illuminate\Support\Facades\URL::temporarySignedRoute('momo.pay', now()->addDay(), ['student' => $sr->user_id]),
                 'test' => config('momo.driver') === 'fake',
             ] : null,
+            // Pay online through Paystack (mobile money on any network, or card).
+            'online' => \App\Support\Paystack::configured() ? [
+                'url' => \Illuminate\Support\Facades\URL::temporarySignedRoute('paystack.pay', now()->addDay(), ['student' => $sr->user_id]),
+                'test' => \App\Support\Paystack::testMode(),
+            ] : null,
+            'paid' => session('online_payment'),
             'instructions' => Qs::getSetting('payment_instructions'),
             'generated' => now()->toIso8601String(),
         ]);

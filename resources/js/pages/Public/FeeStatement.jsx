@@ -1,14 +1,15 @@
 import { Head } from '@inertiajs/react';
 import { Printer } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
-import { MomoPay, TermInvoice } from '@/components/fees/fee-statement';
+import { MomoPay, OnlinePay, TermInvoice } from '@/components/fees/fee-statement';
+import { formatMoney } from '@/lib/utils';
 
 
 /**
  * Fees invoice for parents, opened from the email/SMS link: one short table (school fees, each
  * service, balance from earlier terms, total due), pay online and how to pay. No login required.
  */
-export default function FeeStatement({ school, student, session, invoice, momo, instructions, generated }) {
+export default function FeeStatement({ school, student, session, invoice, momo, online, paid, instructions, generated }) {
 
     return (
         <div className="min-h-screen bg-canvas px-4 py-8 print:bg-white print:p-0">
@@ -51,7 +52,17 @@ export default function FeeStatement({ school, student, session, invoice, momo, 
                     {invoice ? (
                         <section className="p-6">
                             <TermInvoice invoice={invoice} />
-                            {momo && (
+                            {paid && (
+                                <div className={`mt-4 rounded-lg px-4 py-3 text-sm font-medium ${paid.status === 'successful' ? 'bg-success-soft text-success-fg' : 'bg-danger-soft text-danger-fg'}`}>
+                                    {paid.status === 'successful' ? `Payment of GHS ${formatMoney(paid.amount)} received. Thank you.` : paid.status === 'pending' ? 'Your payment is being confirmed. It will show here shortly.' : 'The payment was not completed.'}
+                                </div>
+                            )}
+                            {online && (
+                                <div className="mt-4">
+                                    <OnlinePay url={online.url} maxAmount={invoice.total} test={online.test} />
+                                </div>
+                            )}
+                            {!online && momo && (
                                 <div className="mt-4">
                                     <MomoPay url={momo.url} maxAmount={invoice.total} test={momo.test} onPaid={() => setTimeout(() => window.location.reload(), 2500)} />
                                 </div>

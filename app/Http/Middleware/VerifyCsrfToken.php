@@ -20,6 +20,7 @@ class VerifyCsrfToken extends Middleware
      */
     protected $except = [
         'momo/callback', // called by MTN's servers
+        'paystack/webhook', // called by Paystack (checked by its signature)
         'iclock/*', 'api/staff-clock', // staff clock-in devices (checked by serial number / token)
         'control-api/*', // LEF Control Centre (checked by the school's token)
     ];

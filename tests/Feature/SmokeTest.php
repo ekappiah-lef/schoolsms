@@ -352,6 +352,58 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testPaystackPaymentIsAppliedOnceAfterPaystackConfirms()
+    {
+        $sr = \App\Models\StudentRecord::where('grad', 0)->get()->first(function ($s) { return \App\Support\Fees::termInvoice($s->user_id)['total'] >= 50; });
+        if (!$sr) return $this->assertTrue(true);
+        config(['paystack.secret_key' => 'sk_test_unit', 'paystack.base_url' => 'https://paystack.test', 'sms.driver' => 'log', 'sms.allowlist' => '0000000000', 'mail.default' => 'array']);
+        $paystack = ['status' => 'success', 'channel' => 'mobile_money', 'amount' => 5000, 'currency' => 'GHS', 'id' => 123];
+        \Illuminate\Support\Facades\Http::fake(function ($request) use (&$paystack) {
+            if (strpos($request->url(), '/transaction/initialize') !== false) {
+                return \Illuminate\Support\Facades\Http::response(['status' => true, 'data' => ['authorization_url' => 'https://checkout.paystack.test/abc']]);
+            }
+            return \Illuminate\Support\Facades\Http::response(['status' => true, 'data' => $paystack]);
+        });
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $before = \App\Support\Fees::termInvoice($sr->user_id)['total'];
+            $url = \Illuminate\Support\Facades\URL::temporarySignedRoute('paystack.pay', now()->addDay(), ['student' => $sr->user_id]);
+            $this->postJson($url, ['amount' => 50])->assertOk()->assertJson(['url' => 'https://checkout.paystack.test/abc']);
+            $this->postJson(route('paystack.pay', ['student' => $sr->user_id]), ['amount' => 50])->assertStatus(403);
+            $p = \App\Models\OnlinePayment::where('student_id', $sr->user_id)->latest('id')->first();
+            $this->assertSame('pending', $p->status);
+
+            // A webhook without Paystack's signature does nothing.
+            $this->postJson(route('paystack.webhook'), ['event' => 'charge.success', 'data' => ['reference' => $p->reference]])->assertStatus(401);
+            $this->assertSame('pending', $p->fresh()->status);
+
+            $this->get(route('paystack.callback', ['reference' => $p->reference]))->assertRedirect();
+            $this->assertSame('successful', $p->fresh()->status);
+            $this->assertEquals($before - 50, \App\Support\Fees::termInvoice($sr->user_id)['total']);
+
+            // Coming back again, or Paystack's signed webhook, does not apply it twice.
+            $body = json_encode(['event' => 'charge.success', 'data' => ['reference' => $p->reference]]);
+            $this->call('POST', route('paystack.webhook'), [], [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_PAYSTACK_SIGNATURE' => hash_hmac('sha512', $body, 'sk_test_unit')], $body)->assertOk();
+            $this->get(route('paystack.callback', ['reference' => $p->reference]))->assertRedirect();
+            $this->assertEquals($before - 50, \App\Support\Fees::termInvoice($sr->user_id)['total']);
+
+            // A failed payment changes nothing; a wrong amount is refused.
+            $this->postJson($url, ['amount' => 20])->assertOk();
+            $q = \App\Models\OnlinePayment::where('student_id', $sr->user_id)->latest('id')->first();
+            $paystack = ['status' => 'failed', 'gateway_response' => 'Declined'];
+            $this->get(route('paystack.callback', ['reference' => $q->reference]));
+            $this->assertSame('failed', $q->fresh()->status);
+            $this->postJson($url, ['amount' => 20])->assertOk();
+            $w = \App\Models\OnlinePayment::where('student_id', $sr->user_id)->latest('id')->first();
+            $paystack = ['status' => 'success', 'channel' => 'card', 'amount' => 100, 'currency' => 'GHS'];
+            $this->get(route('paystack.callback', ['reference' => $w->reference]));
+            $this->assertSame('failed', $w->fresh()->status);
+            $this->assertEquals($before - 50, \App\Support\Fees::termInvoice($sr->user_id)['total']);
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testParentHasTimetablesInTheirMenu()
     {
         $this->actingAs($this->user('parent'));

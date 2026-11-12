@@ -524,6 +524,42 @@ export function TermInvoice({ invoice, sendUrl }) {
  * Pay (or request payment) with MTN MoMo: the payer gets a prompt on their phone and approves it
  * with their PIN; this waits for MTN's answer, then the payment is applied to the fees.
  */
+/** Pay online through Paystack: the parent goes to Paystack's page (mobile money on any network, or card) and comes back. */
+export function OnlinePay({ url, maxAmount, test }) {
+    const [amount, setAmount] = useState(maxAmount > 0 ? String(maxAmount) : '');
+    const [busy, setBusy] = useState(false);
+    if (!url || maxAmount <= 0) return null;
+    const pay = async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        const r = await submitForm(url, { amount: Number(amount) });
+        if (!r.ok) {
+            setBusy(false);
+            toast.error(r.errors ? Object.values(r.errors)[0] : r.message);
+            return;
+        }
+        window.location.href = r.data.url;
+    };
+    return (
+        <div className="rounded-lg border border-border bg-muted p-4 print:hidden">
+            <div className="mb-3 flex items-center gap-2">
+                <span className="text-sm font-semibold">Pay online</span>
+                <span className="text-xs text-fg-muted">MTN MoMo · Telecel Cash · AirtelTigo Money · Card</span>
+                {test && <span className="ml-auto text-2xs font-semibold uppercase text-warning-fg">Test mode</span>}
+            </div>
+            <form onSubmit={pay} className="flex flex-wrap items-end gap-2">
+                <label className="flex flex-col gap-1 text-xs text-fg-muted">
+                    Amount (GHS)
+                    <input className="tabular h-9 w-36 rounded-md border border-border bg-surface px-2.5 text-sm text-fg" type="number" step="0.01" min="1" max={maxAmount} value={amount} onChange={(e) => setAmount(e.target.value)} required />
+                </label>
+                <Button type="submit" variant="primary" loading={busy}>
+                    Pay {amount ? formatMoney(Number(amount)) : ''}
+                </Button>
+            </form>
+        </div>
+    );
+}
+
 export function MomoPay({ url, maxAmount, defaultPhone = '', test, onPaid, staff = false }) {
     const [phone, setPhone] = useState(defaultPhone ?? '');
     const [amount, setAmount] = useState(maxAmount > 0 ? String(maxAmount) : '');

@@ -23,6 +23,10 @@ Route::get('fees/statement/{student}', 'FeeStatementController@show')->name('fee
 Route::post('pay/momo/{student}', 'MomoController@start')->name('momo.pay')->middleware(['signed', 'throttle:10,1']);
 Route::get('pay/momo/status/{reference}', 'MomoController@status')->name('momo.status')->middleware('throttle:60,1');
 Route::match(['post', 'put'], 'momo/callback', 'MomoController@callback')->name('momo.callback');
+/* Paystack: parent pays from the statement (signed), comes back to the callback; Paystack's webhook (signed with the secret key) */
+Route::post('pay/online/{student}', 'PaystackController@start')->name('paystack.pay')->middleware(['signed', 'throttle:10,1']);
+Route::get('pay/online/callback', 'PaystackController@callback')->name('paystack.callback')->middleware('throttle:30,1');
+Route::post('paystack/webhook', 'PaystackController@webhook')->name('paystack.webhook');
 
 /* LEF Control Centre → this school (no login: secret token per school) */
 Route::get('control-api/status', 'ControlApiController@status')->middleware('throttle:60,1');
