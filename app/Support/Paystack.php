@@ -37,7 +37,7 @@ class Paystack
         if (!self::configured()) throw new \RuntimeException('Online payment is not set up for this school.');
         $email = collect(Notices::recipients($sr)['emails'])->first()
             ?: 'fees@'.(parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'school.example');
-        $p = OnlinePayment::create(['reference' => 'EDU-'.Str::upper(Str::random(16)), 'student_id' => $sr->user_id, 'amount' => Money::r($amount),
+        $p = OnlinePayment::create(['reference' => 'EDU-'.Str::upper(Str::random(16)), 'status' => 'pending', 'student_id' => $sr->user_id, 'amount' => Money::r($amount),
             'email' => $email, 'initiated_by' => $by]);
 
         $body = [
@@ -96,7 +96,7 @@ class Paystack
         if (strlen($local) !== 10) throw new \RuntimeException('Enter a valid Ghana mobile money number, e.g. 024 123 4567.');
         $email = collect(Notices::recipients($sr)['emails'])->first()
             ?: 'fees@'.(parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'school.example');
-        $p = OnlinePayment::create(['reference' => 'EDU-'.Str::upper(Str::random(16)), 'student_id' => $sr->user_id, 'amount' => Money::r($amount),
+        $p = OnlinePayment::create(['reference' => 'EDU-'.Str::upper(Str::random(16)), 'status' => 'pending', 'student_id' => $sr->user_id, 'amount' => Money::r($amount),
             'email' => $email, 'phone' => $local, 'network' => $network, 'initiated_by' => $by]);
         try {
             $res = self::http()->post('/charge', [
