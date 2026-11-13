@@ -59,7 +59,8 @@ export default function UsersIndex({ userTypes, users, options, editing, staffVi
         if (SHOW_LGA && k === 'state_id') form.set('lga_id', '');
     };
 
-    const typeTitle = editing ? editing.type : userTypes.find((t) => t.id === form.data.user_type)?.title;
+    const typeTitle = editing ? userTypes.find((t) => t.id === form.data.user_type)?.title ?? editing.type : userTypes.find((t) => t.id === form.data.user_type)?.title;
+    const canChangeType = editing?.can_change_type && userTypes.some((t) => t.id === editing.type_id);
     const counts = useMemo(() => Object.fromEntries(userTypes.map((t) => [t.title, users.filter((u) => u.type === t.title).length])), [userTypes, users]);
     const rows = type === 'all' ? users : users.filter((u) => (staffView ? u.category : u.type) === type);
     const teaching = users.filter((u) => u.category === 'teaching').length;
@@ -84,13 +85,13 @@ export default function UsersIndex({ userTypes, users, options, editing, staffVi
                             submitLabel={editing ? `Save ${what}` : `Create ${what}`}
                             processing={form.processing}
                         >
-                            {!editing && (
-                                <Field label="Type of user" required error={form.errors.user_type}>
-                                    <NativeSelect value={form.data.user_type} onChange={(v) => form.set('user_type', v)} invalid={!!form.errors.user_type}>
+                            {(!editing || canChangeType) && (
+                                <Field label={editing ? 'Role' : 'Type of user'} required error={form.errors.user_type}>
+                                    <NativeSelect value={form.data.user_type ?? editing?.type_id ?? ''} onChange={(v) => form.set('user_type', v)} invalid={!!form.errors.user_type}>
                                         <option value="" disabled>
                                             Select type
                                         </option>
-                                        {userTypes.map((t) => (
+                                        {userTypes.filter((t) => !editing || !['parent', 'student', 'super_admin'].includes(t.title)).map((t) => (
                                             <option key={t.id} value={t.id}>
                                                 {t.name}
                                             </option>

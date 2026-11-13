@@ -489,6 +489,27 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testAdminChangesAStaffMembersRole()
+    {
+        $admin = $this->user('super_admin');
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $t = $this->user('teacher');
+            $head = \Illuminate\Support\Facades\DB::table('user_types')->where('title', 'academic_head')->first();
+            $parentType = \Illuminate\Support\Facades\DB::table('user_types')->where('title', 'parent')->first();
+            $base = ['name' => $t->name.' X', 'gender' => $t->gender ?: 'Male', 'address' => $t->address ?: 'Some address here', 'state_id' => $t->state_id ?: 1, 'nal_id' => $t->nal_id ?: 1];
+            $url = route('users.update', \App\Helpers\Qs::hash($t->id));
+            $this->actingAs($admin)->put($url, $base + ['user_type' => \App\Helpers\Qs::hash($head->id)])->assertOk()->assertJson(['ok' => true]);
+            $this->assertSame('academic_head', $t->fresh()->user_type);
+            $this->actingAs($admin)->put($url, $base + ['user_type' => \App\Helpers\Qs::hash($parentType->id)])->assertOk();
+            $this->assertSame('academic_head', $t->fresh()->user_type);
+            $this->actingAs($admin)->put(route('users.update', \App\Helpers\Qs::hash($admin->id)), $base + ['user_type' => \App\Helpers\Qs::hash($head->id)]);
+            $this->assertSame('super_admin', $admin->fresh()->user_type);
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testParentHasTimetablesInTheirMenu()
     {
         $this->actingAs($this->user('parent'));

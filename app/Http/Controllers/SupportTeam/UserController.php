@@ -176,6 +176,9 @@ class UserController extends Controller
             return $this->indexProps($this->typesFor($ut), $d['users'], [
                 'url' => route('users.update', Qs::hash($u->id)),
                 'name' => $u->name, 'type' => $u->user_type, 'type_name' => optional($ut->firstWhere('title', $u->user_type))->name,
+                'type_id' => ($t = $ut->firstWhere('title', $u->user_type)) ? Qs::hash($t->id) : null,
+                // A staff member's role can be changed (to another staff role the signed-in user may give), never their own.
+                'can_change_type' => in_array($u->user_type, self::STAFF_TYPES, true) && (int) $u->id !== (int) Auth::id(),
                 'address' => $u->address, 'email' => $u->email, 'phone' => $u->phone, 'phone2' => $u->phone2,
                 'gender' => $u->gender, 'nal_id' => $u->nal_id, 'state_id' => $u->state_id, 'lga_id' => $u->lga_id, 'bg_id' => $u->bg_id,
                 'emp_date' => optional($u->staff->first())->emp_date ? date('Y-m-d', strtotime($u->staff->first()->emp_date)) : '',
@@ -276,6 +279,19 @@ class UserController extends Controller
         }
 
         $user_type = $user->user_type;
+        // Change of role: staff only, to a staff role this user may give, and not their own.
+        if ($req->filled('user_type')) {
+            $new = $this->typesFor($this->user->getAllTypes())->firstWhere('id', (int) Qs::decodeHash($req->user_type));
+            if ($new && $new->title !== $user_type) {
+                if (!in_array($user_type, self::STAFF_TYPES, true) || !in_array($new->title, self::STAFF_TYPES, true) || (int) $id === (int) Auth::id()) {
+                    return Qs::json('This role cannot be changed here.', false);
+                }
+                $user_type = $new->title;
+                if (!\DB::table('staff_records')->where('user_id', $id)->exists()) {
+                    $this->user->createStaffRecord(['user_id' => $id, 'code' => $user->username]);
+                }
+            }
+        }
         $user_is_staff = in_array($user_type, Qs::getStaff());
         $user_is_teamSA = in_array($user_type, Qs::getTeamSA());
 
