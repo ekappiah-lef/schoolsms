@@ -105,6 +105,11 @@ export default function Settings({ settings, logo, years, urls }) {
                     </Panel>
 
                     <div className="flex flex-col gap-6 lg:col-span-2">
+                        <Panel title="Grade remarks">
+                            <Field label="One remark per line" error={errors.grade_remarks}>
+                                <textarea className={`${fieldInput} h-48`} value={data.grade_remarks ?? ''} onChange={(e) => set('grade_remarks', e.target.value)} />
+                            </Field>
+                        </Panel>
                         <Panel title="Logo">
                             <Field label="School logo" error={logoError || errors.logo}>
                                 <PhotoUploader value={logoFile} onChange={setLogoFile} currentUrl={logo} name={data.system_name} onError={setLogoError} camera={false} />

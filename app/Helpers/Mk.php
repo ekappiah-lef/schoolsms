@@ -15,9 +15,12 @@ class Mk extends Qs
         return self::getSetting('lock_exam');
     }
 
+    /** The remarks a grade can carry: the school's own (Settings → Grade remarks), or the standard list. */
     public static function getRemarks()
     {
-        return ['Average', 'Credit', 'Distinction', 'Excellent', 'Fail', 'Fair', 'Good', 'Pass', 'Poor', 'Very Good', 'Very Poor'];
+        $own = array_values(array_unique(array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', (string) Qs::getSetting('grade_remarks'))))));
+
+        return $own ?: ['Average', 'Credit', 'Distinction', 'Excellent', 'Fail', 'Fair', 'Good', 'Pass', 'Poor', 'Very Good', 'Very Poor'];
     }
 
     /** ADD ORDINAL SUFFIX TO POSITION **/

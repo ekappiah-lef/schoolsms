@@ -510,6 +510,20 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testGradeRemarksComeFromSettings()
+    {
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            \Illuminate\Support\Facades\DB::table('settings')->where('type', 'grade_remarks')->delete();
+            $this->assertContains('Very Good', \App\Helpers\Mk::getRemarks());
+            \Illuminate\Support\Facades\DB::table('settings')->insert(['type' => 'grade_remarks', 'description' => "Highest\n\n  Higher \nHigh\nHigh"]);
+            $this->assertSame(['Highest', 'Higher', 'High'], \App\Helpers\Mk::getRemarks());
+            $this->actingAs($this->user('super_admin'))->get(route('grades.index'))->assertOk()->assertSee('Highest');
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testParentHasTimetablesInTheirMenu()
     {
         $this->actingAs($this->user('parent'));

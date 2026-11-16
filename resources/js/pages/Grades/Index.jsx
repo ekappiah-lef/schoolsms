@@ -77,7 +77,7 @@ export default function GradesIndex({ session, canDelete, types, remarks, grades
                             <Field label="Remark" span={2} error={form.errors.remark}>
                                 <NativeSelect value={form.data.remark} onChange={(v) => form.set('remark', v)}>
                                     <option value="">Select remark…</option>
-                                    {remarks.map((r) => (
+                                    {(form.data.remark && !remarks.includes(form.data.remark) ? [...remarks, form.data.remark] : remarks).map((r) => (
                                         <option key={r} value={r}>
                                             {r}
                                         </option>

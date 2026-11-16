@@ -33,7 +33,7 @@ class SettingController extends Controller
                 $years[] = ($y - 1).'-'.$y;
             }
             return [
-                'settings' => collect(['system_name', 'system_title', 'current_session', 'phone', 'system_email', 'mail_from', 'address', 'term_ends', 'term_begins', 'lock_exam', 'has_boarding', 'birthday_messages', 'fee_reminders'])
+                'settings' => collect(['system_name', 'system_title', 'current_session', 'phone', 'system_email', 'mail_from', 'address', 'term_ends', 'term_begins', 'lock_exam', 'has_boarding', 'birthday_messages', 'fee_reminders', 'grade_remarks'])
                     ->mapWithKeys(function ($k) use ($s) { return [$k => (string) ($s[$k] ?? '')]; }),
                 'logo' => $s['logo'] ?? null,
                 'years' => $years,
@@ -44,7 +44,12 @@ class SettingController extends Controller
 
     public function update(SettingUpdate $req)
     {
-        $sets = $req->except('_token', '_method', 'logo');
+        $sets = $req->except('_token', '_method', 'logo', 'grade_remarks');
+        if ($req->has('grade_remarks')) {
+            // One remark per line, as typed (blank lines and repeats dropped).
+            $remarks = array_values(array_unique(array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', (string) $req->grade_remarks)))));
+            \Illuminate\Support\Facades\DB::table('settings')->updateOrInsert(['type' => 'grade_remarks'], ['description' => implode("\n", $remarks)]);
+        }
         $sets['lock_exam'] = $sets['lock_exam'] == 1 ? 1 : 0;
         $sets['has_boarding'] = ($sets['has_boarding'] ?? 0) == 1 ? 1 : 0;
         $sets['birthday_messages'] = ($sets['birthday_messages'] ?? 0) == 1 ? 1 : 0;
