@@ -308,6 +308,10 @@ Route::group(['middleware' => 'auth'], function () {
         Route::post('school-calendar', 'SchoolCalendarController@save')->name('calendar.save');
         Route::put('class-types/{type}', 'ClassTypeController@update')->name('class_types.update');
         Route::delete('class-types/{type}', 'ClassTypeController@destroy')->name('class_types.destroy');
+        Route::get('grade-remarks', 'GradeRemarkController@index')->name('grade_remarks.index');
+        Route::post('grade-remarks', 'GradeRemarkController@store')->name('grade_remarks.store');
+        Route::put('grade-remarks/{remark}', 'GradeRemarkController@update')->name('grade_remarks.update');
+        Route::delete('grade-remarks/{remark}', 'GradeRemarkController@destroy')->name('grade_remarks.destroy');
         Route::resource('sections', 'SectionController');
         Route::resource('subjects', 'SubjectController');
         Route::resource('grades', 'GradeController');

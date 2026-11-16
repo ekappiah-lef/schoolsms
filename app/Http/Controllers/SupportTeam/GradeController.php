@@ -20,8 +20,8 @@ class GradeController extends Controller
         $this->exam = $exam;
         $this->my_class = $my_class;
 
-        $this->middleware('academicLead', ['except' => ['destroy',] ]);
-        $this->middleware('super_admin', ['only' => ['destroy',] ]);
+        // Whoever sets up the grades can also delete them (marks are regraded straight away).
+        $this->middleware('academicLead');
     }
 
     public function index()
@@ -39,7 +39,7 @@ class GradeController extends Controller
 
         return [
             'session' => Qs::getCurrentSession(),
-            'canDelete' => Qs::userIsSuperAdmin(),
+            'canDelete' => Qs::userIsAcademicLead(),
             'types' => $types->map(function ($t) { return ['id' => $t->id, 'name' => $t->name]; })->values(),
             'remarks' => Mk::getRemarks(),
             'grades' => $this->exam->allGrades()->sortByDesc('mark_from')->map(function ($g) use ($types) {

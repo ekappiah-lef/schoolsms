@@ -510,15 +510,44 @@ class SmokeTest extends TestCase
         }
     }
 
-    public function testGradeRemarksComeFromSettings()
+    public function testGradeRemarksArePickedFromTheirOwnList()
     {
+        $admin = $this->user('super_admin');
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
-            \Illuminate\Support\Facades\DB::table('settings')->where('type', 'grade_remarks')->delete();
+            $this->actingAs($admin)->get(route('grade_remarks.index'))->assertOk();
+            \Illuminate\Support\Facades\DB::table('grade_remarks')->delete();
             $this->assertContains('Very Good', \App\Helpers\Mk::getRemarks());
-            \Illuminate\Support\Facades\DB::table('settings')->insert(['type' => 'grade_remarks', 'description' => "Highest\n\n  Higher \nHigh\nHigh"]);
-            $this->assertSame(['Highest', 'Higher', 'High'], \App\Helpers\Mk::getRemarks());
-            $this->actingAs($this->user('super_admin'))->get(route('grades.index'))->assertOk()->assertSee('Highest');
+            $this->actingAs($admin)->post(route('grade_remarks.store'), ['name' => ' Highest '])->assertOk()->assertJson(['ok' => true]);
+            $this->actingAs($admin)->post(route('grade_remarks.store'), ['name' => 'Highest'])->assertStatus(302);
+            $this->assertSame(['Highest'], \App\Helpers\Mk::getRemarks());
+            $this->actingAs($admin)->get(route('grades.index'))->assertOk()->assertSee('Highest');
+
+            // Renaming renames it on the grades; a remark in use cannot be deleted.
+            $id = \Illuminate\Support\Facades\DB::table('grade_remarks')->where('name', 'Highest')->value('id');
+            $g = \App\Models\Grade::first();
+            if ($g) {
+                $g->update(['remark' => 'Highest']);
+                $this->actingAs($admin)->put(route('grade_remarks.update', $id), ['name' => 'Top'])->assertOk();
+                $this->assertSame('Top', $g->fresh()->remark);
+                $this->actingAs($admin)->delete(route('grade_remarks.destroy', $id))->assertJson(['ok' => false]);
+            }
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
+    public function testAcademicAdminDeletesAGrade()
+    {
+        $aa = \App\User::where('user_type', 'academic_admin')->first();
+        $g = \App\Models\Grade::first();
+        if (!$aa || !$g) return $this->assertTrue(true);
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $this->actingAs($aa)->get(route('grades.index'))->assertOk();
+            $this->actingAs($aa)->delete(route('grades.destroy', $g->id))->assertRedirect();
+            $this->assertNull(\App\Models\Grade::find($g->id));
+            $this->assertNotEquals(200, $this->actingAs($this->user('teacher'))->get(route('grades.index'))->getStatusCode());
         } finally {
             \Illuminate\Support\Facades\DB::rollBack();
         }

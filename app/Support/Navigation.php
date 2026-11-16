@@ -163,6 +163,7 @@ class Navigation
                 self::group('Classes & subjects', 'school', [
                     self::item('Classes', null, 'classes.index', ['classes.index', 'classes.edit']),
                     self::item('Class types', null, 'class_types.index'),
+                    self::item('Grade remarks', null, 'grade_remarks.index'),
                     self::item('Sections', null, 'sections.index', ['sections.index', 'sections.edit']),
                     self::item('Subjects', null, 'subjects.index', ['subjects.index', 'subjects.edit']),
                     \App\Support\MarkApprovals::on() ? self::item('Departments', null, 'departments.index') : null,

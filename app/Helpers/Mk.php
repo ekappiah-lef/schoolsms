@@ -15,10 +15,11 @@ class Mk extends Qs
         return self::getSetting('lock_exam');
     }
 
-    /** The remarks a grade can carry: the school's own (Settings → Grade remarks), or the standard list. */
+    /** The remarks a grade can carry: the school's own (Classes & subjects → Grade remarks), or the standard list. */
     public static function getRemarks()
     {
-        $own = array_values(array_unique(array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', (string) Qs::getSetting('grade_remarks'))))));
+        $own = \Illuminate\Support\Facades\Schema::hasTable('grade_remarks')
+            ? \Illuminate\Support\Facades\DB::table('grade_remarks')->orderBy('id')->pluck('name')->all() : [];
 
         return $own ?: ['Average', 'Credit', 'Distinction', 'Excellent', 'Fail', 'Fair', 'Good', 'Pass', 'Poor', 'Very Good', 'Very Poor'];
     }
