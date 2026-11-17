@@ -590,6 +590,16 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testWeightedTotalIsTheSumOfTheRoundedHalves()
+    {
+        $w = ['class' => 0.5, 'exam' => 0.5];
+        $this->assertSame(80, \App\Support\Assessment::weightedTotal(73, 85, $w));
+        $this->assertSame(70, \App\Support\Assessment::weightedTotal(61, 77, $w));
+        $this->assertSame(79, \App\Support\Assessment::weightedTotal(73, 84, $w));
+        $this->assertSame(100, \App\Support\Assessment::weightedTotal(100, 100, $w));
+        $this->assertSame(37, \App\Support\Assessment::weightedTotal(73, null, $w));
+    }
+
     public function testParentHasTimetablesInTheirMenu()
     {
         $this->actingAs($this->user('parent'));

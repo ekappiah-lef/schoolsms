@@ -87,7 +87,7 @@ class Assessment
         $class = array_sum(array_map(function ($v) { return $v ?: 0; }, $classVals));
 
         if (!empty($s['weights'])) {
-            $total = (int) round($class * $s['weights']['class'] + ($exam ?: 0) * $s['weights']['exam']);
+            $total = self::weightedTotal($class, $exam, $s['weights']);
             return array_replace($blank, ['tca' => $class, 'exm' => $exam, 'parts' => json_encode($classVals), $tex => $total]);
         }
 
@@ -97,6 +97,12 @@ class Assessment
 
         return array_replace($blank, array_intersect_key($vals, array_flip(['t1', 't2', 't3', 't4'])),
             ['tca' => $class, 'exm' => $exam, $tex => $total, 'parts' => $own ? json_encode($own) : null]);
+    }
+
+    /** Class half + exam half, each rounded as the report card shows it (e.g. 37 + 43 = 80). */
+    public static function weightedTotal($class, $exam, array $w): int
+    {
+        return (int) round(($class ?: 0) * $w['class']) + (int) round(($exam ?: 0) * $w['exam']);
     }
 
     /** Columns shown on a student's result sheet (besides total, grade, position): [[key, label]]. */

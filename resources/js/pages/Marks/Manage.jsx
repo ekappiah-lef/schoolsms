@@ -79,7 +79,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
         const num = (k) => (v[k] === '' || v[k] === undefined ? null : Number(v[k]));
         if (COLUMNS.every((c) => num(c.key) === null)) return { total: null, grade: null };
         const cls = classKeys.reduce((a, k) => a + (num(k) || 0), 0);
-        const total = weights ? Math.round(cls * weights.class + (num(scheme.exam) || 0) * weights.exam) : cls + (num(scheme.exam) || 0);
+        const total = weights ? Math.round(cls * weights.class) + Math.round((num(scheme.exam) || 0) * weights.exam) : cls + (num(scheme.exam) || 0);
         return { total, grade: gradeFor(total, grades, generalGrades) };
     };
 
@@ -281,9 +281,11 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                                         <th rowSpan={2} className="h-9 w-16 border-l border-border px-2 text-center">
                                             Class <span className="font-normal text-fg-subtle">/100</span>
                                         </th>
+                                        {weights && <th rowSpan={2} className="h-9 w-14 px-2 text-center">{weights.class * 100}%</th>}
                                         <th rowSpan={2} className="h-9 w-24 border-l border-border px-2 text-center">
                                             {COLUMNS.find((c) => c.key === scheme.exam)?.label} <span className="font-normal text-fg-subtle">/{COLUMNS.find((c) => c.key === scheme.exam)?.max}</span>
                                         </th>
+                                        {weights && <th rowSpan={2} className="h-9 w-14 px-2 text-center">{weights.exam * 100}%</th>}
                                         <th rowSpan={2} className="h-9 w-20 border-l border-border px-3 text-right">Total</th>
                                         <th rowSpan={2} className="h-9 w-32 px-3">Grade</th>
                                         <th rowSpan={2} className="hidden h-9 w-20 px-4 text-right md:table-cell">Pos.</th>
@@ -340,7 +342,13 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                                             const beforeExam = groups && c.key === scheme.exam;
                                             return (
                                                 <Fragment key={c.key}>
-                                                {beforeExam && (
+                                                {beforeExam && weights && (() => { const cs = sumOf(r.id, classKeys); return (
+                                                    <>
+                                                        <td className="tabular border-l border-border px-2 text-center text-sm font-semibold">{cs ?? <span className="text-fg-subtle">—</span>}</td>
+                                                        <td className="tabular px-2 text-center text-sm font-semibold">{cs === null || cs === undefined ? <span className="text-fg-subtle">—</span> : Math.round(cs * weights.class)}</td>
+                                                    </>
+                                                ); })()}
+                                                {beforeExam && !weights && (
                                                     <td className="tabular border-l border-border px-2 text-center text-sm font-semibold">{sumOf(r.id, classKeys) ?? <span className="text-fg-subtle">—</span>}</td>
                                                 )}
                                                 <td className={cn(groups ? 'px-1 py-1.5' : 'px-2 py-1.5', groups && (beforeExam || (g && g.parts[0].key === c.key)) && 'border-l border-border')}>
@@ -365,6 +373,11 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                                                 </td>
                                                 {lastOfGroup && (
                                                     <td className="tabular px-1 text-center text-sm text-fg-muted">{sumOf(r.id, g.parts.map((x) => x.key)) ?? ''}</td>
+                                                )}
+                                                {groups && weights && c.key === scheme.exam && (
+                                                    <td className="tabular px-2 text-center text-sm font-semibold">
+                                                        {values[r.id]?.[c.key] === '' || values[r.id]?.[c.key] === undefined ? <span className="text-fg-subtle">—</span> : Math.round(Number(values[r.id][c.key]) * weights.exam)}
+                                                    </td>
                                                 )}
                                                 </Fragment>
                                             );
