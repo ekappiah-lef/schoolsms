@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { toast } from 'sonner';
-import { Check, Download, Info, Printer, RotateCcw, Table2 } from 'lucide-react';
+import { Check, Download, History, Info, Printer, RotateCcw, Table2 } from 'lucide-react';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { PageHeader, Panel } from '@/components/app/page';
 import { MarkSelector } from '@/components/marks/mark-selector';
@@ -9,11 +9,11 @@ import { ApprovalBar } from '@/components/marks/approval-bar';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ConfirmDialog } from '@/components/ui/dialog';
+import { ConfirmDialog, Modal } from '@/components/ui/dialog';
 import { Tooltip } from '@/components/ui/tooltip';
 import { submitForm } from '@/lib/http';
 import { downloadCsv } from '@/lib/use-visit-state';
-import { cn, ordinal } from '@/lib/utils';
+import { cn, ordinal, formatDate } from '@/lib/utils';
 
 const toValue = (v) => (v === null || v === undefined ? '' : String(v));
 
@@ -57,7 +57,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                 const raw = values[r.id]?.[c.key];
                 if (raw === '' || raw === undefined) return;
                 const n = Number(raw);
-                if (!Number.isFinite(n) || n < 0 || n > c.max) e[`${r.id}.${c.key}`] = `0 – ${c.max}`;
+                if (!Number.isFinite(n) || n < 0 || n > c.max || Math.round(n * 100) !== Math.round(n * 1000) / 10) e[`${r.id}.${c.key}`] = `0 – ${c.max}`;
             }),
         );
         return e;
@@ -79,7 +79,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
         const num = (k) => (v[k] === '' || v[k] === undefined ? null : Number(v[k]));
         if (COLUMNS.every((c) => num(c.key) === null)) return { total: null, grade: null };
         const cls = classKeys.reduce((a, k) => a + (num(k) || 0), 0);
-        const total = weights ? Math.round(cls * weights.class) + Math.round((num(scheme.exam) || 0) * weights.exam) : cls + (num(scheme.exam) || 0);
+        const total = weights ? Math.round(cls * weights.class) + Math.round((num(scheme.exam) || 0) * weights.exam) : Math.round(cls + (num(scheme.exam) || 0));
         return { total, grade: gradeFor(total, grades, generalGrades) };
     };
 
@@ -122,7 +122,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
     const sumOf = (id, keys) => {
         const v = values[id] ?? {};
         const nums = keys.map((k) => (v[k] === '' || v[k] === undefined ? null : Number(v[k])));
-        return nums.every((n) => n === null) ? null : nums.reduce((a, n) => a + (n || 0), 0);
+        return nums.every((n) => n === null) ? null : Math.round(nums.reduce((a, n) => a + (n || 0), 0) * 100) / 100;
     };
     // Before saving: how many students changed and how many still have empty boxes, to cross-check.
     const blanks = rows.filter((r) => dirtyIds.includes(r.id) && COLUMNS.some((c) => (values[r.id]?.[c.key] ?? '') === '')).length;
@@ -212,6 +212,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                                 </a>
                             </Button>
                         )}
+                        {urls.history && <MarkHistory url={urls.history} />}
                         <Button
                             onClick={() =>
                                 downloadCsv(`marks-${context.subject}-${context.class}${context.section}.csv`, [
@@ -308,9 +309,12 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                                     <th className="h-9 w-10 px-4 text-right">#</th>
                                     <th className="h-9 px-3">Student</th>
                                     {COLUMNS.map((c) => (
-                                        <th key={c.key} className="h-9 w-28 px-2 text-center">
-                                            {c.label} <span className="font-normal text-fg-subtle">/{c.max}</span>
-                                        </th>
+                                        <Fragment key={c.key}>
+                                            <th className="h-9 w-28 px-2 text-center">
+                                                {c.label} <span className="font-normal text-fg-subtle">/{c.max}</span>
+                                            </th>
+                                            {weights && <th className="h-9 w-16 px-2 text-center">{(c.key === scheme.exam ? weights.exam : weights.class) * 100}%</th>}
+                                        </Fragment>
                                     ))}
                                     <th className="h-9 w-20 px-3 text-right">Total</th>
                                     <th className="h-9 w-32 px-3">Grade</th>
@@ -360,7 +364,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                                                             readOnly={!canEdit}
                                                             onKeyDown={(e) => onKeyDown(e, ri, ci)}
                                                             onFocus={(e) => e.target.select()}
-                                                            inputMode="numeric"
+                                                            inputMode="decimal"
                                                             aria-label={`${c.label} for ${r.name}`}
                                                             aria-invalid={err ? true : undefined}
                                                             className={cn(
@@ -373,6 +377,11 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                                                 </td>
                                                 {lastOfGroup && (
                                                     <td className="tabular px-1 text-center text-sm text-fg-muted">{sumOf(r.id, g.parts.map((x) => x.key)) ?? ''}</td>
+                                                )}
+                                                {!groups && weights && (
+                                                    <td className="tabular px-2 text-center text-sm font-semibold">
+                                                        {values[r.id]?.[c.key] === '' || values[r.id]?.[c.key] === undefined || !Number.isFinite(Number(values[r.id][c.key])) ? <span className="text-fg-subtle">—</span> : Math.round(Number(values[r.id][c.key]) * (c.key === scheme.exam ? weights.exam : weights.class))}
+                                                    </td>
                                                 )}
                                                 {groups && weights && c.key === scheme.exam && (
                                                     <td className="tabular px-2 text-center text-sm font-semibold">
@@ -443,3 +452,65 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
 }
 
 MarksManage.layout = withAppLayout;
+
+/** Who changed which mark on this sheet, when, and from what to what. */
+function MarkHistory({ url }) {
+    const [open, setOpen] = useState(false);
+    const [rows, setRows] = useState(null);
+    const show = async () => {
+        setOpen(true);
+        setRows(null);
+        try {
+            const r = await fetch(url, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+            const j = await r.json();
+            setRows(j.ok === false ? [] : j.rows);
+        } catch {
+            setRows([]);
+        }
+    };
+    const fmt = (v) => (v === null || v === undefined || v === '' ? '—' : v);
+    return (
+        <>
+            <Button onClick={show}>
+                <History />
+                History
+            </Button>
+            <Modal open={open} onOpenChange={setOpen} title="Changes to these marks" className="max-w-2xl">
+                {rows === null ? (
+                    <p className="text-sm text-fg-muted">Loading…</p>
+                ) : rows.length === 0 ? (
+                    <p className="text-sm text-fg-muted">No changes yet.</p>
+                ) : (
+                    <div className="max-h-[60vh] overflow-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead>
+                                <tr className="border-b border-border text-2xs font-semibold uppercase text-fg-muted">
+                                    <th className="py-1.5 pr-3">When</th>
+                                    <th className="py-1.5 pr-3">Student</th>
+                                    <th className="py-1.5 pr-3">Change</th>
+                                    <th className="py-1.5">By</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {rows.map((r) => (
+                                    <tr key={r.id} className="border-b border-border align-top last:border-0">
+                                        <td className="whitespace-nowrap py-1.5 pr-3 text-fg-muted">{formatDate(r.at, 'dd/MM/yyyy HH:mm')}</td>
+                                        <td className="py-1.5 pr-3 font-medium">{r.student}</td>
+                                        <td className="py-1.5 pr-3">
+                                            {r.changes.map((c, i) => (
+                                                <div key={i} className="tabular">
+                                                    {c.label}: {fmt(c.from)} → <span className="font-semibold">{fmt(c.to)}</span>
+                                                </div>
+                                            ))}
+                                        </td>
+                                        <td className="py-1.5">{r.by ?? '—'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </Modal>
+        </>
+    );
+}

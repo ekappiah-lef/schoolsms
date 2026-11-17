@@ -669,6 +669,57 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testClassAndExamOutOf100WithDecimals()
+    {
+        $before = \App\Support\SchoolConfig::get('scheme');
+        try {
+            \App\Support\SchoolConfig::set('scheme', 'class_exam_100');
+            $c = \App\Support\Assessment::columns(['t1' => 50.7, 'exm' => 61.3], 1);
+            $this->assertEquals(50.7, $c['tca']);
+            $this->assertEquals(61.3, $c['exm']);
+            $this->assertSame(25 + 31, $c['tex1']);   // 25.35 → 25, 30.65 → 31
+            $this->assertSame(null, \App\Support\Assessment::columns(['t1' => 100.5, 'exm' => 10], 1)['tex1']);
+        } finally {
+            $before === null ? \App\Support\SchoolConfig::forget('scheme') : \App\Support\SchoolConfig::set('scheme', $before);
+        }
+    }
+
+    public function testMarkChangesAreKeptAndTeachersHaveNoAttendanceReport()
+    {
+        $teacher = $this->user('teacher');
+        $this->assertNotEquals(200, $this->actingAs($teacher)->get(route('attendance.report'))->getStatusCode());
+        $this->actingAs($teacher);
+        $labels = collect(\App\Support\Navigation::build())->flatMap(function ($s) { return collect($s['items'] ?? [])->flatMap(function ($i) { return array_merge([$i['label']], collect($i['children'] ?? [])->pluck('label')->all()); }); });
+        $this->assertFalse($labels->contains('Attendance report'));
+        $this->actingAs($this->user('super_admin'))->get(route('attendance.report'))->assertOk();
+
+        $mk = \App\Models\Mark::first();
+        if (!$mk) return;
+        $admin = $this->user('super_admin');
+        $part = collect(\App\Support\Assessment::scheme()['parts'])->first();
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $url = route('marks.update', [$mk->exam_id, $mk->my_class_id, $mk->section_id, $mk->subject_id]);
+            $scores = \App\Support\Assessment::scores($mk);
+            $old = $scores[$part['key']];
+            $new = $old === null || $old >= $part['max'] ? 1 : $old + 1;
+            // The whole sheet is sent, as the page does.
+            $send = [];
+            foreach (\App\Models\Mark::where(['exam_id' => $mk->exam_id, 'my_class_id' => $mk->my_class_id, 'section_id' => $mk->section_id, 'subject_id' => $mk->subject_id])->get() as $m) {
+                foreach (\App\Support\Assessment::scores($m) as $k => $v) $send[$k.'_'.$m->id] = $v;
+            }
+            $send[$part['key'].'_'.$mk->id] = $new;
+            $this->actingAs($admin)->put($url, $send);
+            $h = $this->actingAs($admin)->getJson(route('marks.history', [$mk->exam_id, $mk->my_class_id, $mk->section_id, $mk->subject_id]))->assertOk()->json('rows');
+            $this->assertCount(1, $h);   // only the one score that changed
+            $this->assertEquals($old, $h[0]['changes'][0]['from']);
+            $this->assertEquals($new, $h[0]['changes'][0]['to']);
+            $this->assertSame($admin->name, $h[0]['by']);
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testParentHasTimetablesInTheirMenu()
     {
         $this->actingAs($this->user('parent'));

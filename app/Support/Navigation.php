@@ -77,7 +77,7 @@ class Navigation
             // The register, and the report of who was absent or late (admins and the academic admin: every class).
             $academics[] = self::group('Attendance', 'clipboard-check', [
                 self::item('Register', null, 'attendance.index'),
-                self::item('Attendance report', null, 'attendance.report'),
+                Qs::userIsAcademicLead() ? self::item('Attendance report', null, 'attendance.report') : null,
             ]);
         }
 

@@ -82,7 +82,7 @@
                 <tr>
                     <th style="width: 18px;">No.</th>
                     <th>Name of Student</th>
-                    @foreach($parts as $p)<th>{{ $p['label'] }}<br>{{ $p['max'] }}</th>@endforeach
+                    @foreach($parts as $p)<th>{{ $p['label'] }}<br>{{ $p['max'] }}</th>@if($w)<th>{{ ($p['key'] === $examKey ? $w['exam'] : $w['class']) * 100 }}%</th>@endif @endforeach
                     <th>Total</th>
                 </tr>
             @endif
@@ -108,7 +108,7 @@
                         @if($w)<td>{{ $sc[$examKey] === null ? '' : round($sc[$examKey] * $w['exam']) }}</td>@endif
                         <td class="sub">{{ $cell($mk->$tex) }}</td>
                     @else
-                        @foreach($parts as $p)<td>{{ $cell($sc[$p['key']]) }}</td>@endforeach
+                        @foreach($parts as $p)<td>{{ $cell($sc[$p['key']]) }}</td>@if($w)<td>{{ $sc[$p['key']] === null ? '' : round($sc[$p['key']] * ($p['key'] === $examKey ? $w['exam'] : $w['class'])) }}</td>@endif @endforeach
                         <td class="sub">{{ $cell($mk->$tex) }}</td>
                     @endif
                 </tr>

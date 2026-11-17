@@ -16,6 +16,7 @@ use App\Http\Controllers\Controller;
 use App\Repositories\StudentRepo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 
 class MarkController extends Controller
@@ -418,6 +419,7 @@ class MarkController extends Controller
                     'update' => route('marks.update', [$exam_id, $class_id, $section_id, $subject_id]),
                     'approval' => \App\Support\MarkApprovals::on() ? route('marks.approval', [$exam_id, $class_id, $section_id, $subject_id]) : null,
                     'register' => route('marks.register', [$exam_id, $class_id, $section_id, $subject_id]),
+                    'history' => route('marks.history', [$exam_id, $class_id, $section_id, $subject_id]),
                     'tabulation' => Qs::userIsAcademicLead() ? route('marks.tabulation', [$exam_id, $class_id, $section_id]) : null,
                 ]),
             ]);
@@ -474,6 +476,7 @@ class MarkController extends Controller
             foreach (\App\Support\Assessment::scheme()['parts'] as $box) {
                 $in[$box['key']] = $mks[$box['key'].'_'.$mk->id] ?? null;
             }
+            $before = \App\Support\Assessment::scores($mk);
             $d = \App\Support\Assessment::columns($in, (int) $exam->term);
             $total = $d['tex'.$exam->term];
 
@@ -490,6 +493,7 @@ class MarkController extends Controller
             $d['grade_id'] = $grade ? $grade->id : NULL;
 
             $this->exam->updateMark($mk->id, $d);
+            $this->recordChange($mk, $before, \App\Support\Assessment::scores($mk->fresh()));
         }
 
         /** Sub Position Begin  **/
@@ -521,6 +525,37 @@ class MarkController extends Controller
         /*Exam Record End*/
 
        return Qs::jsonUpdateOk();
+    }
+
+    /** Keep who changed which score, and from what to what. */
+    protected function recordChange($mk, array $before, array $after): void
+    {
+        $labels = collect(\App\Support\Assessment::scheme()['parts'])->pluck('label', 'key');
+        $changes = [];
+        foreach ($after as $k => $v) {
+            $old = $before[$k] ?? null;
+            if ((string) ($old ?? '') === (string) ($v ?? '')) continue;
+            $changes[] = ['label' => $labels[$k] ?? $k, 'from' => $old, 'to' => $v];
+        }
+        if (!$changes) return;
+        DB::table('mark_changes')->insert(['mark_id' => $mk->id, 'student_id' => $mk->student_id, 'exam_id' => $mk->exam_id, 'my_class_id' => $mk->my_class_id,
+            'section_id' => $mk->section_id, 'subject_id' => $mk->subject_id, 'user_id' => Auth::id(), 'changes' => json_encode($changes),
+            'created_at' => now(), 'updated_at' => now()]);
+    }
+
+    /** Every change to this mark sheet, newest first (HODs, the academic admin, admins, and whoever enters these marks). */
+    public function history($exam_id, $class_id, $section_id, $subject_id)
+    {
+        if (!Qs::userIsAcademicLead() && !TeacherScope::canMark((int) $class_id, (int) $section_id, (int) $subject_id) && !\App\Support\MarkApprovals::canReview($subject_id)) {
+            return Qs::json(__('msg.denied'), false);
+        }
+        $rows = DB::table('mark_changes as h')->leftJoin('users as s', 's.id', '=', 'h.student_id')->leftJoin('users as u', 'u.id', '=', 'h.user_id')
+            ->where(['h.exam_id' => $exam_id, 'h.my_class_id' => $class_id, 'h.section_id' => $section_id, 'h.subject_id' => $subject_id])
+            ->orderByDesc('h.id')->limit(500)->get(['h.id', 'h.created_at', 'h.changes', 's.name as student', 'u.name as by']);
+
+        return response()->json(['ok' => true, 'rows' => $rows->map(function ($r) {
+            return ['id' => $r->id, 'at' => (string) $r->created_at, 'student' => $r->student, 'by' => $r->by, 'changes' => json_decode($r->changes, true)];
+        })]);
     }
 
     /** Submit to the HOD, withdraw, approve or return for correction (switch hod_marks_approval). */

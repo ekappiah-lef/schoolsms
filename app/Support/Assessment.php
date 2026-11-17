@@ -58,6 +58,7 @@ class Assessment
             if ($k === $examKey) $out[$k] = $mk->exm ?? null;                      // the exam is always kept in exm
             elseif (array_key_exists($k, $parts)) $out[$k] = $parts[$k];           // class boxes of non-standard schemes
             else $out[$k] = in_array($k, ['t1', 't2', 't3', 't4'], true) ? ($mk->$k ?? null) : null;
+            if (is_numeric($out[$k])) $out[$k] = $out[$k] + 0;
         }
 
         return $out;
@@ -77,7 +78,7 @@ class Assessment
             $v = $in[$p['key']] ?? null;
             if ($v === null || $v === '') { $vals[$p['key']] = null; continue; }
             if (!is_numeric($v) || $v < 0 || $v > $p['max']) return $blank;
-            $vals[$p['key']] = $v + 0;
+            $vals[$p['key']] = round($v + 0, 2);   // up to 2 decimals; totals are rounded when worked out
         }
         if (!array_filter($vals, function ($v) { return $v !== null; })) return $blank;
 
@@ -91,8 +92,8 @@ class Assessment
             return array_replace($blank, ['tca' => $class, 'exm' => $exam, 'parts' => json_encode($classVals), $tex => $total]);
         }
 
-        $total = $class + ($exam ?: 0);
-        if ($total > 100) return $blank;
+        $total = (int) round($class + ($exam ?: 0));
+        if ($class + ($exam ?: 0) > 100) return $blank;
         $own = array_diff_key($classVals, array_flip(['t1', 't2', 't3', 't4']));
 
         return array_replace($blank, array_intersect_key($vals, array_flip(['t1', 't2', 't3', 't4'])),

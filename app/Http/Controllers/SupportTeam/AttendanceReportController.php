@@ -25,7 +25,8 @@ class AttendanceReportController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('teamSAT');
+        // Admins, the academic admin and HODs; teachers take the register only.
+        $this->middleware('academicLead');
     }
 
     public function index(Request $req)

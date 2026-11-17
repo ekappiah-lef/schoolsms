@@ -47,6 +47,18 @@ return [
             'weights' => null,
         ],
 
+        // Class score and exam each entered out of 100 (decimals allowed); each counts 50%, the total is the two halves.
+        'class_exam_100' => [
+            'title' => 'TERMLY STANDARD BASED ASSESSMENT RECORDING REGISTER',
+            'parts' => [
+                ['key' => 't1', 'label' => 'Class score', 'max' => 100],
+                ['key' => 'exm', 'label' => 'Exam score', 'max' => 100],
+            ],
+            'exam' => 'exm',
+            'weights' => ['class' => 0.5, 'exam' => 0.5],
+            'report' => ['ca1' => false, 'ca2' => false, 'ca_total' => 'CLASS SCORE (50%)', 'exam' => 'EXAM SCORE (50%)', 'total' => 'TOTAL (100%)'],
+        ],
+
         // Class score and exam each entered out of 50 (already the 50%); the total is their sum.
         'class_exam_50' => [
             'title' => 'TERMLY STANDARD BASED ASSESSMENT RECORDING REGISTER',
