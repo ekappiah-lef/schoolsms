@@ -72,8 +72,12 @@ class ReportDesignController extends Controller
             $subjects = collect(['English Language', 'Mathematics', 'Integrated Science'])->map(function ($n, $i) { return (object) ['id' => $i + 1, 'name' => $n]; });
         }
         $grade = (object) ['name' => 'B2', 'remark' => 'Very good'];
-        $marks = $subjects->map(function ($s, $i) use ($grade) {
-            return (object) ['subject_id' => $s->id, 'exam_id' => 0, 't1' => 15 + $i % 4, 't2' => 16, 'tca' => 31 + $i % 4, 'exm' => 48, 'tex1' => 79 + $i % 4, 'grade' => $grade, 'sub_pos' => 2 + $i];
+        $w = \App\Support\Assessment::scheme()['weights'] ?? null;
+        $marks = $subjects->map(function ($s, $i) use ($grade, $w) {
+            $tca = 31 + $i % 4;
+            $exm = $w ? 78 + $i % 3 : 48;
+            $total = $w ? \App\Support\Assessment::weightedTotal($tca, $exm, $w) : $tca + $exm;
+            return (object) ['subject_id' => $s->id, 'exam_id' => 0, 't1' => $tca - 16, 't2' => 16, 'tca' => $tca, 'exm' => $exm, 'tex1' => $total, 'grade' => $grade, 'sub_pos' => 2 + $i];
         });
         $vals = function ($n) { return implode(',', array_map(function ($i) { return 5 - $i % 3; }, range(0, max($n - 1, 0)))); };
         $groups = collect($tpl['groups'])->keyBy('key');

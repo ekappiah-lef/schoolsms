@@ -653,6 +653,22 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testClassAndExamOutOf50AddUp()
+    {
+        $before = \App\Support\SchoolConfig::get('scheme');
+        try {
+            \App\Support\SchoolConfig::set('scheme', 'class_exam_50');
+            $this->assertSame('class_exam_50', \App\Support\Assessment::key());
+            $c = \App\Support\Assessment::columns(['t1' => 38, 'exm' => 45], 1);
+            $this->assertEquals(38, $c['tca']);
+            $this->assertEquals(45, $c['exm']);
+            $this->assertEquals(83, $c['tex1']);
+            $this->assertSame(\App\Support\Assessment::columns(['t1' => 51, 'exm' => 45], 1)['tex1'], null);
+        } finally {
+            $before === null ? \App\Support\SchoolConfig::forget('scheme') : \App\Support\SchoolConfig::set('scheme', $before);
+        }
+    }
+
     public function testParentHasTimetablesInTheirMenu()
     {
         $this->actingAs($this->user('parent'));
