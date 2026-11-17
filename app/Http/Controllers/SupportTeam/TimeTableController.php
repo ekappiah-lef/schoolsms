@@ -235,8 +235,8 @@ class TimeTableController extends Controller
         $data = $req->all();
         $data['time_from'] = $tf =$req->hour_from.':'.$req->min_from.' '.$req->meridian_from;
         $data['time_to'] = $tt = $req->hour_to.':'.$req->min_to.' '.$req->meridian_to;
-        $data['timestamp_from'] = strtotime($tf);
-        $data['timestamp_to'] = strtotime($tt);
+        $data['timestamp_from'] = strtotime('2000-01-01 '.$tf);   // the time of day only, so slots sort by the clock
+        $data['timestamp_to'] = strtotime('2000-01-01 '.$tt);
         $data['full'] = $tf.' - '.$tt;
         $data['label'] = trim((string) $req->label) ?: null;
         $data['days'] = $data['label'] ? self::slotDays($req->input('days')) : null;
@@ -295,8 +295,8 @@ class TimeTableController extends Controller
         $data = $req->all();
         $data['time_from'] = $tf =$req->hour_from.':'.$req->min_from.' '.$req->meridian_from;
         $data['time_to'] = $tt = $req->hour_to.':'.$req->min_to.' '.$req->meridian_to;
-        $data['timestamp_from'] = strtotime($tf);
-        $data['timestamp_to'] = strtotime($tt);
+        $data['timestamp_from'] = strtotime('2000-01-01 '.$tf);   // the time of day only, so slots sort by the clock
+        $data['timestamp_to'] = strtotime('2000-01-01 '.$tt);
         $data['full'] = $tf.' - '.$tt;
         $data['label'] = trim((string) $req->label) ?: null;
         $data['days'] = $data['label'] ? self::slotDays($req->input('days')) : null;

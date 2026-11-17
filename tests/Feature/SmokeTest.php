@@ -582,6 +582,11 @@ class SmokeTest extends TestCase
                 $this->assertSame('empty', $byDay['Thursday']['cells'][0]['kind']);
             }
 
+            // A slot added later still sorts by its time of day.
+            \App\Models\TimeSlot::where('id', $ts->id)->update(['timestamp_from' => strtotime('2000-01-01 7:30 AM') + 0]);
+            $this->actingAs($admin)->post(route('ts.store'), array_merge($slot, ['hour_from' => 6, 'min_from' => '45', 'hour_to' => 7, 'min_to' => '15', 'label' => '', 'days' => '']))->assertOk();
+            $order = \App\Models\TimeSlot::where('ttr_id', $ttr->id)->orderBy('timestamp_from')->pluck('time_from')->all();
+            $this->assertSame('6:45 AM', $order[0]);
             // An ordinary break still runs across every day.
             $this->actingAs($admin)->post(route('ts.store'), ['days' => ''] + array_merge($slot, ['hour_from' => 10, 'min_from' => '00', 'hour_to' => 10, 'min_to' => '30', 'label' => 'Break', 'days' => '']))->assertOk();
             $this->assertNull(\App\Models\TimeSlot::where(['ttr_id' => $ttr->id, 'label' => 'Break'])->value('days'));

@@ -385,12 +385,9 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                                         <td className={cn('tabular px-3 text-right font-semibold', total > 100 && 'text-danger-fg')}>{total ?? <span className="text-fg-subtle">—</span>}</td>
                                         <td className="px-3">
                                             {grade ? (
-                                                <span className="inline-flex items-center gap-1.5">
-                                                    <Badge tone={gradeTone(grade.name)} shape="tag">
-                                                        {grade.name}
-                                                    </Badge>
-                                                    <span className="truncate text-xs text-fg-muted">{grade.remark}</span>
-                                                </span>
+                                                <Badge tone={gradeTone(grade.name)} shape="tag">
+                                                    {grade.name}
+                                                </Badge>
                                             ) : (
                                                 <span className="text-fg-subtle">—</span>
                                             )}
