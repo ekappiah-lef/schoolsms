@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { toast } from 'sonner';
-import { BellRing, Save } from 'lucide-react';
+import { BellRing, Save, CheckCheck } from 'lucide-react';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { ModuleHeader } from '@/components/app/module';
 import { EmptyState, Panel } from '@/components/app/page';
@@ -18,8 +18,11 @@ const STATUS = [
     { value: 'present', label: 'Present' },
     { value: 'absent', label: 'Absent' },
 ];
-// Only absence is marked; everyone else is present.
-const MARKS = [{ value: 'absent', label: 'Absent', on: 'bg-danger text-white border-danger' }];
+// Everyone starts present; a tap marks a child absent (or back to present).
+const MARKS = [
+    { value: 'present', label: 'Present', on: 'bg-success text-white border-success' },
+    { value: 'absent', label: 'Absent', on: 'bg-danger text-white border-danger' },
+];
 
 /**
  * Daily register for a class section. Everyone starts as present; mark who is absent,
@@ -37,9 +40,10 @@ export default function Attendance({ sections, sectionId, date, saved, students,
     const toAlert = students.filter((s) => s.status === 'absent' && !s.alerted);
     const section = sections.find((s) => s.id === sectionId);
 
-    const save = async () => {
+    const save = async (override) => {
+        const all = override ?? marks;
         setSaving(true);
-        const r = await submitForm(urls.save, { section_id: sectionId, date, marks: JSON.stringify(students.map((s) => ({ id: s.id, ...marks[s.id] }))) });
+        const r = await submitForm(urls.save, { section_id: sectionId, date, marks: JSON.stringify(students.map((s) => ({ id: s.id, ...all[s.id] }))) });
         setSaving(false);
         if (r.ok) {
             toast.success(r.message);
@@ -82,7 +86,18 @@ export default function Attendance({ sections, sectionId, date, saved, students,
                                         Send absence alerts ({toAlert.length})
                                     </Button>
                                 )}
-                                <Button variant="primary" onClick={save} disabled={saving || !students.length || (saved && !dirty)}>
+                                <Button
+                                    onClick={() => {
+                                        const all = Object.fromEntries(students.map((s) => [s.id, { ...marks[s.id], status: 'present' }]));
+                                        setMarks(all);
+                                        save(all);
+                                    }}
+                                    disabled={saving || !students.length}
+                                >
+                                    <CheckCheck />
+                                    All present
+                                </Button>
+                                <Button variant="primary" onClick={() => save()} disabled={saving || !students.length || (saved && !dirty)}>
                                     <Save />
                                     {saving ? 'Saving…' : saved ? (dirty ? 'Save changes' : 'Saved') : 'Save register'}
                                 </Button>
@@ -91,13 +106,6 @@ export default function Attendance({ sections, sectionId, date, saved, students,
 
                         <Panel
                             title={`${section?.name ?? ''} · ${formatDate(date, 'EEEE d MMMM yyyy')}`}
-                            actions={
-                                students.length ? (
-                                    <Button size="sm" variant="ghost" onClick={() => setMarks(Object.fromEntries(students.map((s) => [s.id, { ...marks[s.id], status: 'present' }])))}>
-                                        Clear marks
-                                    </Button>
-                                ) : null
-                            }
                             flush
                         >
                             {students.length ? (
@@ -127,7 +135,7 @@ export default function Attendance({ sections, sectionId, date, saved, students,
                                                             key={o.value}
                                                             type="button"
                                                             aria-pressed={m.status === o.value}
-                                                            onClick={() => set(s.id, 'status', m.status === o.value ? 'present' : o.value)}
+                                                            onClick={() => set(s.id, 'status', o.value)}
                                                             className={cn(
                                                                 'h-8 rounded-md border px-3 text-sm font-medium transition-colors',
                                                                 m.status === o.value ? o.on : 'border-border bg-surface text-fg-muted hover:bg-muted',
