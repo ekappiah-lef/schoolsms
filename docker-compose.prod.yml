@@ -23,6 +23,8 @@ services:
     volumes:
       - uploads:/var/www/html/storage/app/public
       - logs:/var/www/html/storage/logs
+      # Who is signed in survives an update (otherwise every update signs everyone out).
+      - sessions:/var/www/html/storage/framework/sessions
       - ./seed:/docker/seed:ro
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost/healthz"]
@@ -60,3 +62,4 @@ volumes:
   dbdata:
   uploads:
   logs:
+  sessions:
