@@ -64,6 +64,7 @@ class ActivityLog
         $parts = [];
         $record = (array) ($d['record'] ?? []);
         $in = (array) ($d['input'] ?? []);
+        if (isset($d['username'])) $parts[] = 'Tried: '.$d['username'];   // failed sign-ins: the login that was typed
         $id = function ($v) { return is_numeric($v) ? (int) $v : (int) \App\Helpers\Qs::decodeHash((string) $v); };
         $name = function ($table, $v, $col = 'name') use ($id) { $n = DB::table($table)->where('id', $id($v))->value($col); return $n ?: null; };
         $student = function ($userId) { return DB::table('users')->where('id', (int) $userId)->value('name'); };

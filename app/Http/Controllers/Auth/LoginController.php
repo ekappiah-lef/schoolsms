@@ -70,12 +70,35 @@ class LoginController extends Controller
         }
     }
 
+    /**
+     * What phones add to a login: spaces around the dot ("doris. sackitey"), a space for the dot ("John Kpemeora"),
+     * spaces in an email ("name @gmail.com"). Usernames are dotted first.last, so a space between words is a dot.
+     */
+    public static function cleanIdentity(string $identity): string
+    {
+        $identity = trim($identity);
+        if (strpos($identity, '@') !== false) return preg_replace('/\s+/', '', $identity);
+        $identity = preg_replace('/\s*\.\s*/', '.', $identity);
+
+        return preg_replace('/\s+/', '.', $identity);
+    }
+
+    /** A space copied before or after the password is not part of it. */
+    protected function credentials(\Illuminate\Http\Request $request)
+    {
+        $c = $request->only($this->username(), 'password');
+        $c['password'] = trim((string) ($c['password'] ?? ''));
+
+        return $c;
+    }
+
     /*
      *  Login with Username or Email
      * */
     public function username()
     {
-        $identity = request()->identity;
+        $identity = self::cleanIdentity((string) request()->identity);
+        request()->merge(['identity' => $identity]);
         $field = filter_var($identity, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
         request()->merge([$field => $identity]);
         return $field;

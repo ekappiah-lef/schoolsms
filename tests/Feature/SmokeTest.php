@@ -720,6 +720,31 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testLoginForgivesHowPhonesTypeUsernames()
+    {
+        $c = \App\Http\Controllers\Auth\LoginController::class;
+        $this->assertSame('doris.sackitey', $c::cleanIdentity('doris. sackitey'));
+        $this->assertSame('abraham.gati', $c::cleanIdentity('abraham .gati '));
+        $this->assertSame('John.Kpemeora', $c::cleanIdentity(' John Kpemeora'));
+        $this->assertSame('florenceansong2019@gmail.com', $c::cleanIdentity('florenceansong2019 @gmail.com'));
+
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $t = $this->user('teacher');
+            $t->forceFill(['username' => 'ama.test'.substr(uniqid(), -4), 'password' => \Illuminate\Support\Facades\Hash::make('abc1234')])->save();
+            [$first, $last] = explode('.', $t->username);
+            $this->post(route('login'), ['identity' => ucfirst($first).' '.$last, 'password' => ' abc1234 '])->assertRedirect();
+            $this->assertAuthenticatedAs($t);
+            $this->assertSame('Signed in', \Illuminate\Support\Facades\DB::table('activity_logs')->where('user_id', $t->id)->latest('id')->value('action'));
+            auth()->logout();
+            $this->post(route('login'), ['identity' => $t->username, 'password' => 'wrong']);
+            $row = \Illuminate\Support\Facades\DB::table('activity_logs')->where('action', 'Failed sign-in')->latest('id')->first();
+            $this->assertStringContainsString('Tried: '.$t->username, \App\Support\ActivityLog::readable($row->route, $row->details));
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testParentHasTimetablesInTheirMenu()
     {
         $this->actingAs($this->user('parent'));
