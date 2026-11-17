@@ -27,6 +27,7 @@ class TSRequest extends FormRequest
             'min_to' => 'required|string|size:2',
             'meridian_to' => 'required|string|size:2',
             'label' => 'nullable|string|max:40',
+            'days' => 'nullable',
         ];
     }
 

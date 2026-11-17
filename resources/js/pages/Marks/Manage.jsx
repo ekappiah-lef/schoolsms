@@ -266,7 +266,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                 </div>
 
                 <div className="scrollbar-thin overflow-x-auto">
-                    <table className="w-full text-left">
+                    <table className="w-full border-collapse text-left [&_td]:border [&_td]:border-fg-muted/70 [&_th]:border [&_th]:border-fg-muted/70">
                         <thead>
                             {groups ? (
                                 <>
@@ -359,7 +359,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                                                                 'tabular h-8 w-full rounded-md border bg-surface text-center text-base transition-colors focus:border-primary focus:shadow-focus focus:outline-none',
                                                                 groups && 'min-w-[2.75rem]',
                                                                 !canEdit && 'cursor-default border-transparent bg-transparent',
-                                                                err ? 'border-danger bg-danger-soft text-danger-fg' : 'border-border hover:border-border-strong',
+                                                                err ? 'border-danger bg-danger-soft text-danger-fg' : 'border-fg-subtle hover:border-fg-muted',
                                                             )}
                                                         />
                                                 </td>

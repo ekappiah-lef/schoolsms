@@ -6,7 +6,9 @@ use Eloquent;
 
 class TimeSlot extends Eloquent
 {
-    protected $fillable = ['ttr_id', 'timestamp_from', 'timestamp_to', 'full', 'time_from', 'time_to', 'hour_from', 'min_from', 'meridian_from', 'hour_to', 'min_to', 'meridian_to', 'label'];
+    protected $fillable = ['ttr_id', 'timestamp_from', 'timestamp_to', 'full', 'time_from', 'time_to', 'hour_from', 'min_from', 'meridian_from', 'hour_to', 'min_to', 'meridian_to', 'label', 'days'];
+
+    protected $casts = ['days' => 'array'];
 
     public function tt_record()
     {

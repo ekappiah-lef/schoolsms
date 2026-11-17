@@ -56,6 +56,8 @@
                         @foreach($r['cells'] as $c)
                             @if($c['kind'] === 'break')
                                 <td class="break" rowspan="{{ $c['rowspan'] }}"><span>{{ strtoupper($c['text']) }}</span></td>
+                            @elseif($c['kind'] === 'activity')
+                                <td class="cell" style="background:#f1f1f4;font-weight:bold">{{ strtoupper($c['text']) }}</td>
                             @else
                                 <td class="cell {{ $c['kind'] === 'subject' ? 'c'.($c['colour'] % 10) : '' }}" colspan="{{ $c['colspan'] }}">{{ $c['text'] }}</td>
                             @endif

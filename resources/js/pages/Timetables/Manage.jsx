@@ -117,7 +117,7 @@ export default function TimetableManage({ record, isExam, days, slots, entries, 
                                     <li key={s.id} className="flex items-center gap-2 px-4 py-2 text-sm">
                                         <span className="tabular flex-1">
                                             {s.full}
-                                            {s.label && <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-2xs font-semibold uppercase text-fg-muted">{s.label}</span>}
+                                            {s.label && <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-2xs font-semibold uppercase text-fg-muted">{s.label}{s.days?.length ? ` · ${s.days.map((x) => x.slice(0, 3)).join(', ')}` : ''}</span>}
                                         </span>
                                         <RowIconButton icon={Pencil} title="Edit" onClick={() => setSlotDialog(s)} />
                                         {canDelete && (
@@ -166,11 +166,18 @@ export default function TimetableManage({ record, isExam, days, slots, entries, 
                                         {slots.map((s) => (
                                             <tr key={s.id} className="border-b border-border last:border-0">
                                                 <td className="tabular px-4 py-1.5 text-xs text-fg-muted">{s.full}</td>
-                                                {s.label ? (
+                                                {s.label && !s.days?.length ? (
                                                     <td colSpan={columns.length} className="bg-muted/50 px-2 py-2.5 text-center text-xs font-semibold tracking-[0.15em] text-fg-muted">
                                                         {s.label}
                                                     </td>
                                                 ) : columns.map((c) => {
+                                                    if (s.label && s.days.includes(c)) {
+                                                        return (
+                                                            <td key={c} className="p-1">
+                                                                <div className="flex h-10 items-center justify-center rounded-md bg-muted/70 px-2 text-xs font-semibold uppercase tracking-[0.1em] text-fg-muted">{s.label}</div>
+                                                            </td>
+                                                        );
+                                                    }
                                                     const e = at(s.id, c);
                                                     return (
                                                         <td key={c} className="p-1">
@@ -208,6 +215,8 @@ export default function TimetableManage({ record, isExam, days, slots, entries, 
 
 TimetableManage.layout = withAppLayout;
 
+const SLOT_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 function SlotDialog({ slot, ttrId, url, onClose, onSaved }) {
     const editing = !!slot.id;
     const [d, setD] = useState(() =>
@@ -216,17 +225,20 @@ function SlotDialog({ slot, ttrId, url, onClose, onSaved }) {
             : blankSlot,
     );
     const [busy, setBusy] = useState(false);
-    const [isBreak, setIsBreak] = useState(!!slot.label);
-    const ok = d.hour_from && d.min_from && d.hour_to && d.min_to && (!isBreak || d.label.trim());
+    const [kind, setKind] = useState(slot.label ? (slot.days?.length ? 'some' : 'break') : 'lesson');
+    const [days, setDays] = useState(slot.days ?? []);
+    const isBreak = kind !== 'lesson';
+    const ok = d.hour_from && d.min_from && d.hour_to && d.min_to && (!isBreak || d.label.trim()) && (kind !== 'some' || days.length);
+    const sendDays = kind === 'some' ? days.join(',') : '';
     const save = async () => {
         if (`${d.hour_from}:${d.min_from} ${d.meridian_from}` === `${d.hour_to}:${d.min_to} ${d.meridian_to}`) return toast.error('The start and end times are the same.');
         if (editing) {
             // Updating redirects back to the builder with a message.
-            router.put(slot.urls.update, { ...d, label: isBreak ? d.label.trim() : '', ttr_id: ttrId }, { preserveScroll: true, onStart: () => setBusy(true), onFinish: () => setBusy(false), onSuccess: onClose });
+            router.put(slot.urls.update, { ...d, label: isBreak ? d.label.trim() : '', days: sendDays, ttr_id: ttrId }, { preserveScroll: true, onStart: () => setBusy(true), onFinish: () => setBusy(false), onSuccess: onClose });
             return;
         }
         setBusy(true);
-        const r = await submitForm(url, { ...d, label: isBreak ? d.label.trim() : '', ttr_id: ttrId });
+        const r = await submitForm(url, { ...d, label: isBreak ? d.label.trim() : '', days: sendDays, ttr_id: ttrId });
         setBusy(false);
         if (r.ok && r.data?.ok !== false) {
             toast.success(r.message);
@@ -278,19 +290,32 @@ function SlotDialog({ slot, ttrId, url, onClose, onSaved }) {
                 <Field label="Starts">{time('from')}</Field>
                 <Field label="Ends">{time('to')}</Field>
                 <Field label="This slot is">
-                    <NativeSelect value={isBreak ? 'break' : 'lesson'} onChange={(v) => setIsBreak(v === 'break')}>
+                    <NativeSelect value={kind} onChange={setKind}>
                         <option value="lesson">A lesson period</option>
-                        <option value="break">A break (no subject; shown across every day)</option>
+                        <option value="break">A break (every day)</option>
+                        <option value="some">On some days only</option>
                     </NativeSelect>
                 </Field>
                 {isBreak && (
-                    <Field label="Name of the break" required hint="e.g. Break, Registration, Assembly">
+                    <Field label="Name" required>
                         <input list="break-names" className={fieldInput} value={d.label} onChange={(e) => setD({ ...d, label: e.target.value })} maxLength={40} />
                         <datalist id="break-names">
                             {BREAK_NAMES.map((b) => (
                                 <option key={b} value={b} />
                             ))}
                         </datalist>
+                    </Field>
+                )}
+                {kind === 'some' && (
+                    <Field label="Days" required>
+                        <div className="flex flex-wrap gap-2">
+                            {SLOT_DAYS.map((w) => (
+                                <label key={w} className={cn('flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm', days.includes(w) ? 'border-primary bg-primary-soft/60' : 'border-border')}>
+                                    <input type="checkbox" checked={days.includes(w)} onChange={() => setDays((x) => (x.includes(w) ? x.filter((y) => y !== w) : [...x, w]))} />
+                                    {w.slice(0, 3)}
+                                </label>
+                            ))}
+                        </div>
                     </Field>
                 )}
             </div>
@@ -380,7 +405,7 @@ function CellDialog({ cell, isExam, slots, subjects, ttrId, url, canDelete, onCl
                 <Field label="Time slot" required>
                     <NativeSelect value={d.ts_id} onChange={(v) => setD({ ...d, ts_id: v })}>
                         {slots
-                            .filter((s) => !s.label)
+                            .filter((s) => !s.label || (s.days?.length && !s.days.includes(d.day)))
                             .map((s) => (
                                 <option key={s.id} value={s.id}>
                                     {s.full}

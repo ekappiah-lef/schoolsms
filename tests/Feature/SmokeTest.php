@@ -553,6 +553,43 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testTimetableSlotOnSomeDaysOnly()
+    {
+        $admin = $this->user('super_admin');
+        $class = \App\Models\MyClass::first();
+        $subject = \App\Models\Subject::where('my_class_id', optional($class)->id)->first();
+        if (!$class || !$subject) return $this->assertTrue(true);
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $ttr = \App\Models\TimeTableRecord::create(['name' => 'Days test', 'my_class_id' => $class->id, 'year' => \App\Helpers\Qs::getCurrentSession()]);
+            $slot = ['ttr_id' => $ttr->id, 'hour_from' => 7, 'min_from' => '30', 'meridian_from' => 'AM', 'hour_to' => 8, 'min_to' => '00', 'meridian_to' => 'AM', 'label' => 'Assembly', 'days' => 'Monday,Wednesday'];
+            $this->actingAs($admin)->post(route('ts.store'), $slot)->assertOk();
+            $ts = \App\Models\TimeSlot::where('ttr_id', $ttr->id)->first();
+            $this->assertSame(['Monday', 'Wednesday'], $ts->days);
+
+            // Monday is Assembly; Tuesday takes a subject.
+            $this->actingAs($admin)->post(route('tt.store'), ['ttr_id' => $ttr->id, 'ts_id' => $ts->id, 'day' => 'Monday', 'subject_id' => $subject->id])->assertJson(['ok' => false]);
+            $this->actingAs($admin)->post(route('tt.store'), ['ttr_id' => $ttr->id, 'ts_id' => $ts->id, 'day' => 'Tuesday', 'subject_id' => $subject->id])->assertOk();
+            $this->assertSame(1, \App\Models\TimeTable::where('ttr_id', $ttr->id)->count());
+
+            $show = $this->actingAs($admin)->get(route('ttr.show', $ttr->id))->assertOk();
+            $grid = $show->viewData('page')['props'];
+            $this->assertArrayHasKey('rows', $grid);
+            if ($grid) {
+                $byDay = collect($grid['rows'])->keyBy('day');
+                $this->assertSame('activity', $byDay['Monday']['cells'][0]['kind']);
+                $this->assertSame('subject', $byDay['Tuesday']['cells'][0]['kind']);
+                $this->assertSame('empty', $byDay['Thursday']['cells'][0]['kind']);
+            }
+
+            // An ordinary break still runs across every day.
+            $this->actingAs($admin)->post(route('ts.store'), ['days' => ''] + array_merge($slot, ['hour_from' => 10, 'min_from' => '00', 'hour_to' => 10, 'min_to' => '30', 'label' => 'Break', 'days' => '']))->assertOk();
+            $this->assertNull(\App\Models\TimeSlot::where(['ttr_id' => $ttr->id, 'label' => 'Break'])->value('days'));
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testParentHasTimetablesInTheirMenu()
     {
         $this->actingAs($this->user('parent'));

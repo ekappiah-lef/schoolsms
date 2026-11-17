@@ -174,7 +174,7 @@ class TimeTableController extends Controller
             'isExam' => $isExam,
             'days' => $isExam ? $tts->pluck('exam_date')->filter()->unique()->sort()->values() : Qs::getDaysOfTheWeek(),
             'slots' => $slots->map(function ($t) use ($parse) {
-                return ['id' => $t->id, 'full' => $t->full, 'label' => $t->label, 'from' => $parse($t->time_from), 'to' => $parse($t->time_to),
+                return ['id' => $t->id, 'full' => $t->full, 'label' => $t->label, 'days' => $t->days ?: [], 'from' => $parse($t->time_from), 'to' => $parse($t->time_to),
                     'urls' => ['update' => route('ts.update', $t->id), 'destroy' => route('ts.destroy', $t->id)]];
             })->values(),
             'entries' => $tts->map(function ($e) {
@@ -196,6 +196,9 @@ class TimeTableController extends Controller
     {
         $data = $req->all();
         $tms = $this->tt->findTimeSlot($req->ts_id);
+        if (!self::slotFree($tms, $req->day ?: null) && !$req->exam_date) {
+            return Qs::json($tms->label.' takes this time on '.$req->day.'.', false);
+        }
         $d_date = $req->exam_date ?? $req->day;
         $data['timestamp_from'] = strtotime($d_date.' '.$tms->time_from);
         $data['timestamp_to'] = strtotime($d_date.' '.$tms->time_to);
@@ -236,6 +239,7 @@ class TimeTableController extends Controller
         $data['timestamp_to'] = strtotime($tt);
         $data['full'] = $tf.' - '.$tt;
         $data['label'] = trim((string) $req->label) ?: null;
+        $data['days'] = $data['label'] ? self::slotDays($req->input('days')) : null;
 
         if($tf == $tt){
             return response()->json(['msg' => __('msg.invalid_time_slot'), 'ok' => FALSE]);
@@ -243,6 +247,23 @@ class TimeTableController extends Controller
 
         $this->tt->createTimeSlot($data);
         return Qs::jsonStoreOk();
+    }
+
+    /** The days a labelled slot is held on (none: every day, i.e. a break). */
+    protected static function slotDays($days): ?array
+    {
+        $days = is_array($days) ? $days : array_filter(array_map('trim', explode(',', (string) $days)));
+        $days = array_values(array_intersect(Qs::getDaysOfTheWeek(), $days));
+
+        return $days ?: null;
+    }
+
+    /** May a subject go into this slot on this day? Not into a break, nor on the days of a some-days slot. */
+    protected static function slotFree($ts, ?string $day): bool
+    {
+        if (!$ts->label) return true;
+
+        return $ts->days && $day && !in_array($day, $ts->days, true);
     }
 
     public function use_time_slot(Request $req, $ttr_id)
@@ -278,6 +299,7 @@ class TimeTableController extends Controller
         $data['timestamp_to'] = strtotime($tt);
         $data['full'] = $tf.' - '.$tt;
         $data['label'] = trim((string) $req->label) ?: null;
+        $data['days'] = $data['label'] ? self::slotDays($req->input('days')) : null;
 
         if($tf == $tt){
             return back()->with('flash_danger', __('msg.invalid_time_slot'));
@@ -338,9 +360,15 @@ class TimeTableController extends Controller
         foreach ($days as $i => $day) {
             $cells = [];
             foreach ($slots as $ts) {
-                if ($ts->label) {
+                if ($ts->label && !$ts->days) {
                     if ($i === 0) $cells[] = ['kind' => 'break', 'text' => $ts->label, 'colspan' => 1, 'rowspan' => count($days)];
                     if ($cells) $cells[count($cells) - 1]['open'] = false; // never merge across a break
+                    continue;
+                }
+                // Held on some days only (Assembly on Monday …): its own cell on those days, a period on the others.
+                if ($ts->label && in_array($day, $ts->days, true)) {
+                    if ($cells) $cells[count($cells) - 1]['open'] = false;
+                    $cells[] = ['kind' => 'activity', 'text' => $ts->label, 'colspan' => 1, 'rowspan' => 1, 'open' => false];
                     continue;
                 }
                 $e = $tts->where('ts_id', $ts->id)->where($key, $day)->first();
@@ -358,7 +386,7 @@ class TimeTableController extends Controller
 
         return [
             'isExam' => $isExam,
-            'slots' => $slots->map(function ($t) { return ['id' => $t->id, 'from' => $t->time_from, 'to' => $t->time_to, 'label' => $t->label]; })->values()->all(),
+            'slots' => $slots->map(function ($t) { return ['id' => $t->id, 'from' => $t->time_from, 'to' => $t->time_to, 'label' => $t->days ? null : $t->label]; })->values()->all(),
             'rows' => $rows,
         ];
     }
