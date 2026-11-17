@@ -605,6 +605,37 @@ class SmokeTest extends TestCase
         $this->assertSame(37, \App\Support\Assessment::weightedTotal(73, null, $w));
     }
 
+    public function testClassTeacherIsSetFromTheTeachersPage()
+    {
+        $admin = $this->user('super_admin');
+        $sections = \App\Models\Section::orderBy('id')->take(2)->get();
+        if ($sections->count() < 2) return $this->assertTrue(true);
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $t = $this->user('teacher');
+            $base = ['name' => $t->name.' X', 'gender' => $t->gender ?: 'Male', 'address' => $t->address ?: 'Some address here', 'state_id' => $t->state_id ?: 1, 'nal_id' => $t->nal_id ?: 1];
+            $url = route('users.update', \App\Helpers\Qs::hash($t->id));
+            [$a, $b] = [$sections[0]->id, $sections[1]->id];
+
+            $this->actingAs($admin)->put($url, $base + ['class_sections' => (string) $a])->assertOk();
+            $this->assertContains($a, \App\Support\ClassTeachers::sectionIdsOf($t->id));
+
+            // Moving to another class.
+            $this->actingAs($admin)->put($url, $base + ['class_sections' => (string) $b])->assertOk();
+            $now = \App\Support\ClassTeachers::sectionIdsOf($t->id);
+            $this->assertContains($b, $now);
+            $this->assertNotContains($a, $now);
+
+            // An academic head can be one too, and shows in the Sections page's list.
+            $head = \Illuminate\Support\Facades\DB::table('user_types')->where('title', 'academic_head')->first();
+            $this->actingAs($admin)->put($url, $base + ['user_type' => \App\Helpers\Qs::hash($head->id), 'class_sections' => (string) $b])->assertOk();
+            $this->assertContains($b, \App\Support\ClassTeachers::sectionIdsOf($t->id));
+            $this->actingAs($admin)->get(route('sections.index'))->assertOk()->assertSee($t->fresh()->name);
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testParentHasTimetablesInTheirMenu()
     {
         $this->actingAs($this->user('parent'));

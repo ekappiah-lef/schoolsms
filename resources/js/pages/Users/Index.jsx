@@ -18,15 +18,15 @@ import { cn } from '@/lib/utils';
 // LGA is hidden and optional for now; set to true to bring it back on the staff and parent form.
 const SHOW_LGA = false;
 
-const BLANK = { user_type: '', name: '', address: '', email: '', username: '', phone: '', phone2: '', emp_date: '', dob: '', employment_type: '', job_title: '', clock_id: '', password: '', gender: '', nal_id: '', state_id: '', lga_id: '', bg_id: '', photo: null };
+const BLANK = { user_type: '', name: '', address: '', email: '', username: '', phone: '', phone2: '', emp_date: '', dob: '', employment_type: '', job_title: '', clock_id: '', password: '', gender: '', nal_id: '', state_id: '', lga_id: '', bg_id: '', photo: null, class_sections: '' };
 // When editing, the type, username, password and photo are never sent unless changed
 // (an empty photo or password would overwrite the saved one).
-const EDIT_BLANK = { name: '', address: '', email: '', phone: '', phone2: '', emp_date: '', dob: '', clock_id: '', employment_type: '', job_title: '', gender: '', nal_id: '', state_id: '', lga_id: '', bg_id: '' };
+const EDIT_BLANK = { name: '', address: '', email: '', phone: '', phone2: '', emp_date: '', dob: '', clock_id: '', employment_type: '', job_title: '', gender: '', nal_id: '', state_id: '', lga_id: '', bg_id: '', class_sections: '' };
 
 const EMPLOYMENT = { full_time: 'Full time', part_time: 'Part time' };
 
 /** Users — Create user / Show users (UserController; JSON store & update). Students are managed under Students. */
-export default function UsersIndex({ userTypes, users, options, editing, staffView, urls }) {
+export default function UsersIndex({ userTypes, users, options, sections = [], editing, staffView, urls }) {
     const [tab, setTab] = useModuleTab(editing ? 'create' : 'list');
     const [type, setType] = useState(() => (staffView && ['teaching', 'non_teaching'].includes(new URLSearchParams(window.location.search).get('tab')) ? new URLSearchParams(window.location.search).get('tab') : 'all'));
     const [confirm, confirmDialog] = useConfirmAction();
@@ -120,6 +120,22 @@ export default function UsersIndex({ userTypes, users, options, editing, staffVi
                             {typeTitle === 'non_teaching' && (
                                 <Field label="Job title" error={form.errors.job_title}>
                                     <input className={fieldInput} value={form.data.job_title} onChange={(e) => form.set('job_title', e.target.value)} placeholder="e.g., Driver, Cook, Security" maxLength={60} />
+                                </Field>
+                            )}
+                            {['teacher', 'academic_head'].includes(typeTitle) && sections.length > 0 && (
+                                <Field label="Class teacher of" span={2} error={form.errors.class_sections}>
+                                    <div className="flex flex-wrap gap-2">
+                                        {sections.map((s) => {
+                                            const picked = (form.data.class_sections || '').split(',').filter(Boolean);
+                                            const on = picked.includes(s.id);
+                                            return (
+                                                <label key={s.id} className={cn('flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm', on ? 'border-primary bg-primary-soft/60' : 'border-border')}>
+                                                    <input type="checkbox" checked={on} onChange={() => form.set('class_sections', (on ? picked.filter((x) => x !== s.id) : [...picked, s.id]).join(','))} />
+                                                    {s.label}
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
                                 </Field>
                             )}
                             {typeTitle && typeTitle !== 'parent' && (

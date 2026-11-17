@@ -143,6 +143,9 @@ class UserController extends Controller
                     ]),
                 ];
             })->values(),
+            // Sections to make a teacher class teacher of (Class teacher of), by class.
+            'sections' => \DB::table('sections as s')->join('my_classes as c', 'c.id', '=', 's.my_class_id')->orderBy('c.id')->orderBy('s.name')
+                ->get(['s.id', 's.name', 'c.name as class'])->map(function ($s) { return ['id' => (string) $s->id, 'label' => trim($s->class.' '.$s->name)]; })->values(),
             'options' => [
                 'states' => $this->loc->getAllStates()->map->only(['id', 'name'])->values(),
                 'nationals' => $this->loc->getAllNationals()->map->only(['id', 'name'])->values(),
@@ -188,6 +191,7 @@ class UserController extends Controller
                 'clock_id' => optional($u->staff->first())->clock_id ?: '',
                 'photo' => $u->photo, 'username' => $u->username,
                 'is_staff' => in_array($u->user_type, Qs::getStaff()),
+                'class_sections' => implode(',', \App\Support\ClassTeachers::sectionIdsOf((int) $u->id)),
                 'lgas' => $u->state_id ? $this->loc->getLGAs($u->state_id)->map->only(['id', 'name'])->values() : [],
             ]);
         }, 'pages.support_team.users.edit', $d);
@@ -256,6 +260,9 @@ class UserController extends Controller
             $d2['code'] = $staff_id;
             $this->user->createStaffRecord($d2);
         }
+        if (in_array($user_type, \App\Support\ClassTeachers::TYPES, true) && $req->filled('class_sections')) {
+            \App\Support\ClassTeachers::setSectionsOf((int) $user->id, explode(',', (string) $req->class_sections));
+        }
 
         return Qs::jsonStoreOk();
     }
@@ -317,6 +324,12 @@ class UserController extends Controller
         if($user_is_staff){
             $d2 = $req->only(Qs::getStaffRecord());
             $this->user->updateStaffRecord(['user_id' => $id], $d2);
+        }
+        // Class teacher of: set here for teachers and academic heads; anyone moved to another role stops being one.
+        if (in_array($user_type, \App\Support\ClassTeachers::TYPES, true)) {
+            if ($req->has('class_sections')) \App\Support\ClassTeachers::setSectionsOf((int) $id, explode(',', (string) $req->class_sections));
+        } elseif (in_array($user->user_type, \App\Support\ClassTeachers::TYPES, true)) {
+            \App\Support\ClassTeachers::setSectionsOf((int) $id, []);
         }
 
         return Qs::jsonUpdateOk();

@@ -29,7 +29,7 @@ class SectionController extends Controller
     {
         $d['my_classes'] = $this->my_class->all();
         $d['sections'] = $this->my_class->getAllSections();
-        $d['teachers'] = $this->user->getUserByType('teacher');
+        $d['teachers'] = \App\User::whereIn('user_type', \App\Support\ClassTeachers::TYPES)->orderBy('name')->get();
 
         return Ui::render('Sections/Index', function () {
             return $this->pageProps();
@@ -46,7 +46,7 @@ class SectionController extends Controller
             'session' => Qs::getCurrentSession(),
             'canDelete' => Qs::userIsSuperAdmin(),
             'classes' => $classes->map(function ($c) { return ['id' => $c->id, 'name' => $c->name]; })->values(),
-            'teachers' => $this->user->getUserByType('teacher')->map(function ($t) { return ['id' => Qs::hash($t->id), 'name' => $t->name]; })->values(),
+            'teachers' => \App\User::whereIn('user_type', \App\Support\ClassTeachers::TYPES)->orderBy('name')->get()->map(function ($t) { return ['id' => Qs::hash($t->id), 'name' => $t->name]; })->values(),
             'multipleTeachers' => \App\Support\ClassTeachers::multiple(),
             'sections' => $this->my_class->getAllSections()->sortBy(function ($s) use ($order) {
                 return sprintf('%05d-%s', $order[$s->my_class_id] ?? 99999, $s->name);
@@ -86,7 +86,7 @@ class SectionController extends Controller
     public function edit($id)
     {
         $d['s'] = $s = $this->my_class->findSection($id);
-        $d['teachers'] = $this->user->getUserByType('teacher');
+        $d['teachers'] = \App\User::whereIn('user_type', \App\Support\ClassTeachers::TYPES)->orderBy('name')->get();
 
         if (is_null($s)) {
             return Qs::goWithDanger('sections.index');
@@ -119,7 +119,7 @@ class SectionController extends Controller
     protected function teacherIds($req): array
     {
         return collect(explode(',', (string) $req->input('teacher_ids')))->map(function ($h) { return trim($h); })->filter()->map(function ($h) { return Qs::decodeHash($h); })
-            ->filter(function ($id) { return \App\User::where('id', $id)->where('user_type', 'teacher')->exists(); })->values()->all();
+            ->filter(function ($id) { return \App\User::where('id', $id)->whereIn('user_type', \App\Support\ClassTeachers::TYPES)->exists(); })->values()->all();
     }
 
     public function destroy($id)

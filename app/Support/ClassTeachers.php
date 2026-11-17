@@ -47,6 +47,35 @@ class ClassTeachers
         return collect($ids)->map(function ($id) use ($names) { return $names[$id] ?? null; })->filter()->implode(', ');
     }
 
+    /** Who can be a class teacher: teachers and academic heads. */
+    const TYPES = ['teacher', 'academic_head'];
+
+    /**
+     * Set the sections a teacher is class teacher of (from the teacher's own page). A section that has one class
+     * teacher gets this teacher in place of the previous one; with several class teachers they are added alongside.
+     */
+    public static function setSectionsOf(int $userId, array $sectionIds): void
+    {
+        $want = array_values(array_unique(array_filter(array_map('intval', $sectionIds))));
+        $have = self::sectionIdsOf($userId);
+        foreach (array_diff($have, $want) as $sid) {
+            if (self::multiple()) {
+                self::sync($sid, array_diff(self::idsBySection([$sid])[$sid] ?? [], [$userId]));
+            } else {
+                Section::where(['id' => $sid, 'teacher_id' => $userId])->update(['teacher_id' => null]);
+                DB::table('section_teachers')->where(['section_id' => $sid, 'user_id' => $userId])->delete();
+            }
+        }
+        foreach (array_diff($want, $have) as $sid) {
+            if (!Section::where('id', $sid)->exists()) continue;
+            if (self::multiple()) {
+                self::sync($sid, array_merge(self::idsBySection([$sid])[$sid] ?? [], [$userId]));
+            } else {
+                Section::where('id', $sid)->update(['teacher_id' => $userId]);
+            }
+        }
+    }
+
     /** Set a section's class teachers (the first is also the section's main teacher). */
     public static function sync(int $sectionId, array $teacherIds): void
     {
