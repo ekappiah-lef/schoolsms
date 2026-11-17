@@ -45,7 +45,7 @@ class UserController extends Controller
     /** User types the signed-in user may add and edit: the academic admin, teachers and non-teaching staff only. */
     protected static function limitedTo(): ?array
     {
-        return Qs::userIsAcademicAdmin() ? ['teacher', 'non_teaching'] : null;
+        return Qs::userIsAcademicAdmin() ? ['teacher', 'academic_head', 'non_teaching'] : null;
     }
 
     /** User types offered when adding a user. */
@@ -132,7 +132,7 @@ class UserController extends Controller
                     'type' => $u->user_type, 'type_name' => $typeNames[$u->user_type] ?? ucwords(str_replace('_', ' ', $u->user_type)),
                     'employment' => optional($staff[$u->id] ?? null)->employment_type,
                     'job_title' => optional($staff[$u->id] ?? null)->job_title,
-                    'category' => $u->user_type === 'teacher' ? 'teaching' : 'non_teaching',
+                    'category' => in_array($u->user_type, ['teacher', 'academic_head'], true) ? 'teaching' : 'non_teaching',
                     'class_teacher' => collect($classTeacherOf[$u->id] ?? [])->map(function ($s) { return trim($s->class.' '.$s->section); })->values(),
                     'subjects' => collect($subjectsOf[$u->id] ?? [])->groupBy('class')->map(function ($g, $class) { return $class.': '.$g->pluck('subject')->implode(', '); })->values(),
                     'urls' => array_filter([
@@ -216,7 +216,7 @@ class UserController extends Controller
     {
         $user_type = $this->user->findType($req->user_type)->title;
         if (($allowed = self::limitedTo()) && !in_array($user_type, $allowed, true)) {
-            return Qs::json('You can only add teachers and non-teaching staff.', false);
+            return Qs::json('You can only add teachers, HODs and non-teaching staff.', false);
         }
 
         if ($req->filled('clock_id') && \DB::table('staff_records')->where('clock_id', $req->clock_id)->exists()) {
@@ -278,7 +278,7 @@ class UserController extends Controller
 
         $user = $this->user->find($id);
         if (($allowed = self::limitedTo()) && !in_array(optional($user)->user_type, $allowed, true)) {
-            return Qs::json('You can only edit teachers and non-teaching staff.', false);
+            return Qs::json('You can only edit teachers, HODs and non-teaching staff.', false);
         }
 
         if ($req->filled('clock_id') && \DB::table('staff_records')->where('clock_id', $req->clock_id)->where('user_id', '!=', $id)->exists()) {

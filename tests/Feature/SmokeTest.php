@@ -636,6 +636,23 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testAcademicAdminMakesATeacherAnHod()
+    {
+        $aa = \App\User::where('user_type', 'academic_admin')->first();
+        if (!$aa) return $this->assertTrue(true);
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $this->assertSame('HOD', \Illuminate\Support\Facades\DB::table('user_types')->where('title', 'academic_head')->value('name'));
+            $t = $this->user('teacher');
+            $hod = \Illuminate\Support\Facades\DB::table('user_types')->where('title', 'academic_head')->first();
+            $base = ['name' => $t->name.' X', 'gender' => $t->gender ?: 'Male', 'address' => $t->address ?: 'Some address here', 'state_id' => $t->state_id ?: 1, 'nal_id' => $t->nal_id ?: 1];
+            $this->actingAs($aa)->put(route('users.update', \App\Helpers\Qs::hash($t->id)), $base + ['user_type' => \App\Helpers\Qs::hash($hod->id)])->assertOk()->assertJson(['ok' => true]);
+            $this->assertSame('academic_head', $t->fresh()->user_type);
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testParentHasTimetablesInTheirMenu()
     {
         $this->actingAs($this->user('parent'));
