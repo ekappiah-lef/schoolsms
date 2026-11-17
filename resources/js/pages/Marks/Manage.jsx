@@ -91,7 +91,11 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [values, rows]);
 
-    const setCell = (id, key, raw) => setValues((s) => ({ ...s, [id]: { ...s[id], [key]: raw.replace(/[^\d]/g, '').slice(0, 3) } }));
+    // Digits and one decimal point, at most 2 decimals (e.g. 50.75); a comma counts as the point.
+    const setCell = (id, key, raw) => {
+        const m = raw.replace(',', '.').replace(/[^\d.]/g, '').match(/^(\d{0,3})(\.\d{0,2})?/);
+        setValues((s) => ({ ...s, [id]: { ...s[id], [key]: m ? m[1] + (m[2] ?? '') : '' } }));
+    };
 
     // Spreadsheet navigation: Enter/↓ next student, ↑ previous, ←/→ across columns at the edges.
     const focusCell = (rowIndex, colIndex) => {
