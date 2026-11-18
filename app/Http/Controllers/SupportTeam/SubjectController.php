@@ -27,7 +27,7 @@ class SubjectController extends Controller
     public function index()
     {
         $d['my_classes'] = $this->my_class->all();
-        $d['teachers'] = $this->user->getUserByType('teacher');
+        $d['teachers'] = \App\User::whereIn('user_type', \App\Support\ClassTeachers::TYPES)->orderBy('name')->get();
         $d['subjects'] = $this->my_class->getAllSubjects();
 
         return Ui::render('Subjects/Index', function () {
@@ -47,7 +47,7 @@ class SubjectController extends Controller
             'showOnReport' => \App\Support\ReportSubjects::on(),
             'perSection' => \App\Support\SubjectTeachers::on(),
             'classes' => $classes->map(function ($c) { return ['id' => $c->id, 'name' => $c->name]; })->values(),
-            'teachers' => $this->user->getUserByType('teacher')->map(function ($t) { return ['id' => Qs::hash($t->id), 'name' => $t->name]; })->values(),
+            'teachers' => \App\User::whereIn('user_type', \App\Support\ClassTeachers::TYPES)->orderBy('name')->get()->map(function ($t) { return ['id' => Qs::hash($t->id), 'name' => $t->name]; })->values(),
             'subjects' => $this->my_class->getAllSubjects()->sortBy(function ($s) use ($order) {
                 return sprintf('%05d-%s', $order[$s->my_class_id] ?? 99999, $s->name);
             })->map(function ($s) {
@@ -79,7 +79,7 @@ class SubjectController extends Controller
     {
         $d['s'] = $sub = $this->my_class->findSubject($id);
         $d['my_classes'] = $this->my_class->all();
-        $d['teachers'] = $this->user->getUserByType('teacher');
+        $d['teachers'] = \App\User::whereIn('user_type', \App\Support\ClassTeachers::TYPES)->orderBy('name')->get();
 
         if (is_null($sub)) {
             return Qs::goWithDanger('subjects.index');
@@ -107,7 +107,7 @@ class SubjectController extends Controller
         if (\App\Support\SubjectTeachers::on() && $req->has('section_teachers')) {
             $map = collect((array) json_decode((string) $req->input('section_teachers'), true))->map(function ($ids) {
                 return collect((array) $ids)->map(function ($h) { return (int) Qs::decodeHash($h); })
-                    ->filter(function ($id) { return \App\User::where('id', $id)->where('user_type', 'teacher')->exists(); })->values()->all();
+                    ->filter(function ($id) { return \App\User::where('id', $id)->whereIn('user_type', \App\Support\ClassTeachers::TYPES)->exists(); })->values()->all();
             })->all();
             \App\Support\SubjectTeachers::sync((int) $id, $map);
         }

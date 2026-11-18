@@ -79,8 +79,10 @@ class MarkApprovals
     public static function canReview($subjectId): bool
     {
         if (!self::on()) return false;
-        if (Qs::userIsAcademicLead()) return true;
         $subject = Subject::find($subjectId, ['id', 'department_id', 'teacher_id', 'my_class_id']);
+        $teachesIt = $subject && ((int) $subject->teacher_id === (int) Auth::id() || in_array((int) $subjectId, SubjectTeachers::subjectIdsOf((int) Auth::id()), true));
+        if (Qs::userIsTeamSA()) return true;
+        if (Qs::userIsAcademicLead()) return !$teachesIt;   // an HOD's own subject goes to the academic admin
         $dept = self::departmentFor($subject);
 
         // An HOD does not approve their own marks: those go to the academic admin.
