@@ -294,6 +294,23 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testOneStaffMemberCanBeGivenClassesAndSubjects()
+    {
+        $hod = \App\User::whereIn('user_type', ['academic_head', 'teacher'])->first();
+        if (!$hod) return $this->assertTrue(true);
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $hod->forceFill(['manages_classes' => false])->save();
+            $this->actingAs($hod)->get('/classes')->assertRedirect();
+            $hod->forceFill(['manages_classes' => true])->save();
+            foreach (['/classes', '/subjects', '/sections'] as $url) $this->actingAs($hod)->get($url)->assertOk();
+            $this->actingAs($hod)->get('/users')->assertRedirect();
+            $this->actingAs($hod)->get('/class-types')->assertRedirect();
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testAccountantCancelsABillAndItCanBeRestored()
     {
         $acc = $this->user('accountant');

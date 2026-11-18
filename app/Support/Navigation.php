@@ -177,6 +177,12 @@ class Navigation
             ]);
 
             $sections[] = self::section('Administration', array_values($admin));
+        } elseif (Qs::userManagesClasses()) {
+            $sections[] = self::section('Administration', [self::group('Classes & subjects', 'school', [
+                self::item('Classes', null, 'classes.index', ['classes.index', 'classes.edit']),
+                self::item('Sections', null, 'sections.index', ['sections.index', 'sections.edit']),
+                self::item('Subjects', null, 'subjects.index', ['subjects.index', 'subjects.edit']),
+            ])]);
         }
 
         return array_values(array_filter($sections, function ($s) {

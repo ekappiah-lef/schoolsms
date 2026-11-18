@@ -186,6 +186,12 @@ class Qs
         return in_array(Auth::user()->user_type, self::getTeamSA());
     }
 
+    /** Classes, sections and subjects: the administration team, or a staff member given these pages (users.manages_classes). */
+    public static function userManagesClasses()
+    {
+        return self::userIsTeamSA() || (bool) optional(Auth::user())->manages_classes;
+    }
+
     public static function userIsTeamSAT()
     {
         return in_array(Auth::user()->user_type, self::getTeamSAT());
