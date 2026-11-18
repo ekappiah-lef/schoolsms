@@ -13,6 +13,14 @@
                 <td>Present {{ $attendance['present'] }} of {{ $attendance['days'] }} days marked{{ $attendance['late'] ? ' (late '.$attendance['late'].')' : '' }} · Absent {{ $attendance['absent'] }}</td>
             </tr>
         @endif
+        @foreach(['conduct', 'interests'] as $k)
+            @if(!empty($cm[$k]))
+                <tr>
+                    <td><strong>{{ strtoupper($cm[$k.'_label']) }}:</strong></td>
+                    <td>  {{ $exr->$k ?? '' }}</td>
+                </tr>
+            @endif
+        @endforeach
         @if($cm['teacher'])
             <tr>
                 <td><strong>{{ strtoupper($cm['teacher_label']) }}:</strong></td>

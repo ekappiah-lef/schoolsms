@@ -71,8 +71,9 @@ class SmokeTest extends TestCase
         // The detailed layout.
         $tpl['layout'] = 'detailed';
         $tpl['head_id'] = $admin->id;
+        $tpl['comments']['conduct'] = true;
         $html = $this->actingAs($admin)->post($url, ['template' => json_encode($tpl)])->assertOk()->getContent();
-        foreach (['END OF FIRST TERM', 'Number On Roll', 'General remarks', 'CONDUCT: <strong>SATISFACTORY', "HEADTEACHER'S NAME: <strong>".strtoupper($admin->name), 'Summative (Scoring) assessment explanation'] as $text) {
+        foreach (['END OF FIRST TERM', 'Number On Roll', 'General remarks', 'CONDUCT: <strong>SATISFACTORY', 'HEADTEACHER&#039;S NAME: <strong>'.strtoupper($admin->name), 'Summative (Scoring) assessment explanation'] as $text) {
             $this->assertStringContainsString($text, $html);
         }
     }

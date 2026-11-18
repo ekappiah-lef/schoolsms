@@ -130,6 +130,8 @@ class ReportDesignController extends Controller
             'grading' => !empty($t['grading']),
             'attendance' => !empty($t['attendance']),
             'comments' => [
+                'conduct' => !empty($t['comments']['conduct']), 'conduct_label' => $text($t['comments']['conduct_label'] ?? '', 60) ?: $base['comments']['conduct_label'],
+                'interests' => !empty($t['comments']['interests']), 'interests_label' => $text($t['comments']['interests_label'] ?? '', 60) ?: $base['comments']['interests_label'],
                 'teacher' => !empty($t['comments']['teacher']), 'teacher_label' => $text($t['comments']['teacher_label'] ?? '', 60) ?: $base['comments']['teacher_label'],
                 'head' => !empty($t['comments']['head']), 'head_label' => $text($t['comments']['head_label'] ?? '', 60) ?: $base['comments']['head_label'],
                 'next_term_begins' => !empty($t['comments']['next_term_begins']), 'next_term_fees' => !empty($t['comments']['next_term_fees']),

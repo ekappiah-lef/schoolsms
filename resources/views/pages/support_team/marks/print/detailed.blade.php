@@ -22,6 +22,7 @@
     $title = trim(($tpl['title'] && strtoupper($tpl['title']) !== 'REPORT SHEET') ? $tpl['title'] : 'ACADEMIC REPORT');
     $sectionName = $extra['section'] ?? null;
     $att = $attendance ?? null;
+    $nextFees = $nextFees ?? null;
     $dark = 'background:#2f2f2f; color:#fff;';
     $cell = 'border:1px solid #9a9a9a; padding:4px 6px !important;';
 @endphp
@@ -41,32 +42,36 @@
 
     <div style="text-align: center; font-weight: bold; font-size: 16px; margin: 10px 0 12px;">END OF {{ $termWord }} TERM {{ strtoupper($title) }}</div>
 
+    @php
+        // Student details, three to a row; each one follows the report design (attendance, next term, totals).
+        $cm = $tpl['comments'];
+        $nextTerm = $cm['next_term_begins'] ? \App\Support\ReportCard::nextTerm($s['term_begins'] ?? null) : null;
+        $items = array_filter([
+            ['Student', strtoupper($sr->user->name)],
+            ['Class', strtoupper($my_class->name).($sectionName ? ' - '.strtoupper($sectionName) : '')],
+            $tpl['attendance'] && $att ? ['Attendance', $att['present'].' out of '.$att['days']] : null,
+            ['Academic year', str_replace('-', ' - ', $ex->year).' Academic Year'],
+            ['Current term', 'Term '.$ex->term],
+            $nextTerm ? ['Next term', $nextTerm] : null,
+            !empty($extra['promoted']) ? ['Promoted To', strtoupper($extra['promoted'])] : null,
+            $tpl['summary'] ? ['Overall Score', $num($exr->total)] : null,
+            $tpl['summary'] ? ['Average Score', $num($exr->ave)] : null,
+            $tpl['summary'] ? ['Average Score %', $num($exr->ave)] : null,
+            $tpl['summary'] ? ['Class Average Score', $num($extra['class_total'] ?? null)] : null,
+            $tpl['summary'] ? ['Class Average Score %', $num($extra['class_ave'] ?? null)] : null,
+            $tpl['summary'] && !\App\Support\School::has('subject_positions_only') && ($exr->pos ?? null) ? ['Position', strip_tags(Mk::getSuffix($exr->pos))] : null,
+            ['Number On Roll', $extra['on_roll'] ?? '-'],
+        ]);
+    @endphp
     <table width="100%" class="td-left" style="border-collapse:collapse; line-height: 1.5;">
-        <tr>
-            <td style="width: 36%; vertical-align: top; text-align:left;">Student: <strong>{{ strtoupper($sr->user->name) }}</strong></td>
-            <td style="width: 34%; vertical-align: top;">Class: <strong>{{ strtoupper($my_class->name) }}{{ $sectionName ? ' - '.strtoupper($sectionName) : '' }}</strong></td>
-            <td style="vertical-align: top;">@if($att)Attendance: <strong>{{ $att['present'] }} out of {{ $att['days'] }}</strong>@endif</td>
-        </tr>
-        <tr>
-            <td>Academic year: <strong>{{ str_replace('-', ' - ', $ex->year) }} Academic Year</strong></td>
-            <td>Current term: <strong>Term {{ $ex->term }}</strong></td>
-            <td>@if(\App\Support\ReportCard::nextTerm($s['term_begins'] ?? null))Next term: <strong>{{ \App\Support\ReportCard::nextTerm($s['term_begins']) }}</strong>@endif</td>
-        </tr>
-        <tr>
-            <td>@if(!empty($extra['promoted']))Promoted To: <strong>{{ strtoupper($extra['promoted']) }}</strong>@endif</td>
-            <td>Overall Score: <strong>{{ $num($exr->total) }}</strong></td>
-            <td>Average Score: <strong>{{ $num($exr->ave) }}</strong></td>
-        </tr>
-        <tr>
-            <td>Average Score %: <strong>{{ $num($exr->ave) }}</strong></td>
-            <td>Class Average Score: <strong>{{ $num($extra['class_total'] ?? null) }}</strong></td>
-            <td>Class Average Score %: <strong>{{ $num($extra['class_ave'] ?? null) }}</strong></td>
-        </tr>
-        <tr>
-            <td>Number On Roll: <strong>{{ $extra['on_roll'] ?? '-' }}</strong></td>
-            <td></td>
-            <td>@unless(\App\Support\School::has('subject_positions_only'))@if($exr->pos ?? null)Position: <strong>{!! Mk::getSuffix($exr->pos) !!}</strong>@endif @endunless</td>
-        </tr>
+        @foreach(array_chunk(array_values($items), 3) as $row)
+            <tr>
+                @foreach($row as [$label, $val])
+                    <td style="width: 33%; vertical-align: top;">{{ $label }}: <strong>{{ $val }}</strong></td>
+                @endforeach
+                @for($i = count($row); $i < 3; $i++)<td style="width: 33%;"></td>@endfor
+            </tr>
+        @endforeach
     </table>
 
     <table width="100%" style="border-collapse:collapse; margin-top: 10px;">
@@ -101,27 +106,47 @@
         </tbody>
     </table>
 
-    <table width="100%" class="td-left" style="border-collapse:collapse; margin-top: 14px;">
-        <tr style="{{ $dark }}"><td style="{{ $cell }} font-weight:bold;">General remarks &amp; comments</td></tr>
-        <tr><td style="{{ $cell }}">CONDUCT: <strong>{{ strtoupper($exr->conduct ?? '') }}</strong></td></tr>
-        <tr><td style="{{ $cell }}">INTEREST(S): <strong>{{ strtoupper($exr->interests ?? '') }}</strong></td></tr>
-        <tr><td style="{{ $cell }}">TEACHER'S REMARKS: <strong>{{ strtoupper($exr->t_comment ?? '') }}</strong></td></tr>
-        <tr><td style="{{ $cell }}">TEACHER'S NAME: <strong>{{ strtoupper($extra['teacher'] ?? '') }}</strong></td></tr>
-        <tr><td style="{{ $cell }}">HEADTEACHER'S REMARKS: <strong>{{ strtoupper($exr->p_comment ?? '') }}</strong></td></tr>
-        <tr><td style="{{ $cell }}">HEADTEACHER'S NAME: <strong>{{ strtoupper(\App\Support\ReportTemplate::headName($tpl)) }}</strong></td></tr>
-    </table>
+    @php
+        $remarks = array_filter([
+            $cm['conduct'] ? [strtoupper($cm['conduct_label']), $exr->conduct ?? ''] : null,
+            $cm['interests'] ? [strtoupper($cm['interests_label']), $exr->interests ?? ''] : null,
+            $cm['teacher'] ? [strtoupper($cm['teacher_label']), $exr->t_comment ?? ''] : null,
+            $cm['teacher'] ? ["TEACHER'S NAME", $extra['teacher'] ?? ''] : null,
+            $cm['head'] ? [strtoupper($cm['head_label']), $exr->p_comment ?? ''] : null,
+            $cm['head'] ? ["HEADTEACHER'S NAME", \App\Support\ReportTemplate::headName($tpl)] : null,
+        ]);
+        $fees = $cm['next_term_fees'] ? ($nextFees ?? null) : null;
+    @endphp
+    @if(count($remarks) || $fees)
+        <table width="100%" class="td-left" style="border-collapse:collapse; margin-top: 14px;">
+            <tr style="{{ $dark }}"><td style="{{ $cell }} font-weight:bold;">General remarks &amp; comments</td></tr>
+            @foreach($remarks as [$label, $val])
+                <tr><td style="{{ $cell }}">{{ $label }}: <strong>{{ strtoupper($val) }}</strong></td></tr>
+            @endforeach
+            @if($fees)
+                <tr><td style="{{ $cell }}">NEXT TERM FEES: <strong>
+                    @if($fees['set'])GHS {{ number_format($fees['total'], 2) }} ({{ $fees['label'] }})@else{{ $fees['label'] }} fees not yet set @endif
+                </strong></td></tr>
+            @endif
+        </table>
+    @endif
 
-    <table style="border-collapse:collapse; margin-top: 18px;">
-        <tr>
-            <td style="vertical-align: bottom; padding-right: 10px;">HEADTEACHER'S SIGNATURE</td>
-            <td style="width: 160px; height: 50px; vertical-align: bottom;">
-                @php $sig = !empty($tpl['signature']) ? $img($tpl['signature']) : null; @endphp
-                @if($sig)<img src="{{ $sig }}" style="max-height: 50px; max-width: 160px;">@else<div style="border-bottom: 1px solid #000; height: 40px;"></div>@endif
-            </td>
-        </tr>
-    </table>
+    {{-- Behaviour and skills ratings, when the design shows them. --}}
+    <div style="margin-top: 10px;">@include('pages.support_team.marks.print.skills')</div>
+    <div style="clear: both;"></div>
 
-    @if($grades->count())
+    @if(count($tpl['signatures'] ?? []))
+        <table class="td-left" style="border-collapse:collapse; margin-top: 18px;">
+            <tr>
+                @foreach($tpl['signatures'] as $sig)
+                    <td style="vertical-align: bottom; padding-right: 10px;">{{ strtoupper($sig) }}</td>
+                    <td style="width: 160px; height: 50px; vertical-align: bottom; padding-right: 30px;"><div style="border-bottom: 1px solid #000; height: 40px;"></div></td>
+                @endforeach
+            </tr>
+        </table>
+    @endif
+
+    @if(($tpl['grading'] ?? false) && $grades->count())
         <table width="100%" class="td-left" style="border-collapse:collapse; margin-top: 18px;">
             <tr style="{{ $dark }}"><td colspan="2" style="{{ $cell }} font-weight:bold;">Summative (Scoring) assessment explanation</td></tr>
             @foreach($grades->chunk(2) as $pair)

@@ -190,7 +190,7 @@ class MarkController extends Controller
             'skills' => ['af' => $af, 'ps' => $ps],
             'canComment' => Qs::userIsTeamSAT(),
             'canHeadComment' => Qs::userIsAcademicLead(),
-            'detailed' => (\App\Support\ReportTemplate::for($ctId)['layout'] ?? 'standard') === 'detailed',
+            'extraFields' => collect(['conduct', 'interests'])->filter(function ($k) use ($ctId) { return !empty(\App\Support\ReportTemplate::for($ctId)['comments'][$k]); })->mapWithKeys(function ($k) use ($ctId) { return [$k => \App\Support\ReportTemplate::for($ctId)['comments'][$k.'_label']]; }),
         ];
     }
 

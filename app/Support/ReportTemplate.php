@@ -45,6 +45,8 @@ class ReportTemplate
             'grading' => false,   // key to the grading: each grade band's range and remark
             'attendance' => false,
             'comments' => [
+                'conduct' => false, 'conduct_label' => 'CONDUCT',
+                'interests' => false, 'interests_label' => 'INTEREST(S)',
                 'teacher' => true, 'teacher_label' => "CLASS TEACHER'S COMMENT",
                 'head' => true, 'head_label' => "PRINCIPAL'S COMMENT",
                 'next_term_begins' => true, 'next_term_fees' => true,

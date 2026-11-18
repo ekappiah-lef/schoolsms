@@ -203,6 +203,14 @@ export default function ReportDesign({ types, type, template, standard, canEdit,
                                     Attendance for the term (from the register)
                                 </label>
                                 <div className="flex items-center gap-3">
+                                    <Checkbox checked={!!t.comments.conduct} onCheckedChange={(v) => setComment('conduct', v === true)} />
+                                    <input className={cn(fieldInput, 'h-9 flex-1')} value={t.comments.conduct_label ?? 'CONDUCT'} onChange={(e) => setComment('conduct_label', e.target.value)} maxLength={60} />
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <Checkbox checked={!!t.comments.interests} onCheckedChange={(v) => setComment('interests', v === true)} />
+                                    <input className={cn(fieldInput, 'h-9 flex-1')} value={t.comments.interests_label ?? 'INTEREST(S)'} onChange={(e) => setComment('interests_label', e.target.value)} maxLength={60} />
+                                </div>
+                                <div className="flex items-center gap-3">
                                     <Checkbox checked={t.comments.teacher} onCheckedChange={(v) => setComment('teacher', v === true)} />
                                     <input className={cn(fieldInput, 'h-9 flex-1')} value={t.comments.teacher_label} onChange={(e) => setComment('teacher_label', e.target.value)} maxLength={60} />
                                 </div>
