@@ -67,6 +67,14 @@ class SmokeTest extends TestCase
         $html = $this->actingAs($admin)->post($url, ['template' => json_encode($tpl)])->assertOk()->getContent();
         $this->assertStringContainsString('KEY TO THE GRADING', $html);
         $this->assertStringNotContainsString('RATING</strong>', $html);
+
+        // The detailed layout.
+        $tpl['layout'] = 'detailed';
+        $tpl['head_name'] = 'Ama Head';
+        $html = $this->actingAs($admin)->post($url, ['template' => json_encode($tpl)])->assertOk()->getContent();
+        foreach (['END OF FIRST TERM', 'Number On Roll', 'General remarks', 'CONDUCT: <strong>SATISFACTORY', "HEADTEACHER'S NAME: <strong>AMA HEAD", 'Summative (Scoring) assessment explanation'] as $text) {
+            $this->assertStringContainsString($text, $html);
+        }
     }
 
     public function testAnalyticsAndDashboardOpenForAdmins()

@@ -107,9 +107,20 @@ export default function ReportDesign({ types, type, template, standard, canEdit,
                     <fieldset disabled={ro} className="flex min-w-0 flex-col gap-6">
                         <Panel title="Title and footer">
                             <div className="grid gap-4">
+                                <Field label="Layout">
+                                    <select className={fieldInput} value={t.layout ?? 'standard'} onChange={(e) => set('layout', e.target.value)}>
+                                        <option value="standard">Standard</option>
+                                        <option value="detailed">Detailed</option>
+                                    </select>
+                                </Field>
                                 <Field label="Report title">
                                     <input className={fieldInput} value={t.title} onChange={(e) => set('title', e.target.value)} maxLength={80} />
                                 </Field>
+                                {t.layout === 'detailed' && (
+                                    <Field label="Headteacher’s name">
+                                        <input className={fieldInput} value={t.head_name ?? ''} onChange={(e) => set('head_name', e.target.value)} maxLength={60} />
+                                    </Field>
+                                )}
                                 <Field label="Footer note" hint="Printed at the bottom, e.g. a motto or school rules.">
                                     <input className={fieldInput} value={t.footer} onChange={(e) => set('footer', e.target.value)} maxLength={200} />
                                 </Field>

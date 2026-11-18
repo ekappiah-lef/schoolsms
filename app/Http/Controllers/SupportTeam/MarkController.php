@@ -162,7 +162,7 @@ class MarkController extends Controller
                     })->values(),
                     'total' => $exr->total, 'ave' => $exr->ave, 'class_ave' => $exr->class_ave,
                     'pos' => \App\Support\School::has('subject_positions_only') ? null : $exr->pos,
-                    't_comment' => $exr->t_comment, 'p_comment' => $exr->p_comment,
+                    't_comment' => $exr->t_comment, 'p_comment' => $exr->p_comment, 'conduct' => $exr->conduct, 'interests' => $exr->interests,
                     'af' => $ratings($exr->af, $af->count()), 'ps' => $ratings($exr->ps, $ps->count()),
                     'urls' => [
                         'print' => route('marks.print', [$hash, $ex->id, $year]),
@@ -190,6 +190,7 @@ class MarkController extends Controller
             'skills' => ['af' => $af, 'ps' => $ps],
             'canComment' => Qs::userIsTeamSAT(),
             'canHeadComment' => Qs::userIsAcademicLead(),
+            'detailed' => (\App\Support\ReportTemplate::for($ctId)['layout'] ?? 'standard') === 'detailed',
         ];
     }
 
@@ -247,8 +248,10 @@ class MarkController extends Controller
 
         // The report-card design for this class type, and attendance for the exam's term.
         $d['tpl'] = \App\Support\ReportTemplate::for(optional($d['class_type'])->id);
+        $detailed = ($d['tpl']['layout'] ?? 'standard') === 'detailed';
+        $d['extra'] = $detailed ? \App\Support\ReportCard::extras($exr, $sr, $exam, $year) : [];
         $d['attendance'] = null;
-        if ($d['tpl']['attendance'] && $exam->term) {
+        if (($d['tpl']['attendance'] || $detailed) && $exam->term) {
             [$from, $to] = \App\Support\FinancePeriod::termRange((int) substr($year, 0, 4), (int) $exam->term);
             $att = \Illuminate\Support\Facades\DB::table('attendances')->where('student_id', $student_id)->whereBetween('date', [$from->toDateString(), $to->toDateString()])
                 ->selectRaw("count(*) as days, sum(status = 'present') as present, sum(status = 'late') as late, sum(status = 'absent') as absent")->first();
@@ -613,7 +616,8 @@ class MarkController extends Controller
         if (!$this->mayEditRecord($exr_id)) {
             return Qs::json('Only the class teacher can comment on these results.', false);
         }
-        $d = Qs::userIsAcademicLead() ? $req->only(['t_comment', 'p_comment']) : $req->only(['t_comment']);
+        $d = Qs::userIsAcademicLead() ? $req->only(['t_comment', 'p_comment', 'conduct', 'interests']) : $req->only(['t_comment', 'conduct', 'interests']);
+        foreach (['conduct', 'interests'] as $k) if (array_key_exists($k, $d)) $d[$k] = mb_substr(trim((string) $d[$k]), 0, 120) ?: null;
 
         $this->exam->updateRecord(['id' => $exr_id], $d);
         return Qs::jsonUpdateOk();

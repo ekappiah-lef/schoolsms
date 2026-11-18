@@ -26,6 +26,9 @@
 <body>
 <div class="container">
     <div id="print" xmlns:margin-top="http://www.w3.org/1999/xhtml">
+        @if(($tpl['layout'] ?? 'standard') === 'detailed')
+            @include('pages.support_team.marks.print.detailed')
+        @else
         {{--    Logo N School Details--}}
         <table width="100%">
             <tr>
@@ -67,6 +70,7 @@
 
         {{--    COMMENTS & SIGNATURE    --}}
         @include('pages.support_team.marks.print.comments')
+        @endif
 
     </div>
 </div>

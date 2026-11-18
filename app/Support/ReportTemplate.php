@@ -29,6 +29,8 @@ class ReportTemplate
 
         return [
             'title' => 'REPORT SHEET',
+            'layout' => 'standard',   // standard, or detailed (school header, student details in columns, general remarks, grading explanation)
+            'head_name' => '',        // detailed layout: the headteacher's name
             // The assessment scheme may rename or hide score columns (e.g. CLASS SCORE (50%) instead of CA1 / CA2).
             'columns' => collect(self::COLUMNS)->map(function ($label, $key) {
                 $r = Assessment::scheme()['report'][$key] ?? null;

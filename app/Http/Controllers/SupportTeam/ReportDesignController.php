@@ -71,13 +71,17 @@ class ReportDesignController extends Controller
         if ($subjects->isEmpty()) {
             $subjects = collect(['English Language', 'Mathematics', 'Integrated Science'])->map(function ($n, $i) { return (object) ['id' => $i + 1, 'name' => $n]; });
         }
-        $grade = (object) ['name' => 'B2', 'remark' => 'Very good'];
+        $bands = \App\Helpers\Mk::getGradeList((int) $type)->sortByDesc('mark_from')->values();
+        $gradeFor = function ($total) use ($bands) {
+            $g = $bands->first(function ($b) use ($total) { return $total >= $b->mark_from && $total <= $b->mark_to; });
+            return $g ? (object) ['name' => $g->name, 'remark' => $g->remark] : (object) ['name' => 'B2', 'remark' => 'Very good'];
+        };
         $w = \App\Support\Assessment::scheme()['weights'] ?? null;
-        $marks = $subjects->map(function ($s, $i) use ($grade, $w) {
+        $marks = $subjects->map(function ($s, $i) use ($gradeFor, $w) {
             $tca = 31 + $i % 4;
             $exm = $w ? 78 + $i % 3 : 48;
             $total = $w ? \App\Support\Assessment::weightedTotal($tca, $exm, $w) : $tca + $exm;
-            return (object) ['subject_id' => $s->id, 'exam_id' => 0, 't1' => $tca - 16, 't2' => 16, 'tca' => $tca, 'exm' => $exm, 'tex1' => $total, 'grade' => $grade, 'sub_pos' => 2 + $i];
+            return (object) ['subject_id' => $s->id, 'exam_id' => 0, 't1' => $tca - 16, 't2' => 16, 'tca' => $tca, 'exm' => $exm, 'tex1' => $total, 'grade' => $gradeFor($total), 'sub_pos' => 2 + $i];
         });
         $vals = function ($n) { return implode(',', array_map(function ($i) { return 5 - $i % 3; }, range(0, max($n - 1, 0)))); };
         $groups = collect($tpl['groups'])->keyBy('key');
@@ -90,7 +94,8 @@ class ReportDesignController extends Controller
             'subjects' => $subjects, 'marks' => $marks,
             'exr' => (object) ['total' => $marks->sum('tex1'), 'ave' => round($marks->avg('tex1'), 1), 'class_ave' => 72.4, 'pos' => 3,
                 'af' => $vals(count(optional($groups['af'] ?? null)['items'] ?? [])), 'ps' => $vals(count(optional($groups['ps'] ?? null)['items'] ?? [])),
-                't_comment' => 'A hardworking pupil. Keep it up.', 'p_comment' => 'Good result.'],
+                't_comment' => 'A hardworking pupil. Keep it up.', 'p_comment' => 'Good result.', 'conduct' => 'Satisfactory', 'interests' => 'Singing and dancing'],
+            'extra' => ['on_roll' => 20, 'class_total' => round($marks->sum('tex1') * 1.04, 2), 'class_ave' => 74.87, 'teacher' => 'Class Teacher', 'promoted' => null, 'section' => 'A'],
             'nextFees' => ['set' => true, 'label' => '2nd Term '.str_replace('-', ' – ', Qs::getCurrentSession()), 'school' => 1750, 'services' => 500, 'owed' => 0, 'total' => 2250],
             'attendance' => ['days' => 60, 'present' => 57, 'late' => 2, 'absent' => 3],
             's' => Setting::all()->flatMap(function ($s) { return [$s->type => $s->description]; }),
@@ -111,6 +116,8 @@ class ReportDesignController extends Controller
 
         return [
             'title' => $text($t['title'] ?? $base['title']) ?: 'REPORT SHEET',
+            'layout' => in_array($t['layout'] ?? '', ['standard', 'detailed'], true) ? $t['layout'] : 'standard',
+            'head_name' => $text($t['head_name'] ?? '', 60),
             'columns' => collect($t['columns'] ?? [])->filter(function ($c) { return isset(ReportTemplate::COLUMNS[$c['key'] ?? '']); })
                 ->map(function ($c) use ($text) { return ['key' => $c['key'], 'label' => $text($c['label'] ?? '', 40) ?: ReportTemplate::COLUMNS[$c['key']], 'show' => !empty($c['show'])]; })->values()->all(),
             'summary' => !empty($t['summary']),
