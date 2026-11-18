@@ -58,7 +58,7 @@
     </thead>
     <tbody>
     @php $lastGroup = null; @endphp
-    @foreach(\App\Support\School::orderSubjects($subjects->values()) as $sub)
+    @foreach(\App\Support\School::orderSubjects(\App\Support\ReportSubjects::filter($subjects)->values()) as $sub)
         @php
             $mk = $marks->where('subject_id', $sub->id)->where('exam_id', $ex->id)->first();
             $group = \App\Support\School::subjectGroup($sub);

@@ -294,6 +294,46 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testDepartmentHeadSeesTheirClassesAndHiddenSubjectsLeaveTheReport()
+    {
+        $DB = \Illuminate\Support\Facades\DB::class;
+        $teacher = \App\User::where('user_type', 'teacher')->first();
+        $section = \App\Models\Section::with('my_class')->whereHas('my_class', function ($q) { $q->whereNotNull('class_type_id'); })->first();
+        if (!$teacher || !$section) return $this->assertTrue(true);
+        $features = \App\Support\SchoolConfig::get('features');
+        $DB::beginTransaction();
+        try {
+            \App\Support\SchoolConfig::set('features', array_values(array_unique(array_merge((array) $features, ['hod_marks_approval', 'departments_by_class_type', 'subjects_off_report']))));
+            $DB::table('sections')->where('teacher_id', $teacher->id)->update(['teacher_id' => null]);
+            \App\Support\ClassTeachers::setSectionsOf($teacher->id, []);
+            $this->assertNotContains((int) $section->id, $this->viewIds($teacher));
+            $this->actingAs($teacher)->get(route('attendance.report'))->assertRedirect();
+
+            \App\Models\Department::create(['name' => 'Test dept', 'hod_id' => $teacher->id, 'class_type_ids' => [(int) $section->my_class->class_type_id]]);
+            $this->assertContains((int) $section->id, $this->viewIds($teacher));
+            $this->actingAs($teacher)->get(route('attendance.report'))->assertOk();
+            $this->actingAs($teacher)->get(route('marks.bulk', [$section->my_class_id, $section->id]))->assertOk();
+
+            // A subject off the report card is not counted in totals.
+            $sub = \App\Models\Subject::where('my_class_id', $section->my_class_id)->first();
+            if ($sub) {
+                $sub->update(['on_report' => false]);
+                \App\Support\ReportSubjects::forget();
+                $this->assertContains((int) $sub->id, \App\Support\ReportSubjects::hiddenIds());
+                $this->assertCount(0, \App\Support\ReportSubjects::filter(collect([$sub])));
+            }
+        } finally {
+            $DB::rollBack();
+            \App\Support\ReportSubjects::forget();
+        }
+    }
+
+    private function viewIds($user): array
+    {
+        $this->actingAs($user);
+        return \App\Support\TeacherScope::viewSectionIds();
+    }
+
     public function testOneStaffMemberCanBeGivenClassesAndSubjects()
     {
         $hod = \App\User::whereIn('user_type', ['academic_head', 'teacher'])->first();

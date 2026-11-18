@@ -23,6 +23,7 @@ class SubjectCreate extends FormRequest
         return [
             'name' => 'required|string|min:3',
             'category' => 'nullable|in:core,elective',
+            'on_report' => 'nullable|boolean',
             'my_class_id' => 'required',
             'teacher_id' => 'nullable|exists:users,id',
             'slug' => 'nullable|string|min:2',

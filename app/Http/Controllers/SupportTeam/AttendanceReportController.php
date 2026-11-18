@@ -25,8 +25,12 @@ class AttendanceReportController extends Controller
 {
     public function __construct()
     {
-        // Admins, the academic admin and HODs; teachers take the register only.
-        $this->middleware('academicLead');
+        // Admins, the academic admin and HODs; a teacher who heads a department sees its classes (sending stays with the leads).
+        $this->middleware(function ($request, $next) {
+            if (Qs::userIsAcademicLead() || TeacherScope::isDepartmentHead()) return $next($request);
+            return redirect()->route('login');
+        });
+        $this->middleware('academicLead', ['only' => ['send', 'sendAll']]);
     }
 
     public function index(Request $req)
@@ -65,7 +69,7 @@ class AttendanceReportController extends Controller
                 'urls' => [
                     'student' => $sr ? route('students.show', Qs::hash($sr->id)) : null,
                     'pdf' => route('attendance.report.pdf', [Qs::hash($id), 'from' => $from->toDateString(), 'to' => $to->toDateString()]),
-                    'send' => route('attendance.report.send', [Qs::hash($id), 'from' => $from->toDateString(), 'to' => $to->toDateString()]),
+                    'send' => Qs::userIsAcademicLead() ? route('attendance.report.send', [Qs::hash($id), 'from' => $from->toDateString(), 'to' => $to->toDateString()]) : null,
                 ],
             ];
         })->sort(function ($a, $b) { return [$b['absent'], $a['name']] <=> [$a['absent'], $b['name']]; })->values();
@@ -77,7 +81,7 @@ class AttendanceReportController extends Controller
             'days' => $days,
             'exceptions' => $exceptions,
             'students' => $byStudent,
-            'urls' => ['self' => route('attendance.report'), 'register' => route('attendance.index'), 'sendAll' => route('attendance.report.send_all')],
+            'urls' => ['self' => route('attendance.report'), 'register' => route('attendance.index'), 'sendAll' => Qs::userIsAcademicLead() ? route('attendance.report.send_all') : null],
         ]);
     }
 
@@ -154,7 +158,7 @@ class AttendanceReportController extends Controller
     protected function marks(Carbon $from, Carbon $to, ?int $classId, ?int $sectionId)
     {
         return Attendance::whereBetween('date', [$from->toDateString(), $to->toDateString()])
-            ->when(TeacherScope::applies(), function ($q) { $q->whereIn('section_id', TeacherScope::ownSectionIds()); })
+            ->when(TeacherScope::applies(), function ($q) { $q->whereIn('section_id', TeacherScope::viewSectionIds()); })
             ->when($classId, function ($q) use ($classId) { $q->where('my_class_id', $classId); })
             ->when($sectionId, function ($q) use ($sectionId) { $q->where('section_id', $sectionId); });
     }
@@ -174,7 +178,7 @@ class AttendanceReportController extends Controller
     /** Classes with their sections, limited to the user's own sections for a class teacher. */
     protected function classes()
     {
-        $own = TeacherScope::applies() ? TeacherScope::ownSectionIds() : null;
+        $own = TeacherScope::applies() ? TeacherScope::viewSectionIds() : null;
         $classes = MyClass::with('section')->get()->map(function ($c) use ($own) {
             $sections = $c->section->when($own !== null, function ($s) use ($own) { return $s->whereIn('id', $own); })->sortBy('name');
             return ['id' => $c->id, 'name' => $c->name, 'class_type_id' => $c->class_type_id,

@@ -151,7 +151,7 @@ class MarkController extends Controller
                 $tex = 'tex'.$ex->term;
                 $exams[] = [
                     'id' => $ex->id, 'name' => $ex->name, 'term' => (int) $ex->term,
-                    'subjects' => \App\Support\School::orderSubjects($d['subjects']->values())->map(function ($sub) use ($d, $ex, $tex) {
+                    'subjects' => \App\Support\School::orderSubjects(\App\Support\ReportSubjects::filter($d['subjects'])->values())->map(function ($sub) use ($d, $ex, $tex) {
                         $mk = $d['marks']->where('subject_id', $sub->id)->where('exam_id', $ex->id)->first();
                         return [
                             'name' => $sub->name, 'group' => \App\Support\School::subjectGroup($sub),
@@ -269,7 +269,7 @@ class MarkController extends Controller
     public function email_report($student_id, $exam_id, $year)
     {
         $sr = $this->student->getRecord(['user_id' => $student_id])->first();
-        if (!$sr || !TeacherScope::canSeeStudent($sr)) {
+        if (!$sr || (TeacherScope::applies() && !in_array((int) $sr->section_id, TeacherScope::ownSectionIds(), true))) {
             return Qs::json('You can only send reports for students in your own class.', false);
         }
         if (!$this->exam->getRecord(['student_id' => $student_id, 'exam_id' => $exam_id, 'year' => $year])->first()) {
@@ -636,7 +636,7 @@ class MarkController extends Controller
 
     public function bulk($class_id = NULL, $section_id = NULL)
     {
-        if ($section_id && TeacherScope::applies() && !in_array((int) $section_id, TeacherScope::ownSectionIds(), true)) {
+        if ($section_id && TeacherScope::applies() && !in_array((int) $section_id, TeacherScope::viewSectionIds(), true)) {
             return redirect()->route('marks.bulk')->with('flash_danger', 'You can only open results for your own class.');
         }
         $d['my_classes'] = $this->my_class->all();
@@ -710,10 +710,10 @@ class MarkController extends Controller
             'year' => $this->year,
             'exams' => $this->exam->getExam(['year' => $this->year])->map(function ($e) { return ['id' => $e->id, 'name' => $e->name, 'term' => (int) $e->term]; })->values(),
             'classes' => ClassOrder::sort($this->my_class->all())->filter(function ($c) {
-                return !TeacherScope::applies() || \App\Models\Section::where('my_class_id', $c->id)->whereIn('id', TeacherScope::ownSectionIds())->exists();
+                return !TeacherScope::applies() || \App\Models\Section::where('my_class_id', $c->id)->whereIn('id', TeacherScope::viewSectionIds())->exists();
             })->map(function ($c) { return ['id' => $c->id, 'name' => $c->name]; })->values(),
             'sections' => $this->my_class->getAllSections()->filter(function ($x) {
-                return !TeacherScope::applies() || in_array((int) $x->id, TeacherScope::ownSectionIds(), true);
+                return !TeacherScope::applies() || in_array((int) $x->id, TeacherScope::viewSectionIds(), true);
             })->map(function ($x) { return ['id' => $x->id, 'name' => $x->name, 'class_id' => $x->my_class_id]; })->values(),
             'selected' => null,
             'urls' => [

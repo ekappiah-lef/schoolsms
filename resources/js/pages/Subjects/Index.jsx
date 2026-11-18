@@ -8,11 +8,11 @@ import { cn } from '@/lib/utils';
 import { SectionTeachers } from '@/components/app/section-teachers';
 
 /** Subjects — Create subject / Show subjects (SubjectController; JSON store & update, teacher ids are hashed). */
-export default function SubjectsIndex({ session, canDelete, classes, teachers, subjects, editing, urls, showCategory = false, perSection = false }) {
+export default function SubjectsIndex({ session, canDelete, classes, teachers, subjects, editing, urls, showCategory = false, showOnReport = false, perSection = false }) {
     const [tab, setTab] = useModuleTab(editing ? 'create' : 'list');
     const [confirm, confirmDialog] = useConfirmAction();
     const form = useModuleForm({
-        initial: { name: '', slug: '', category: 'core', my_class_id: '', teacher_id: '', ...(editing && perSection ? { section_teachers: '{}' } : {}) },
+        initial: { name: '', slug: '', category: 'core', on_report: '1', my_class_id: '', teacher_id: '', ...(editing && perSection ? { section_teachers: '{}' } : {}) },
         editing,
         storeUrl: urls.store,
         indexUrl: urls.index,
@@ -69,6 +69,14 @@ export default function SubjectsIndex({ session, canDelete, classes, teachers, s
                                     </NativeSelect>
                                 </Field>
                             )}
+                            {showOnReport && (
+                                <Field label="On report card" error={form.errors.on_report}>
+                                    <NativeSelect value={String(form.data.on_report ?? '1')} onChange={(v) => form.set('on_report', v)}>
+                                        <option value="1">Yes</option>
+                                        <option value="0">No</option>
+                                    </NativeSelect>
+                                </Field>
+                            )}
                             <Field label="Subject Teacher" error={form.errors.teacher_id}>
                                 <NativeSelect value={form.data.teacher_id} onChange={(v) => form.set('teacher_id', v)} invalid={!!form.errors.teacher_id}>
                                     <option value="">
@@ -107,6 +115,7 @@ export default function SubjectsIndex({ session, canDelete, classes, teachers, s
                                                 <div className="font-semibold">{r.name}</div>
                                                 {r.slug && <div className="font-mono text-[11px] text-fg-muted">{r.slug}</div>}
                                                 {showCategory && <div className="text-[11px] text-fg-muted">{r.category === 'elective' ? 'Elective' : 'Core'}</div>}
+                                                {showOnReport && !r.on_report && <div className="text-[11px] text-fg-muted">Not on report card</div>}
                                             </div>
                                         </div>
                                     ),

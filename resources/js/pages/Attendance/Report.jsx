@@ -147,7 +147,7 @@ export default function AttendanceReport({ filters, classes, summary, days, exce
                                     cell: (r) => (
                                         <div className="flex justify-end gap-0.5">
                                             <RowIconButton icon={FileText} title="Open PDF" onClick={() => window.open(r.urls.pdf, '_blank')} />
-                                            <RowIconButton icon={Mail} title="Email to parent" onClick={() => send(r.urls.send, r.name)} />
+                                            {r.urls.send && <RowIconButton icon={Mail} title="Email to parent" onClick={() => send(r.urls.send, r.name)} />}
                                         </div>
                                     ),
                                 },

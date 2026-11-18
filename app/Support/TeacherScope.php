@@ -79,9 +79,37 @@ class TeacherScope
         return in_array($subjectId, self::markAccess($classId)[$sectionId] ?? [], true);
     }
 
-    /** May the signed-in user see this student's details? Teachers: only their own section's students. */
+    /**
+     * Sections a teacher may look at (not mark or change): their own, and, for the head of a department that covers
+     * class types (departments_by_class_type), every section of those classes — results and attendance.
+     */
+    public static function viewSectionIds(?int $teacherId = null): array
+    {
+        $tid = (int) ($teacherId ?: Auth::id());
+        $ids = self::ownSectionIds($tid);
+        $types = self::headedClassTypeIds($tid);
+        if ($types) {
+            $ids = array_merge($ids, Section::whereIn('my_class_id', \App\Models\MyClass::whereIn('class_type_id', $types)->pluck('id'))->pluck('id')->all());
+        }
+
+        return array_values(array_unique(array_map('intval', $ids)));
+    }
+
+    /** Class types of the departments this teacher heads (schools whose departments cover class types). */
+    public static function headedClassTypeIds(?int $teacherId = null): array
+    {
+        return MarkApprovals::byClassType() ? MarkApprovals::headedClassTypeIds((int) ($teacherId ?: Auth::id())) : [];
+    }
+
+    /** Head of a department (by class type) who is a teacher: sees those classes' results and attendance. */
+    public static function isDepartmentHead(): bool
+    {
+        return self::applies() && count(self::headedClassTypeIds()) > 0;
+    }
+
+    /** May the signed-in user see this student's details? Teachers: their own section's students (an HOD: their department's). */
     public static function canSeeStudent(StudentRecord $sr): bool
     {
-        return !self::applies() || in_array((int) $sr->section_id, self::ownSectionIds(), true);
+        return !self::applies() || in_array((int) $sr->section_id, self::viewSectionIds(), true);
     }
 }

@@ -19,6 +19,7 @@ return [
         'report_after_fees_cleared' => 'A report sheet is not sent to parents while the student owes fees (bills still can be).',
         'core_elective_subjects' => 'Subjects are core or elective: report cards, result sheets and mark entry group them.',
         'service_prices_by_level' => 'Services (lunch, breakfast, clubs) can cost differently per class type; a student who starts mid-term pays only the school days left (Settings: school days in the term).',
+        'subjects_off_report' => 'A subject can be kept off the report card (e.g. Well Being): marks are entered, but it is not printed or counted in totals and positions.',
         'departments_by_class_type' => 'Departments cover class types (e.g. Lower Grade, Upper Grade): the head approves the marks of every subject in those classes.',
         'subject_teachers_per_section' => 'A subject can have its own teacher(s) in each section; each enters marks only for their sections.',
         'multiple_class_teachers' => 'A section can have several class teachers (each sees the class, takes the register and writes comments).',

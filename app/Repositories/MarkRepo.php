@@ -45,7 +45,7 @@ class MarkRepo
         $d = ['student_id' => $st_id, 'exam_id' => $exam->id, 'my_class_id' => $class_id, 'year' => $year];
 
         $tex = 'tex'.$exam->term;
-        $mk =Mark::where($d);
+        $mk =Mark::where($d)->whereNotIn('subject_id', \App\Support\ReportSubjects::hiddenIds());
         return $mk->select($tex)->sum($tex);
 
       /*  unset($d['exam_id']);
@@ -62,7 +62,7 @@ class MarkRepo
 
         $tex = 'tex'.$exam->term;
 
-        $mk = Mark::where($d)->where($tex, '>', 0);
+        $mk = Mark::where($d)->where($tex, '>', 0)->whereNotIn('subject_id', \App\Support\ReportSubjects::hiddenIds());
         $avg = $mk->select($tex)->avg($tex);
         return round($avg, 1);
 
@@ -127,7 +127,7 @@ class MarkRepo
 
         if($exam->term == 3){ unset($d['exam_id']); }
 
-        return Mark::where($d)->whereNotNull($tex)->count();
+        return Mark::where($d)->whereNotNull($tex)->whereNotIn('subject_id', \App\Support\ReportSubjects::hiddenIds())->count();
     }
 
     public function getClassAvg($exam, $class_id, $year)
@@ -135,7 +135,7 @@ class MarkRepo
         $d = [ 'exam_id' => $exam->id, 'my_class_id' => $class_id, 'year' => $year ];
         $tex = 'tex'.$exam->term;
 
-        $avg = Mark::where($d)->select($tex)->avg($tex);
+        $avg = Mark::where($d)->whereNotIn('subject_id', \App\Support\ReportSubjects::hiddenIds())->select($tex)->avg($tex);
         return round($avg, 1);
     }
 
@@ -144,7 +144,7 @@ class MarkRepo
         $d = ['student_id' => $st_id, 'exam_id' => $exam->id, 'my_class_id' => $class_id, 'section_id' => $sec_id, 'year' => $year ]; $all_mks = [];
         $tex = 'tex'.$exam->term;
 
-        $my_mk = Mark::where($d)->select($tex)->sum($tex);
+        $my_mk = Mark::where($d)->whereNotIn('subject_id', \App\Support\ReportSubjects::hiddenIds())->select($tex)->sum($tex);
 
         /*if($exam->term == 3){
             $my_mk = Mark::where($d)->select('cum')->sum('cum');
