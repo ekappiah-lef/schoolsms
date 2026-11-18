@@ -44,6 +44,8 @@ class ReportDesignController extends Controller
             'template' => $type ? ReportTemplate::for($type->id) : null,
             'standard' => ReportTemplate::defaults(),
             'columns' => ReportTemplate::COLUMNS,
+            'classes' => $type ? DB::table('my_classes')->where('class_type_id', $type->id)->orderBy('name')->get(['id', 'name'])->map(function ($c) { return ['id' => $c->id, 'name' => $c->name]; })->values() : [],
+            'defaultOptions' => \App\Support\Benchmarks::OPTIONS,
             'staff' => DB::table('users')->whereIn('user_type', ReportTemplate::HEAD_TYPES)->orderBy('name')->get(['id', 'name'])->map(function ($u) { return ['id' => $u->id, 'name' => $u->name]; })->values(),
             'canEdit' => (bool) $type,   // only the class types this user may design are listed
             'urls' => $type ? ['save' => route('reports.design.save', $type->id), 'preview' => route('reports.design.preview', $type->id)] : null,
@@ -93,9 +95,10 @@ class ReportDesignController extends Controller
             'my_class' => (object) ['name' => optional($class)->name ?? $ct->name], 'class_type' => $ct,
             'ex' => (object) ['id' => 0, 'term' => 1, 'year' => Qs::getCurrentSession()], 'tex' => 'tex1',
             'subjects' => $subjects, 'marks' => $marks,
-            'exr' => (object) ['total' => $marks->sum('tex1'), 'ave' => round($marks->avg('tex1'), 1), 'class_ave' => 72.4, 'pos' => 3,
+            'exr' => (object) ['my_class_id' => optional($class)->id, 'total' => $marks->sum('tex1'), 'ave' => round($marks->avg('tex1'), 1), 'class_ave' => 72.4, 'pos' => 3,
                 'af' => $vals(count(optional($groups['af'] ?? null)['items'] ?? [])), 'ps' => $vals(count(optional($groups['ps'] ?? null)['items'] ?? [])),
                 't_comment' => 'A hardworking pupil. Keep it up.', 'p_comment' => 'Good result.', 'conduct' => 'Satisfactory', 'interests' => 'Singing and dancing',
+                'benchmarks' => json_encode(collect(\App\Support\Benchmarks::statements($tpl, optional($class)->id))->values()->mapWithKeys(function ($s, $i) use ($tpl) { $o = \App\Support\Benchmarks::options($tpl); return [$s => $o[$i % count($o)]]; })),
                 'assessments' => json_encode(collect($tpl['assessments'] ?? [])->mapWithKeys(function ($a) { return [$a => 'Shows good understanding and applies it in class and at home.']; }))],
             'extra' => ['on_roll' => 20, 'class_total' => round($marks->sum('tex1') * 1.04, 2), 'class_ave' => 74.87, 'teacher' => 'Class Teacher', 'promoted' => null, 'section' => 'A'],
             'nextFees' => ['set' => true, 'label' => '2nd Term '.str_replace('-', ' – ', Qs::getCurrentSession()), 'school' => 1750, 'services' => 500, 'owed' => 0, 'total' => 2250],
@@ -118,7 +121,10 @@ class ReportDesignController extends Controller
 
         return [
             'title' => $text($t['title'] ?? $base['title']) ?: 'REPORT SHEET',
-            'layout' => in_array($t['layout'] ?? '', ['standard', 'detailed'], true) ? $t['layout'] : 'standard',
+            'layout' => in_array($t['layout'] ?? '', ['standard', 'detailed', 'benchmarks'], true) ? $t['layout'] : 'standard',
+            'benchmarks' => collect((array) ($t['benchmarks'] ?? []))->filter(function ($v, $k) { return ($k === 'all' || ctype_digit((string) $k)) && trim((string) $v) !== ''; })
+                ->map(function ($v) { return mb_substr((string) $v, 0, 8000); })->all(),
+            'benchmark_options' => $lines($t['benchmark_options'] ?? [], 30),
             'head_id' => !empty($t['head_id']) && DB::table('users')->where('id', (int) $t['head_id'])->whereIn('user_type', ReportTemplate::HEAD_TYPES)->exists() ? (int) $t['head_id'] : null,
             'columns' => collect($t['columns'] ?? [])->filter(function ($c) { return isset(ReportTemplate::COLUMNS[$c['key'] ?? '']); })
                 ->map(function ($c) use ($text) { return ['key' => $c['key'], 'label' => $text($c['label'] ?? '', 40) ?: ReportTemplate::COLUMNS[$c['key']], 'show' => !empty($c['show'])]; })->values()->all(),

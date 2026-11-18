@@ -70,6 +70,9 @@ class Navigation
             if (Qs::userIsAcademicLead() || \App\Support\TeacherScope::ownSectionIds()) {
                 $exams[] = self::item('Report cards', null, 'reports.design');
             }
+            if (\App\Http\Controllers\SupportTeam\BenchmarkController::sections()->isNotEmpty()) {
+                $exams[] = self::item('Benchmarks', null, 'marks.benchmarks');
+            }
             $academics[] = self::group('Examinations', 'notebook-pen', $exams);
         }
 

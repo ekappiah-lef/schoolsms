@@ -74,6 +74,32 @@
         @endforeach
     </table>
 
+    @if(($tpl['layout'] ?? '') === 'benchmarks')
+        @php
+            $areas = \App\Support\Benchmarks::forClass($tpl, (int) ($exr->my_class_id ?? optional($my_class)->id));
+            $given = (array) json_decode((string) ($exr->benchmarks ?? ''), true);
+        @endphp
+        <table width="100%" class="td-left" style="border-collapse:collapse; margin-top: 10px;">
+            <thead>
+            <tr style="{{ $dark }}">
+                <th style="{{ $cell }} text-align:left; width: 30%;">Subject</th>
+                <th style="{{ $cell }} text-align:left;">BENCHMARKS</th>
+                <th style="{{ $cell }} text-align:left; width: 20%;">Remarks</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach($areas as $a)
+                @foreach($a['items'] as $i => $it)
+                    <tr>
+                        @if($i === 0)<td rowspan="{{ count($a['items']) }}" style="{{ $cell }} vertical-align: top;">{{ strtoupper($a['area']) }}</td>@endif
+                        <td style="{{ $cell }}">{{ $it['no'] }} {{ $it['text'] }}</td>
+                        <td style="{{ $cell }}">{{ $given[$it['text']] ?? '' }}</td>
+                    </tr>
+                @endforeach
+            @endforeach
+            </tbody>
+        </table>
+    @else
     <table width="100%" style="border-collapse:collapse; margin-top: 10px;">
         <thead>
         <tr style="{{ $dark }}">
@@ -105,6 +131,8 @@
         @endforeach
         </tbody>
     </table>
+
+    @endif
 
     @php
         $remarks = array_filter([

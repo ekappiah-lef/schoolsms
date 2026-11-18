@@ -18,7 +18,8 @@ const toLines = (s) => s.split('\n').map((x) => x.trim()).filter(Boolean);
  * columns, rating tables and their items, attendance, comments, next-term lines, signatures.
  * Live preview on the right. The academic admin and admins edit; class teachers can only view.
  */
-export default function ReportDesign({ types, type, template, standard, canEdit, urls, staff = [] }) {
+export default function ReportDesign({ types, type, template, standard, canEdit, urls, staff = [], classes = [], defaultOptions = [] }) {
+    const [benchClass, setBenchClass] = useState('all');
     const [t, setT] = useState(template);
     const [busy, setBusy] = useState(false);
     const [confirmReset, setConfirmReset] = useState(false);
@@ -111,12 +112,13 @@ export default function ReportDesign({ types, type, template, standard, canEdit,
                                     <select className={fieldInput} value={t.layout ?? 'standard'} onChange={(e) => set('layout', e.target.value)}>
                                         <option value="standard">Standard</option>
                                         <option value="detailed">Detailed</option>
+                                        <option value="benchmarks">Benchmarks</option>
                                     </select>
                                 </Field>
                                 <Field label="Report title">
                                     <input className={fieldInput} value={t.title} onChange={(e) => set('title', e.target.value)} maxLength={80} />
                                 </Field>
-                                {t.layout === 'detailed' && (
+                                {(t.layout === 'detailed' || t.layout === 'benchmarks') && (
                                     <Field label="Headteacher">
                                         <select className={fieldInput} value={t.head_id ?? ''} onChange={(e) => set('head_id', e.target.value ? Number(e.target.value) : null)}>
                                             <option value="">None</option>
@@ -228,6 +230,41 @@ export default function ReportDesign({ types, type, template, standard, canEdit,
                                 </label>
                             </div>
                         </Panel>
+
+                        {t.layout === 'benchmarks' && (
+                            <Panel title="Benchmarks">
+                                <div className="grid gap-4">
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {[{ id: 'all', name: 'All classes' }, ...classes].map((c) => (
+                                            <button
+                                                key={c.id}
+                                                type="button"
+                                                onClick={() => setBenchClass(String(c.id))}
+                                                className={cn('rounded-md px-2.5 py-1 text-xs font-medium', String(c.id) === benchClass ? 'bg-primary text-white' : 'bg-surface shadow-field hover:bg-muted')}
+                                            >
+                                                {c.name}
+                                                {c.id !== 'all' && (t.benchmarks ?? {})[c.id] ? ' •' : ''}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <Field label="Statements (one per line; # starts an area)">
+                                        <textarea
+                                            className={cn(fieldInput, 'h-72 py-2 font-mono text-xs')}
+                                            value={(t.benchmarks ?? {})[benchClass] ?? ''}
+                                            onChange={(e) => set('benchmarks', { ...(t.benchmarks ?? {}), [benchClass]: e.target.value })}
+                                        />
+                                    </Field>
+                                    <Field label="Remarks to pick from (one per line)">
+                                        <textarea
+                                            className={cn(fieldInput, 'h-32 py-2')}
+                                            value={(t.benchmark_options?.length ? t.benchmark_options : defaultOptions).join('\n')}
+                                            onChange={(e) => set('benchmark_options', e.target.value.split('\n'))}
+                                            onBlur={(e) => set('benchmark_options', toLines(e.target.value).slice(0, 30))}
+                                        />
+                                    </Field>
+                                </div>
+                            </Panel>
+                        )}
 
                         <Panel title="Written assessments">
                             <Field label="One per line (up to 5)" hint="e.g. Well-being assessment, Sustainability assessment">

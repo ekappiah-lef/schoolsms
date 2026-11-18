@@ -344,6 +344,41 @@ class SmokeTest extends TestCase
         return \App\Support\TeacherScope::viewSectionIds();
     }
 
+    public function testBenchmarksReportForPreschool()
+    {
+        $section = \App\Models\Section::whereHas('my_class', function ($q) { $q->whereNotNull('class_type_id'); })->with('my_class')->first();
+        $sr = $section ? \App\Models\StudentRecord::where(['section_id' => $section->id, 'grad' => 0])->first() : null;
+        $exam = \Illuminate\Support\Facades\DB::table('exams')->where('year', \App\Helpers\Qs::getCurrentSession())->first();
+        if (!$sr || !$exam) return $this->assertTrue(true);
+        $type = (int) $section->my_class->class_type_id;
+        $admin = $this->user('admin');
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $tpl = \App\Support\ReportTemplate::for($type);
+            $tpl['layout'] = 'benchmarks';
+            $tpl['benchmarks'] = ['all' => "# ACADEMICS\nMaths\nScience", (string) $section->my_class_id => \App\Support\Benchmarks::CRECHE];
+            \App\Support\ReportTemplate::save($type, $tpl);
+            $this->assertCount(5, \App\Support\Benchmarks::forClass($tpl, $section->my_class_id));
+            $this->assertCount(1, \App\Support\Benchmarks::forClass($tpl, 999999));
+
+            $this->actingAs($admin)->get(route('marks.benchmarks', ['section' => $section->id, 'exam' => $exam->id]))->assertOk();
+            $hash = \App\Helpers\Qs::hash($sr->user_id);
+            $this->actingAs($admin)->put(route('marks.benchmarks.save', [$exam->id, $hash]), [
+                'remarks' => json_encode(['Maths' => 'Super', 'Sensorial' => 'Great', 'Not a statement' => 'x']), 't_comment' => 'Lovely child',
+            ])->assertOk()->assertJson(['ok' => true]);
+            $r = \App\Models\ExamRecord::where(['exam_id' => $exam->id, 'student_id' => $sr->user_id])->first();
+            $this->assertSame(['Maths' => 'Super', 'Sensorial' => 'Great'], json_decode($r->benchmarks, true));
+
+            $resp = $this->actingAs($admin)->get(route('marks.print', [$hash, $exam->id, $r->year]));
+            $html = $resp->assertOk()->getContent();
+            $this->assertStringContainsString('BENCHMARKS', $html);
+            $this->assertStringContainsString('001 Maths', $html);
+            $this->assertStringContainsString('PERSONAL CARE SKILLS/INDEPENDENT SKILLS', $html);
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testClassTeacherWritesConductAndAssessments()
     {
         $exr = \App\Models\ExamRecord::first();

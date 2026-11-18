@@ -249,7 +249,7 @@ class MarkController extends Controller
 
         // The report-card design for this class type, and attendance for the exam's term.
         $d['tpl'] = \App\Support\ReportTemplate::for(optional($d['class_type'])->id);
-        $detailed = ($d['tpl']['layout'] ?? 'standard') === 'detailed';
+        $detailed = in_array($d['tpl']['layout'] ?? 'standard', ['detailed', 'benchmarks'], true);
         $d['extra'] = $detailed ? \App\Support\ReportCard::extras($exr, $sr, $exam, $year) : [];
         $d['attendance'] = null;
         if (($d['tpl']['attendance'] || $detailed) && $exam->term) {

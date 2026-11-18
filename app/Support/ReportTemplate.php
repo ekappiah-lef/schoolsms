@@ -52,7 +52,9 @@ class ReportTemplate
                 'next_term_begins' => true, 'next_term_fees' => true,
             ],
             'signatures' => [],
-            'assessments' => [],      // written assessments (e.g. WELL-BEING ASSESSMENT): the class teacher writes a paragraph for each
+            'assessments' => [],
+            'benchmarks' => [],       // benchmarks layout: statement lists as text ("all", or by class id); see Benchmarks
+            'benchmark_options' => [],   // remarks offered for each statement (teachers may also type their own)      // written assessments (e.g. WELL-BEING ASSESSMENT): the class teacher writes a paragraph for each
             'footer' => '',
         ];
     }

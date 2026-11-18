@@ -26,7 +26,7 @@
 <body>
 <div class="container">
     <div id="print" xmlns:margin-top="http://www.w3.org/1999/xhtml">
-        @if(($tpl['layout'] ?? 'standard') === 'detailed')
+        @if(in_array($tpl['layout'] ?? 'standard', ['detailed', 'benchmarks'], true))
             @include('pages.support_team.marks.print.detailed')
         @else
         {{--    Logo N School Details--}}

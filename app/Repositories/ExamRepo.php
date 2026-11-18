@@ -112,7 +112,9 @@ class ExamRepo
 
     public function getExamYears($student_id)
     {
-        return Mark::where('student_id', $student_id)->select('year')->distinct()->get();
+        // Years with marks, or with a results record only (e.g. a benchmarks report, which has no marks).
+        return Mark::where('student_id', $student_id)->select('year')->distinct()->get()
+            ->merge(\App\Models\ExamRecord::where('student_id', $student_id)->select('year')->distinct()->get())->unique('year')->values();
     }
 
     public function getMark($data)
