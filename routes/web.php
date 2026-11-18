@@ -263,8 +263,8 @@ Route::group(['middleware' => 'auth'], function () {
                 Route::get('history/{exam}/{class}/{section}/{subject}', 'MarkController@history')->name('marks.history');
                 Route::post('approval/{exam}/{class}/{section}/{subject}', 'MarkController@approval')->name('marks.approval');
                 Route::get('approvals', 'MarkController@approvals')->name('marks.approvals');
-                Route::get('benchmarks', 'BenchmarkController@index')->name('marks.benchmarks');
-                Route::put('benchmarks/{exam}/{student}', 'BenchmarkController@save')->name('marks.benchmarks.save');
+                Route::get('remarks', 'ReportRemarksController@index')->name('marks.remarks');
+                Route::put('remarks/{exam}/{student}', 'ReportRemarksController@save')->name('marks.remarks.save');
                 Route::put('comment_update/{exr_id}', 'MarkController@comment_update')->name('marks.comment_update');
                 Route::put('skills_update/{skill}/{exr_id}', 'MarkController@skills_update')->name('marks.skills_update');
                 Route::post('selector', 'MarkController@selector')->name('marks.selector');

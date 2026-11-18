@@ -18,7 +18,7 @@ const toLines = (s) => s.split('\n').map((x) => x.trim()).filter(Boolean);
  * columns, rating tables and their items, attendance, comments, next-term lines, signatures.
  * Live preview on the right. The academic admin and admins edit; class teachers can only view.
  */
-export default function ReportDesign({ types, type, template, standard, canEdit, urls, staff = [], classes = [], defaultOptions = [] }) {
+export default function ReportDesign({ types, type, template, standard, canEdit, urls, staff = [], classes = [], defaultOptions = [], layouts = null }) {
     const [benchClass, setBenchClass] = useState('all');
     const [t, setT] = useState(template);
     const [busy, setBusy] = useState(false);
@@ -108,13 +108,18 @@ export default function ReportDesign({ types, type, template, standard, canEdit,
                     <fieldset disabled={ro} className="flex min-w-0 flex-col gap-6">
                         <Panel title="Title and footer">
                             <div className="grid gap-4">
-                                <Field label="Layout">
-                                    <select className={fieldInput} value={t.layout ?? 'standard'} onChange={(e) => set('layout', e.target.value)}>
-                                        <option value="standard">Standard</option>
-                                        <option value="detailed">Detailed</option>
-                                        <option value="benchmarks">Benchmarks</option>
-                                    </select>
-                                </Field>
+                                {layouts && (
+                                    <Field label="Layout">
+                                        <select className={fieldInput} value={t.layout ?? 'standard'} onChange={(e) => set('layout', e.target.value)}>
+                                            {!layouts[t.layout] && <option value={t.layout ?? 'standard'}>Standard</option>}
+                                            {Object.entries(layouts).map(([v, label]) => (
+                                                <option key={v} value={v}>
+                                                    {label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </Field>
+                                )}
                                 <Field label="Report title">
                                     <input className={fieldInput} value={t.title} onChange={(e) => set('title', e.target.value)} maxLength={80} />
                                 </Field>

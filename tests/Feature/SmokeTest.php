@@ -12,6 +12,13 @@ use Tests\TestCase;
  */
 class SmokeTest extends TestCase
 {
+    /** Switches changed inside a rolled-back test must not linger in the cache (and be written back by a later test). */
+    protected function tearDown(): void
+    {
+        \App\Support\SchoolConfig::flush();
+        parent::tearDown();
+    }
+
     protected function user(string $type): User
     {
         $user = User::where('user_type', $type)->first();
@@ -68,7 +75,9 @@ class SmokeTest extends TestCase
         $this->assertStringContainsString('KEY TO THE GRADING', $html);
         $this->assertStringNotContainsString('RATING</strong>', $html);
 
-        // The detailed layout.
+        // The detailed layout (schools with the detailed_reports switch).
+        $saved = \Illuminate\Support\Facades\DB::table('school_config')->where('key', 'features')->first();
+        \App\Support\SchoolConfig::set('features', array_values(array_unique(array_merge(\App\Support\School::features(), ['detailed_reports']))));
         $tpl['layout'] = 'detailed';
         $tpl['head_id'] = $admin->id;
         $tpl['comments']['conduct'] = true;
@@ -77,6 +86,10 @@ class SmokeTest extends TestCase
         foreach (['END OF FIRST TERM', 'Number On Roll', 'General remarks', 'CONDUCT: <strong>Satisfactory', 'WELL-BEING ASSESSMENT:<br><strong>Shows good understanding', 'HEADTEACHER&#039;S NAME: <strong>'.strtoupper($admin->name), 'Summative (Scoring) assessment explanation'] as $text) {
             $this->assertStringContainsString($text, $html);
         }
+        // Put the switches back exactly as they were.
+        if ($saved) \Illuminate\Support\Facades\DB::table('school_config')->where('key', 'features')->update(['value' => $saved->value]);
+        else \Illuminate\Support\Facades\DB::table('school_config')->where('key', 'features')->delete();
+        \App\Support\SchoolConfig::flush();
     }
 
     public function testAnalyticsAndDashboardOpenForAdmins()
@@ -354,6 +367,7 @@ class SmokeTest extends TestCase
         $admin = $this->user('admin');
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
+            \App\Support\SchoolConfig::set('features', array_values(array_unique(array_merge(\App\Support\School::features(), ['detailed_reports']))));
             $tpl = \App\Support\ReportTemplate::for($type);
             $tpl['layout'] = 'benchmarks';
             $tpl['benchmarks'] = ['all' => "# ACADEMICS\nMaths\nScience", (string) $section->my_class_id => \App\Support\Benchmarks::CRECHE];
@@ -361,9 +375,9 @@ class SmokeTest extends TestCase
             $this->assertCount(5, \App\Support\Benchmarks::forClass($tpl, $section->my_class_id));
             $this->assertCount(1, \App\Support\Benchmarks::forClass($tpl, 999999));
 
-            $this->actingAs($admin)->get(route('marks.benchmarks', ['section' => $section->id, 'exam' => $exam->id]))->assertOk();
+            $this->actingAs($admin)->get(route('marks.remarks', ['section' => $section->id, 'exam' => $exam->id]))->assertOk();
             $hash = \App\Helpers\Qs::hash($sr->user_id);
-            $this->actingAs($admin)->put(route('marks.benchmarks.save', [$exam->id, $hash]), [
+            $this->actingAs($admin)->put(route('marks.remarks.save', [$exam->id, $hash]), [
                 'remarks' => json_encode(['Maths' => 'Super', 'Sensorial' => 'Great', 'Not a statement' => 'x']), 't_comment' => 'Lovely child',
             ])->assertOk()->assertJson(['ok' => true]);
             $r = \App\Models\ExamRecord::where(['exam_id' => $exam->id, 'student_id' => $sr->user_id])->first();

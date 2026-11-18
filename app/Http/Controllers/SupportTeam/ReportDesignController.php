@@ -46,6 +46,7 @@ class ReportDesignController extends Controller
             'columns' => ReportTemplate::COLUMNS,
             'classes' => $type ? DB::table('my_classes')->where('class_type_id', $type->id)->orderBy('name')->get(['id', 'name'])->map(function ($c) { return ['id' => $c->id, 'name' => $c->name]; })->values() : [],
             'defaultOptions' => \App\Support\Benchmarks::OPTIONS,
+            'layouts' => ReportTemplate::detailedOn() ? ['detailed' => 'Detailed', 'benchmarks' => 'Benchmarks'] : null,
             'staff' => DB::table('users')->whereIn('user_type', ReportTemplate::HEAD_TYPES)->orderBy('name')->get(['id', 'name'])->map(function ($u) { return ['id' => $u->id, 'name' => $u->name]; })->values(),
             'canEdit' => (bool) $type,   // only the class types this user may design are listed
             'urls' => $type ? ['save' => route('reports.design.save', $type->id), 'preview' => route('reports.design.preview', $type->id)] : null,
@@ -70,7 +71,7 @@ class ReportDesignController extends Controller
         $tpl = $req->filled('template') ? $this->clean($req) : ReportTemplate::for((int) $type);
         $ct = DB::table('class_types')->where('id', $type)->first();
         $class = DB::table('my_classes')->where('class_type_id', $type)->orderBy('name')->first();
-        $subjects = $class ? DB::table('subjects')->where('my_class_id', $class->id)->orderBy('name')->get(['id', 'name']) : collect();
+        $subjects = $class ? DB::table('subjects')->where('my_class_id', $class->id)->orderBy('name')->get(['id', 'name', 'slug', 'category']) : collect();
         if ($subjects->isEmpty()) {
             $subjects = collect(['English Language', 'Mathematics', 'Integrated Science'])->map(function ($n, $i) { return (object) ['id' => $i + 1, 'name' => $n]; });
         }
@@ -121,7 +122,7 @@ class ReportDesignController extends Controller
 
         return [
             'title' => $text($t['title'] ?? $base['title']) ?: 'REPORT SHEET',
-            'layout' => in_array($t['layout'] ?? '', ['standard', 'detailed', 'benchmarks'], true) ? $t['layout'] : 'standard',
+            'layout' => ReportTemplate::detailedOn() && in_array($t['layout'] ?? '', ['detailed', 'benchmarks'], true) ? $t['layout'] : 'standard',
             'benchmarks' => collect((array) ($t['benchmarks'] ?? []))->filter(function ($v, $k) { return ($k === 'all' || ctype_digit((string) $k)) && trim((string) $v) !== ''; })
                 ->map(function ($v) { return mb_substr((string) $v, 0, 8000); })->all(),
             'benchmark_options' => $lines($t['benchmark_options'] ?? [], 30),

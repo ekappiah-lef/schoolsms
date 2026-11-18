@@ -67,6 +67,12 @@ class ReportTemplate
         return !empty($t['head_id']) ? (string) DB::table('users')->where('id', (int) $t['head_id'])->whereIn('user_type', self::HEAD_TYPES)->value('name') : '';
     }
 
+    /** Schools with the detailed_reports switch: detailed and benchmarks layouts, and the Report remarks page. */
+    public static function detailedOn(): bool
+    {
+        return School::has('detailed_reports');
+    }
+
     /** The design for a class type: what was saved, with anything missing filled from the defaults. */
     public static function for(?int $classTypeId): array
     {
@@ -82,6 +88,7 @@ class ReportTemplate
             })->values()->all();
         $t['comments'] = array_replace(self::defaults()['comments'], (array) ($t['comments'] ?? []));
         $t['key'] = array_replace(self::defaults()['key'], (array) ($t['key'] ?? []));
+        if (!self::detailedOn()) $t['layout'] = 'standard';
 
         return $t;
     }

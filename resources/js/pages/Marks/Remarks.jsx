@@ -11,10 +11,13 @@ import { Select } from '@/components/ui/select';
 import { submitForm } from '@/lib/http';
 import { cn } from '@/lib/utils';
 
-/** Benchmarks report (creche, nursery): a remark for each statement, per pupil (BenchmarkController). */
-export default function Benchmarks({ sections, exams, sectionId, examId, pupils, pupil, options, fields, canHead, urls }) {
+const sentence = (s) => s.charAt(0) + s.slice(1).toLowerCase();
+
+/** Report remarks for a class, one pupil at a time: whatever the report design asks for (ReportRemarksController). */
+export default function Remarks({ sections, exams, sectionId, examId, pupils, pupil, options, fields, assessmentNames, canHead, urls }) {
     const blank = (p) => ({
         remarks: { ...(p?.remarks ?? {}) },
+        assessments: { ...(p?.assessments ?? {}) },
         conduct: p?.conduct ?? '',
         interests: p?.interests ?? '',
         t_comment: p?.t_comment ?? '',
@@ -25,12 +28,11 @@ export default function Benchmarks({ sections, exams, sectionId, examId, pupils,
     useEffect(() => setD(blank(pupil)), [pupil?.id, examId]);
 
     const go = (params) => router.get(urls.self, { section: sectionId, exam: examId, pupil: pupil?.id, ...params }, { preserveScroll: true });
-    const setRemark = (text, v) => setD((x) => ({ ...x, remarks: { ...x.remarks, [text]: v } }));
     const idx = pupils.findIndex((p) => p.id === pupil?.id);
 
     const save = async (next) => {
         setBusy(true);
-        const body = { remarks: JSON.stringify(d.remarks), t_comment: d.t_comment };
+        const body = { remarks: JSON.stringify(d.remarks), assessments: JSON.stringify(d.assessments), t_comment: d.t_comment };
         Object.keys(fields).forEach((k) => (body[k] = d[k]));
         if (canHead) body.p_comment = d.p_comment;
         const r = await submitForm(urls.save, body, { method: 'put' });
@@ -42,12 +44,12 @@ export default function Benchmarks({ sections, exams, sectionId, examId, pupils,
 
     return (
         <>
-            <Head title="Benchmarks" />
+            <Head title="Report remarks" />
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-                <ModuleHeader crumbs={['Academics', 'Examinations', 'Benchmarks']} title="Benchmarks" />
+                <ModuleHeader crumbs={['Academics', 'Examinations', 'Report remarks']} title="Report remarks" />
 
                 {!sections.length ? (
-                    <EmptyState title="No classes use the benchmarks report" />
+                    <EmptyState title="You are not a class teacher" />
                 ) : (
                     <>
                         <div className="flex flex-wrap items-end gap-3">
@@ -109,16 +111,32 @@ export default function Benchmarks({ sections, exams, sectionId, examId, pupils,
                                                                 <span className="tabular mr-2 text-fg-subtle">{it.no}</span>
                                                                 {it.text}
                                                             </span>
-                                                            <input list="benchmark-options" className={cn(fieldInput, 'h-9')} value={d.remarks[it.text] ?? ''} maxLength={60} onChange={(e) => setRemark(it.text, e.target.value)} />
+                                                            <input
+                                                                list="benchmark-options"
+                                                                className={cn(fieldInput, 'h-9')}
+                                                                value={d.remarks[it.text] ?? ''}
+                                                                maxLength={60}
+                                                                onChange={(e) => setD((x) => ({ ...x, remarks: { ...x.remarks, [it.text]: e.target.value } }))}
+                                                            />
                                                         </div>
                                                     ))}
                                                 </div>
                                             </div>
                                         ))}
 
-                                        <div className="grid gap-3 border-t border-border pt-4">
+                                        <div className={cn('grid gap-3', pupil.areas.length > 0 && 'border-t border-border pt-4')}>
+                                            {assessmentNames.map((n) => (
+                                                <Field key={n} label={sentence(n)}>
+                                                    <textarea
+                                                        className={cn(fieldInput, 'h-20 py-2')}
+                                                        value={d.assessments[n] ?? ''}
+                                                        maxLength={1000}
+                                                        onChange={(e) => setD((x) => ({ ...x, assessments: { ...x.assessments, [n]: e.target.value } }))}
+                                                    />
+                                                </Field>
+                                            ))}
                                             {Object.entries(fields).map(([k, label]) => (
-                                                <Field key={k} label={label.charAt(0) + label.slice(1).toLowerCase()}>
+                                                <Field key={k} label={sentence(label)}>
                                                     <input className={fieldInput} value={d[k]} maxLength={120} onChange={(e) => setD({ ...d, [k]: e.target.value })} />
                                                 </Field>
                                             ))}
@@ -156,4 +174,4 @@ export default function Benchmarks({ sections, exams, sectionId, examId, pupils,
     );
 }
 
-Benchmarks.layout = withAppLayout;
+Remarks.layout = withAppLayout;
