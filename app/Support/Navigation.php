@@ -57,6 +57,9 @@ class Navigation
                 $exams[] = self::item('Exam list', null, 'exams.index', ['exams.index', 'exams.edit']);
                 $exams[] = self::item('Grades', null, 'grades.index', ['grades.index', 'grades.edit']);
                 $exams[] = self::item('Tabulation sheet', null, 'marks.tabulation');
+            } elseif (\App\Support\ReportTemplate::detailedOn() && \App\Support\TeacherScope::viewSectionIds()) {
+                // Class teachers write report remarks from here (HODs read their department's).
+                $exams[] = self::item('Tabulation sheet', null, 'marks.tabulation');
             }
             $exams[] = self::item('Marks entry', null, 'marks.index', ['marks.index', 'marks.manage']);
             // Heads of department (and the academic admin / admins) check and approve submitted marks.
@@ -69,9 +72,6 @@ class Navigation
             // class teacher, the head teacher's by the academic admin or an admin.
             if (Qs::userIsAcademicLead() || \App\Support\TeacherScope::ownSectionIds()) {
                 $exams[] = self::item('Report cards', null, 'reports.design');
-            }
-            if (\App\Support\ReportTemplate::detailedOn() && (Qs::userIsAcademicLead() || \App\Support\TeacherScope::ownSectionIds())) {
-                $exams[] = self::item('Report remarks', null, 'marks.remarks');
             }
             $academics[] = self::group('Examinations', 'notebook-pen', $exams);
         }

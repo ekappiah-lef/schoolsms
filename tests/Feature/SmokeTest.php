@@ -375,8 +375,9 @@ class SmokeTest extends TestCase
             $this->assertCount(5, \App\Support\Benchmarks::forClass($tpl, $section->my_class_id));
             $this->assertCount(1, \App\Support\Benchmarks::forClass($tpl, 999999));
 
-            $this->actingAs($admin)->get(route('marks.remarks', ['section' => $section->id, 'exam' => $exam->id]))->assertOk();
             $hash = \App\Helpers\Qs::hash($sr->user_id);
+            $this->actingAs($admin)->getJson(route('marks.remarks.form', [$exam->id, $hash]))->assertOk()->assertJson(['canWrite' => true]);
+            $this->actingAs($admin)->get(route('marks.tabulation', [$exam->id, $section->my_class_id, $section->id]))->assertOk()->assertSee('marks\/remarks\/', false);
             $this->actingAs($admin)->put(route('marks.remarks.save', [$exam->id, $hash]), [
                 'remarks' => json_encode(['Maths' => 'Super', 'Sensorial' => 'Great', 'Not a statement' => 'x']), 't_comment' => 'Lovely child',
             ])->assertOk()->assertJson(['ok' => true]);

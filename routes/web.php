@@ -249,9 +249,12 @@ Route::group(['middleware' => 'auth'], function () {
 
            // FOR teamSA
             Route::group(['middleware' => 'academicLead'], function(){
+                Route::get('tabulation/print/{exam}/{class}/{sec_id}', 'MarkController@print_tabulation')->name('marks.print_tabulation');
+            });
+            // The academic leads; class teachers and HODs too where the school writes report remarks here (detailed_reports).
+            Route::group(['middleware' => 'teamSAT'], function(){
                 Route::get('tabulation/{exam?}/{class?}/{sec_id?}', 'MarkController@tabulation')->name('marks.tabulation');
                 Route::post('tabulation', 'MarkController@tabulation_select')->name('marks.tabulation_select');
-                Route::get('tabulation/print/{exam}/{class}/{sec_id}', 'MarkController@print_tabulation')->name('marks.print_tabulation');
             });
 
             // FOR teamSAT
@@ -263,7 +266,7 @@ Route::group(['middleware' => 'auth'], function () {
                 Route::get('history/{exam}/{class}/{section}/{subject}', 'MarkController@history')->name('marks.history');
                 Route::post('approval/{exam}/{class}/{section}/{subject}', 'MarkController@approval')->name('marks.approval');
                 Route::get('approvals', 'MarkController@approvals')->name('marks.approvals');
-                Route::get('remarks', 'ReportRemarksController@index')->name('marks.remarks');
+                Route::get('remarks/{exam}/{student}', 'ReportRemarksController@form')->name('marks.remarks.form');
                 Route::put('remarks/{exam}/{student}', 'ReportRemarksController@save')->name('marks.remarks.save');
                 Route::put('comment_update/{exr_id}', 'MarkController@comment_update')->name('marks.comment_update');
                 Route::put('skills_update/{skill}/{exr_id}', 'MarkController@skills_update')->name('marks.skills_update');

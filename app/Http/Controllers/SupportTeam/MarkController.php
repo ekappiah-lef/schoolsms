@@ -756,6 +756,11 @@ class MarkController extends Controller
 
     public function tabulation($exam_id = NULL, $class_id = NULL, $section_id = NULL)
     {
+        // Class teachers (their class) and HODs (their department) open it where report remarks are written here.
+        if (!Qs::userIsAcademicLead()) {
+            if (!\App\Support\ReportTemplate::detailedOn() || !TeacherScope::viewSectionIds()) return redirect()->route('dashboard');
+            if ($section_id && !in_array((int) $section_id, TeacherScope::viewSectionIds(), true)) return redirect()->route('marks.tabulation');
+        }
         $d['my_classes'] = $this->my_class->all();
         $d['exams'] = $this->exam->getExam(['year' => $this->year]);
         $d['selected'] = FALSE;
@@ -766,12 +771,16 @@ class MarkController extends Controller
 
             $sub_ids = $this->mark->getSubjectIDs($wh);
             $st_ids = $this->mark->getStudentIDs($wh);
+            // No marks (e.g. a benchmarks class): the pupils of the section, for their report remarks.
+            if (count($st_ids) < 1 && \App\Support\ReportTemplate::detailedOn()) {
+                $st_ids = \App\Models\StudentRecord::where(['section_id' => $section_id, 'grad' => 0])->pluck('user_id');
+            }
 
-            if(count($sub_ids) < 1 OR count($st_ids) < 1) {
+            if(count($st_ids) < 1 || (count($sub_ids) < 1 && !\App\Support\ReportTemplate::detailedOn())) {
                 return Qs::goWithDanger('marks.tabulation', __('msg.srnf'));
             }
 
-            $d['subjects'] = $this->my_class->getSubjectsByIDs($sub_ids);
+            $d['subjects'] = \App\Support\ReportSubjects::filter($this->my_class->getSubjectsByIDs($sub_ids));
             $d['students'] = $this->student->getRecordByUserIDs($st_ids)->get()->sortBy('user.name');
             $d['sections'] = $this->my_class->getAllSections();
 
@@ -807,10 +816,11 @@ class MarkController extends Controller
                             'scores' => $d['subjects']->map(function ($sub) use ($d, $s, $tex) { return optional($d['marks']->where('student_id', $s->user_id)->where('subject_id', $sub->id)->first())->$tex; })->values(),
                             'total' => optional($r)->total, 'ave' => optional($r)->ave, 'pos' => optional($r)->pos,
                             'url' => route('marks.year_selector', Qs::hash($s->user_id)),
+                            'remarks' => \App\Support\ReportTemplate::detailedOn() ? route('marks.remarks.form', [(int) $d['exam_id'], Qs::hash($s->user_id)]) : null,
                         ];
                     }),
-                    'print' => route('marks.print_tabulation', [$d['exam_id'], $d['my_class_id'], $d['section_id']]),
-                    'email' => route('marks.email_class_reports', [$d['exam_id'], $d['my_class_id'], $d['section_id']]),
+                    'print' => Qs::userIsAcademicLead() ? route('marks.print_tabulation', [$d['exam_id'], $d['my_class_id'], $d['section_id']]) : null,
+                    'email' => Qs::userIsAcademicLead() || in_array((int) $d['section_id'], TeacherScope::ownSectionIds(), true) ? route('marks.email_class_reports', [$d['exam_id'], $d['my_class_id'], $d['section_id']]) : null,
                     'showPosition' => !\App\Support\School::has('subject_positions_only'),
                 ] + $this->classResults($d['ex'], (int) $d['my_class_id'], (int) $d['section_id']),
             ]);

@@ -7,17 +7,15 @@ use App\Http\Controllers\Controller;
 use App\Models\ExamRecord;
 use App\Models\StudentRecord;
 use App\Support\Benchmarks;
-use App\Support\ClassOrder;
 use App\Support\ReportTemplate;
 use App\Support\TeacherScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Inertia\Inertia;
 
 /**
- * Report remarks, one pupil at a time for a whole class: whatever the class type's report design asks for —
- * benchmark remarks (creche, nursery), written assessments, conduct, interests, the teacher's remarks, and
- * (academic leads) the headteacher's remarks.
+ * A pupil's report remarks, opened from the Tabulation sheet: whatever the class type's report design asks
+ * for — benchmark remarks (creche, nursery), written assessments, conduct, interests, the teacher's remarks,
+ * and (academic leads) the headteacher's remarks. The class teacher writes them; an HOD may only read them.
  */
 class ReportRemarksController extends Controller
 {
@@ -30,18 +28,10 @@ class ReportRemarksController extends Controller
         });
     }
 
-    /** Sections the user writes remarks for: a teacher their own; the academic leads every section. */
-    public static function sections()
+    /** May the signed-in user write remarks for this section? The class teacher, or the academic leads. */
+    public static function canWrite(int $sectionId): bool
     {
-        $own = TeacherScope::applies() ? TeacherScope::ownSectionIds() : null;
-        if ($own === [] ) return collect();
-        $classes = ClassOrder::sort(DB::table('my_classes')->get(), 'class_type_id', 'name');
-
-        return $classes->flatMap(function ($c) use ($own) {
-            return DB::table('sections')->where('my_class_id', $c->id)->orderBy('name')->get()
-                ->filter(function ($s) use ($own) { return $own === null || in_array((int) $s->id, $own, true); })
-                ->map(function ($s) use ($c) { return ['id' => (int) $s->id, 'name' => $c->name.' '.$s->name, 'class_id' => (int) $c->id, 'class_type_id' => (int) $c->class_type_id]; });
-        })->values();
+        return Qs::userIsAcademicLead() || in_array($sectionId, TeacherScope::ownSectionIds(), true);
     }
 
     /** What the design asks for: [statements, assessment names, conduct/interests fields]. */
@@ -54,72 +44,51 @@ class ReportRemarksController extends Controller
         return [$statements, array_values($tpl['assessments'] ?? []), $fields];
     }
 
-    public function index(Request $req)
+    /** The pupil's student record and class type, if the user may see them. */
+    protected function pupil($student): array
+    {
+        $sr = StudentRecord::where(['user_id' => (int) Qs::decodeHash($student), 'grad' => 0])->with(['user', 'my_class'])->first();
+        abort_unless($sr && TeacherScope::canSeeStudent($sr), 404);
+
+        return [$sr, (int) optional($sr->my_class)->class_type_id];
+    }
+
+    public function form($exam, $student)
     {
         $year = Qs::getCurrentSession();
-        $sections = self::sections();
-        $exams = DB::table('exams')->where('year', $year)->orderBy('term')->get(['id', 'name', 'term']);
-        $section = $sections->firstWhere('id', (int) $req->query('section')) ?? $sections->first();
-        $exam = $exams->firstWhere('id', (int) $req->query('exam')) ?? $exams->last();
+        abort_unless(DB::table('exams')->where(['id' => (int) $exam, 'year' => $year])->exists(), 404);
+        [$sr, $type] = $this->pupil($student);
+        $tpl = ReportTemplate::for($type);
+        [$statements, $assess, $fields] = self::parts($tpl, (int) $sr->my_class_id);
+        $r = ExamRecord::where(['exam_id' => (int) $exam, 'student_id' => $sr->user_id, 'year' => $year])->first();
+        $canWrite = self::canWrite((int) $sr->section_id);
 
-        $pupils = collect();
-        $pupil = null;
-        $tpl = null;
-        $fields = [];
-        if ($section && $exam) {
-            $tpl = ReportTemplate::for($section['class_type_id']);
-            [$statements, $assess, $fields] = self::parts($tpl, $section['class_id']);
-            $records = ExamRecord::where(['exam_id' => $exam->id, 'year' => $year])->get()->keyBy('student_id');
-            $of = count($statements) + count($assess) + count($fields) + 1;
-            $pupils = StudentRecord::where(['section_id' => $section['id'], 'grad' => 0])->with('user')->get()->sortBy('user.name')->values()
-                ->map(function ($sr) use ($records, $of) {
-                    $r = $records[$sr->user_id] ?? null;
-                    $done = $r ? count(array_filter((array) json_decode((string) $r->benchmarks, true), 'strlen'))
-                        + count(array_filter((array) json_decode((string) $r->assessments, true), 'strlen'))
-                        + (int) filled($r->conduct) + (int) filled($r->interests) + (int) filled($r->t_comment) : 0;
-                    return ['id' => Qs::hash($sr->user_id), 'uid' => (int) $sr->user_id, 'name' => optional($sr->user)->name, 'done' => min($done, $of), 'of' => $of];
-                });
-            $chosen = $pupils->firstWhere('id', (string) $req->query('pupil')) ?? $pupils->first();
-            if ($chosen) {
-                $r = $records[$chosen['uid']] ?? null;
-                $pupil = [
-                    'id' => $chosen['id'], 'name' => $chosen['name'],
-                    'areas' => $statements ? Benchmarks::forClass($tpl, $section['class_id']) : [],
-                    'remarks' => (object) json_decode((string) optional($r)->benchmarks, true),
-                    'assessments' => (object) json_decode((string) optional($r)->assessments, true),
-                    'conduct' => optional($r)->conduct, 'interests' => optional($r)->interests,
-                    't_comment' => optional($r)->t_comment, 'p_comment' => optional($r)->p_comment,
-                    'print' => $r ? route('marks.print', [$chosen['id'], $exam->id, $year]) : null,
-                ];
-            }
-            $assessNames = $assess;
-        }
-
-        return Inertia::render('Marks/Remarks', [
-            'sections' => $sections->map(function ($s) { return ['id' => $s['id'], 'name' => $s['name']]; })->values(),
-            'exams' => $exams->map(function ($e) { return ['id' => $e->id, 'name' => $e->name]; })->values(),
-            'sectionId' => $section['id'] ?? null,
-            'examId' => optional($exam)->id,
-            'pupils' => $pupils->map(function ($p) { unset($p['uid']); return $p; })->values(),
-            'pupil' => $pupil,
-            'options' => $tpl ? Benchmarks::options($tpl) : [],
+        return response()->json([
+            'name' => optional($sr->user)->name,
+            'areas' => $statements ? Benchmarks::forClass($tpl, (int) $sr->my_class_id) : [],
+            'remarks' => (object) json_decode((string) optional($r)->benchmarks, true),
+            'assessments' => (object) json_decode((string) optional($r)->assessments, true),
+            'assessmentNames' => $assess,
             'fields' => (object) $fields,
-            'assessmentNames' => $assessNames ?? [],
+            'conduct' => optional($r)->conduct, 'interests' => optional($r)->interests,
+            't_comment' => optional($r)->t_comment, 'p_comment' => optional($r)->p_comment,
+            'options' => Benchmarks::options($tpl),
+            'canWrite' => $canWrite,
             'canHead' => Qs::userIsAcademicLead(),
-            'urls' => ['self' => route('marks.remarks'), 'save' => $pupil && $exam ? route('marks.remarks.save', [$exam->id, $pupil['id']]) : null],
+            'print' => $r ? route('marks.print', [Qs::hash($sr->user_id), (int) $exam, $year]) : null,
+            'save' => $canWrite ? route('marks.remarks.save', [(int) $exam, Qs::hash($sr->user_id)]) : null,
         ]);
     }
 
     public function save(Request $req, $exam, $student)
     {
         $year = Qs::getCurrentSession();
-        $sr = StudentRecord::where(['user_id' => (int) Qs::decodeHash($student), 'grad' => 0])->first();
-        $section = $sr ? self::sections()->firstWhere('id', (int) $sr->section_id) : null;
-        if (!$section || !DB::table('exams')->where(['id' => (int) $exam, 'year' => $year])->exists()) {
-            return Qs::json('You can only write remarks for pupils in your own class.', false);
+        [$sr, $type] = $this->pupil($student);
+        if (!self::canWrite((int) $sr->section_id) || !DB::table('exams')->where(['id' => (int) $exam, 'year' => $year])->exists()) {
+            return Qs::json('Only the class teacher can write remarks for this pupil.', false);
         }
-        $tpl = ReportTemplate::for($section['class_type_id']);
-        [$statements, $assess, $fields] = self::parts($tpl, $section['class_id']);
+        $tpl = ReportTemplate::for($type);
+        [$statements, $assess, $fields] = self::parts($tpl, (int) $sr->my_class_id);
         $keep = function ($names, $in, $max) {
             $out = [];
             foreach ($names as $n) {

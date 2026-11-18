@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { toast } from 'sonner';
 import { Mail, Printer, Search } from 'lucide-react';
-import { ConfirmDialog } from '@/components/ui/dialog';
+import { ConfirmDialog, Sheet } from '@/components/ui/dialog';
+import { ReportRemarks } from '@/components/app/report-remarks';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { Field, ModuleHeader, NativeSelect } from '@/components/app/module';
 import { EmptyState, Panel } from '@/components/app/page';
@@ -122,19 +123,23 @@ MarkTools.layout = withAppLayout;
 
 function Tabulation({ sheet }) {
     const { shown, pager, offset } = usePaged(sheet.rows, 10, 'students');
+    const [open, setOpen] = useState(null);
+    const at = open === null ? -1 : sheet.rows.findIndex((r) => r.remarks === open);
     return (
         <Panel
             title={sheet.title}
             flush
             actions={
                 <div className="flex gap-2">
-                    <EmailClass url={sheet.email} count={sheet.rows.length} />
-                    <Button size="sm" asChild>
-                        <a href={sheet.print} target="_blank" rel="noreferrer">
-                            <Printer />
-                            Print
-                        </a>
-                    </Button>
+                    {sheet.email && <EmailClass url={sheet.email} count={sheet.rows.length} />}
+                    {sheet.print && (
+                        <Button size="sm" asChild>
+                            <a href={sheet.print} target="_blank" rel="noreferrer">
+                                <Printer />
+                                Print
+                            </a>
+                        </Button>
+                    )}
                 </div>
             }
         >
@@ -159,9 +164,15 @@ function Tabulation({ sheet }) {
                             <tr key={r.url} className="border-b border-border last:border-0 hover:bg-muted/50">
                                 <td className="px-4 py-2.5 text-fg-subtle">{offset + i + 1}</td>
                                 <td className="whitespace-nowrap px-3 py-2.5">
-                                    <a href={r.url} className="font-medium hover:text-primary">
-                                        {r.name}
-                                    </a>
+                                    {r.remarks ? (
+                                        <button type="button" onClick={() => setOpen(r.remarks)} className="font-medium hover:text-primary hover:underline">
+                                            {r.name}
+                                        </button>
+                                    ) : (
+                                        <a href={r.url} className="font-medium hover:text-primary">
+                                            {r.name}
+                                        </a>
+                                    )}
                                 </td>
                                 {r.scores.map((v, j) => (
                                     <td key={j} className="px-2 py-2.5 text-right">
@@ -177,6 +188,9 @@ function Tabulation({ sheet }) {
                 </table>
             </div>
             {pager}
+            <Sheet open={open !== null} onOpenChange={(o) => !o && setOpen(null)} title={at >= 0 ? sheet.rows[at].name : ''} className="max-w-2xl">
+                {open && <ReportRemarks url={open} next={at >= 0 && at < sheet.rows.length - 1 ? () => setOpen(sheet.rows[at + 1].remarks) : null} />}
+            </Sheet>
         </Panel>
     );
 }
