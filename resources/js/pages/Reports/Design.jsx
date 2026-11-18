@@ -177,6 +177,10 @@ export default function ReportDesign({ types, type, template, standard, canEdit,
                         <Panel title="Other sections">
                             <div className="grid gap-3 text-sm">
                                 <label className="flex items-center gap-3">
+                                    <Checkbox checked={!!t.grading} onCheckedChange={(v) => set('grading', v === true)} />
+                                    Key to the grading (range, grade, remark)
+                                </label>
+                                <label className="flex items-center gap-3">
                                     <Checkbox checked={t.attendance} onCheckedChange={(v) => set('attendance', v === true)} />
                                     Attendance for the term (from the register)
                                 </label>

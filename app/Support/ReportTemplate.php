@@ -40,6 +40,7 @@ class ReportTemplate
                 ['key' => 'ps', 'title' => 'PSYCHOMOTOR', 'show' => true, 'items' => $skills('PS')],
             ],
             'key' => ['show' => true, 'scale' => ['5 - Excellent', '4 - Very Good', '3 - Good', '2 - Fair', '1 - Poor']],
+            'grading' => false,   // key to the grading: each grade band's range and remark
             'attendance' => false,
             'comments' => [
                 'teacher' => true, 'teacher_label' => "CLASS TEACHER'S COMMENT",

@@ -56,7 +56,9 @@
 @include('pages.support_team.marks.print.sheet')
 
         {{--Key to Grading--}}
-        {{--@include('pages.support_team.marks.print.grading')--}}
+        @if($tpl['grading'] ?? false)
+            @include('pages.support_team.marks.print.grade_key')
+        @endif
 
         {{-- TRAITS - PSCHOMOTOR & AFFECTIVE --}}
         @include('pages.support_team.marks.print.skills')

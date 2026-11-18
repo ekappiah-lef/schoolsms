@@ -53,6 +53,22 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testReportCardCanShowTheKeyToTheGrading()
+    {
+        $admin = $this->user('admin');
+        $type = \Illuminate\Support\Facades\DB::table('class_types')->value('id');
+        $tpl = \App\Support\ReportTemplate::for((int) $type);
+        $url = route('reports.design.preview', $type);
+        $this->actingAs($admin)->post($url, ['template' => json_encode(array_merge($tpl, ['grading' => false]))])->assertOk()->assertDontSee('KEY TO THE GRADING');
+        $tpl['grading'] = true;
+        $tpl['columns'] = collect($tpl['columns'])->map(function ($c) { return $c['key'] === 'remark' ? array_merge($c, ['show' => false]) : $c; })->all();
+        $tpl['groups'] = collect($tpl['groups'])->map(function ($g) { return array_merge($g, ['show' => false]); })->all();
+        $tpl['key']['show'] = false;
+        $html = $this->actingAs($admin)->post($url, ['template' => json_encode($tpl)])->assertOk()->getContent();
+        $this->assertStringContainsString('KEY TO THE GRADING', $html);
+        $this->assertStringNotContainsString('RATING</strong>', $html);
+    }
+
     public function testAnalyticsAndDashboardOpenForAdmins()
     {
         foreach (['/analytics', '/dashboard', '/students/create', '/finance/config'] as $url) {

@@ -119,6 +119,7 @@ class ReportDesignController extends Controller
                 return ['key' => $k, 'title' => $text($g['title'] ?? '', 40) ?: strtoupper($k), 'show' => !empty($g['show']), 'items' => $lines($g['items'] ?? [])];
             })->all(),
             'key' => ['show' => !empty($t['key']['show']), 'scale' => $lines($t['key']['scale'] ?? [], 10)],
+            'grading' => !empty($t['grading']),
             'attendance' => !empty($t['attendance']),
             'comments' => [
                 'teacher' => !empty($t['comments']['teacher']), 'teacher_label' => $text($t['comments']['teacher_label'] ?? '', 60) ?: $base['comments']['teacher_label'],
