@@ -30,7 +30,7 @@ class ReportTemplate
         return [
             'title' => 'REPORT SHEET',
             'layout' => 'standard',   // standard, or detailed (school header, student details in columns, general remarks, grading explanation)
-            'head_name' => '',        // detailed layout: the headteacher's name
+            'head_id' => null,        // detailed layout: the headteacher (a staff user), whose name is printed
             // The assessment scheme may rename or hide score columns (e.g. CLASS SCORE (50%) instead of CA1 / CA2).
             'columns' => collect(self::COLUMNS)->map(function ($label, $key) {
                 $r = Assessment::scheme()['report'][$key] ?? null;
@@ -52,6 +52,14 @@ class ReportTemplate
             'signatures' => [],
             'footer' => '',
         ];
+    }
+
+    /** Staff who can be chosen as headteacher on the detailed report card. */
+    const HEAD_TYPES = ['super_admin', 'admin', 'academic_admin', 'academic_head', 'teacher'];
+
+    public static function headName(array $t): string
+    {
+        return !empty($t['head_id']) ? (string) DB::table('users')->where('id', (int) $t['head_id'])->whereIn('user_type', self::HEAD_TYPES)->value('name') : '';
     }
 
     /** The design for a class type: what was saved, with anything missing filled from the defaults. */

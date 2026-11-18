@@ -23,7 +23,7 @@
     $sectionName = $extra['section'] ?? null;
     $att = $attendance ?? null;
     $dark = 'background:#2f2f2f; color:#fff;';
-    $cell = 'border:1px solid #9a9a9a; padding:3px 6px;';
+    $cell = 'border:1px solid #9a9a9a; padding:4px 6px !important;';
 @endphp
 <div style="font-family: Calibri, 'Segoe UI', Arial, sans-serif; font-size: 12px; color: #111;">
     <table width="100%" style="border-collapse:collapse;">
@@ -41,9 +41,9 @@
 
     <div style="text-align: center; font-weight: bold; font-size: 16px; margin: 10px 0 12px;">END OF {{ $termWord }} TERM {{ strtoupper($title) }}</div>
 
-    <table width="100%" style="border-collapse:collapse; line-height: 1.9;">
+    <table width="100%" class="td-left" style="border-collapse:collapse; line-height: 1.5;">
         <tr>
-            <td style="width: 36%; vertical-align: top;">Student: <strong>{{ strtoupper($sr->user->name) }}</strong></td>
+            <td style="width: 36%; vertical-align: top; text-align:left;">Student: <strong>{{ strtoupper($sr->user->name) }}</strong></td>
             <td style="width: 34%; vertical-align: top;">Class: <strong>{{ strtoupper($my_class->name) }}{{ $sectionName ? ' - '.strtoupper($sectionName) : '' }}</strong></td>
             <td style="vertical-align: top;">@if($att)Attendance: <strong>{{ $att['present'] }} out of {{ $att['days'] }}</strong>@endif</td>
         </tr>
@@ -87,11 +87,11 @@
                 $group = \App\Support\School::subjectGroup($sub);
             @endphp
             @if($group && $group !== $lastGroup)
-                <tr><td colspan="{{ $cols->count() + 2 }}" style="{{ $cell }} font-weight:bold; background:#e6e6e6;">{{ strtoupper($group) }}</td></tr>
+                <tr><td colspan="{{ $cols->count() + 2 }}" style="{{ $cell }} font-weight:bold; background:#e6e6e6; text-align:left;">{{ strtoupper($group) }}</td></tr>
                 @php $lastGroup = $group; @endphp
             @endif
             <tr>
-                <td style="{{ $cell }}">{{ strtoupper($sub->name) }}</td>
+                <td style="{{ $cell }} text-align:left;">{{ strtoupper($sub->name) }}</td>
                 <td style="{{ $cell }}">{{ strtoupper($sub->slug ?? '') }}</td>
                 @foreach($cols as $c)
                     <td style="{{ $cell }}">{!! $value($c['key'], $mk) !!}</td>
@@ -101,14 +101,14 @@
         </tbody>
     </table>
 
-    <table width="100%" style="border-collapse:collapse; margin-top: 14px;">
+    <table width="100%" class="td-left" style="border-collapse:collapse; margin-top: 14px;">
         <tr style="{{ $dark }}"><td style="{{ $cell }} font-weight:bold;">General remarks &amp; comments</td></tr>
         <tr><td style="{{ $cell }}">CONDUCT: <strong>{{ strtoupper($exr->conduct ?? '') }}</strong></td></tr>
         <tr><td style="{{ $cell }}">INTEREST(S): <strong>{{ strtoupper($exr->interests ?? '') }}</strong></td></tr>
         <tr><td style="{{ $cell }}">TEACHER'S REMARKS: <strong>{{ strtoupper($exr->t_comment ?? '') }}</strong></td></tr>
         <tr><td style="{{ $cell }}">TEACHER'S NAME: <strong>{{ strtoupper($extra['teacher'] ?? '') }}</strong></td></tr>
         <tr><td style="{{ $cell }}">HEADTEACHER'S REMARKS: <strong>{{ strtoupper($exr->p_comment ?? '') }}</strong></td></tr>
-        <tr><td style="{{ $cell }}">HEADTEACHER'S NAME: <strong>{{ strtoupper($tpl['head_name'] ?? '') }}</strong></td></tr>
+        <tr><td style="{{ $cell }}">HEADTEACHER'S NAME: <strong>{{ strtoupper(\App\Support\ReportTemplate::headName($tpl)) }}</strong></td></tr>
     </table>
 
     <table style="border-collapse:collapse; margin-top: 18px;">
@@ -122,7 +122,7 @@
     </table>
 
     @if($grades->count())
-        <table width="100%" style="border-collapse:collapse; margin-top: 18px;">
+        <table width="100%" class="td-left" style="border-collapse:collapse; margin-top: 18px;">
             <tr style="{{ $dark }}"><td colspan="2" style="{{ $cell }} font-weight:bold;">Summative (Scoring) assessment explanation</td></tr>
             @foreach($grades->chunk(2) as $pair)
                 <tr>

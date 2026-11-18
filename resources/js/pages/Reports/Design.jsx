@@ -18,7 +18,7 @@ const toLines = (s) => s.split('\n').map((x) => x.trim()).filter(Boolean);
  * columns, rating tables and their items, attendance, comments, next-term lines, signatures.
  * Live preview on the right. The academic admin and admins edit; class teachers can only view.
  */
-export default function ReportDesign({ types, type, template, standard, canEdit, urls }) {
+export default function ReportDesign({ types, type, template, standard, canEdit, urls, staff = [] }) {
     const [t, setT] = useState(template);
     const [busy, setBusy] = useState(false);
     const [confirmReset, setConfirmReset] = useState(false);
@@ -117,8 +117,15 @@ export default function ReportDesign({ types, type, template, standard, canEdit,
                                     <input className={fieldInput} value={t.title} onChange={(e) => set('title', e.target.value)} maxLength={80} />
                                 </Field>
                                 {t.layout === 'detailed' && (
-                                    <Field label="Headteacher’s name">
-                                        <input className={fieldInput} value={t.head_name ?? ''} onChange={(e) => set('head_name', e.target.value)} maxLength={60} />
+                                    <Field label="Headteacher">
+                                        <select className={fieldInput} value={t.head_id ?? ''} onChange={(e) => set('head_id', e.target.value ? Number(e.target.value) : null)}>
+                                            <option value="">None</option>
+                                            {staff.map((u) => (
+                                                <option key={u.id} value={u.id}>
+                                                    {u.name}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </Field>
                                 )}
                                 <Field label="Footer note" hint="Printed at the bottom, e.g. a motto or school rules.">

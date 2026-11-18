@@ -44,6 +44,7 @@ class ReportDesignController extends Controller
             'template' => $type ? ReportTemplate::for($type->id) : null,
             'standard' => ReportTemplate::defaults(),
             'columns' => ReportTemplate::COLUMNS,
+            'staff' => DB::table('users')->whereIn('user_type', ReportTemplate::HEAD_TYPES)->orderBy('name')->get(['id', 'name'])->map(function ($u) { return ['id' => $u->id, 'name' => $u->name]; })->values(),
             'canEdit' => (bool) $type,   // only the class types this user may design are listed
             'urls' => $type ? ['save' => route('reports.design.save', $type->id), 'preview' => route('reports.design.preview', $type->id)] : null,
         ]);
@@ -117,7 +118,7 @@ class ReportDesignController extends Controller
         return [
             'title' => $text($t['title'] ?? $base['title']) ?: 'REPORT SHEET',
             'layout' => in_array($t['layout'] ?? '', ['standard', 'detailed'], true) ? $t['layout'] : 'standard',
-            'head_name' => $text($t['head_name'] ?? '', 60),
+            'head_id' => !empty($t['head_id']) && DB::table('users')->where('id', (int) $t['head_id'])->whereIn('user_type', ReportTemplate::HEAD_TYPES)->exists() ? (int) $t['head_id'] : null,
             'columns' => collect($t['columns'] ?? [])->filter(function ($c) { return isset(ReportTemplate::COLUMNS[$c['key'] ?? '']); })
                 ->map(function ($c) use ($text) { return ['key' => $c['key'], 'label' => $text($c['label'] ?? '', 40) ?: ReportTemplate::COLUMNS[$c['key']], 'show' => !empty($c['show'])]; })->values()->all(),
             'summary' => !empty($t['summary']),
