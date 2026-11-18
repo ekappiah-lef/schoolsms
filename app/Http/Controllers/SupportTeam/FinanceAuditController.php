@@ -10,7 +10,7 @@ use Inertia\Inertia;
 /** Audit trail: reversed (voided) receipts and every change to income / expense entries. Read-only. */
 class FinanceAuditController extends Controller
 {
-    const ACTIONS = ['void_receipt' => 'Payment reversed', 'update_entry' => 'Entry edited', 'delete_entry' => 'Entry deleted'];
+    const ACTIONS = ['void_receipt' => 'Payment reversed', 'cancel_bill' => 'Bill cancelled', 'restore_bill' => 'Bill restored', 'update_entry' => 'Entry edited', 'delete_entry' => 'Entry deleted'];
 
     public function __construct()
     {
@@ -37,13 +37,23 @@ class FinanceAuditController extends Controller
                     'reason' => $l->reason,
                     'before' => $l->before ? json_decode($l->before, true) : null,
                     'after' => $l->after ? json_decode($l->after, true) : null,
+                    'restore_url' => $l->action === 'cancel_bill' && !$l->after && \App\Support\BillCancel::allowed() ? route('finance.audit.restore', $l->id) : null,
                 ];
             });
 
         return Inertia::render('Finance/AuditTrail', [
             'rows' => $rows,
             'actions' => collect(self::ACTIONS)->map(function ($label, $value) { return ['value' => $value, 'label' => $label]; })->values(),
-            'totals' => ['reversed' => \App\Support\Money::r($rows->where('action', 'void_receipt')->sum('amount')), 'reversedCount' => $rows->where('action', 'void_receipt')->count()],
+            'totals' => ['cancelled' => \App\Support\Money::r($rows->where('action', 'cancel_bill')->where('after', null)->sum('amount')), 'cancelledCount' => $rows->where('action', 'cancel_bill')->where('after', null)->count(),
+                'reversed' => \App\Support\Money::r($rows->where('action', 'void_receipt')->sum('amount')), 'reversedCount' => $rows->where('action', 'void_receipt')->count()],
         ]);
+    }
+
+    public function restore($log)
+    {
+        if (!\App\Support\BillCancel::allowed()) return Qs::json(__('msg.denied'), false);
+        [$ok, $msg] = \App\Support\BillCancel::restore((int) $log);
+
+        return Qs::json($msg, $ok);
     }
 }

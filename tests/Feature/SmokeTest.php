@@ -248,8 +248,14 @@ class SmokeTest extends TestCase
             $this->actingAs($acc)->get('/finance/assign?student='.$hash)->assertOk()->assertDontSee('Lunch arrears');
 
             $c = \App\Models\OptionalFeeCharge::where(['student_id' => $sr->user_id, 'group' => 'direct'])->latest('id')->first();
-            $this->actingAs($acc)->delete(route('finance.assign.direct.remove', $c->id))->assertOk();
-            $this->assertNotNull($c->fresh());
+            // The accountant can cancel it (kept in the audit trail) and put it back from there.
+            $this->actingAs($acc)->delete(route('finance.assign.direct.remove', $c->id), ['reason' => 'Wrong child'])->assertOk();
+            $this->assertNull($c->fresh());
+            $log = \Illuminate\Support\Facades\DB::table('finance_logs')->where(['action' => 'cancel_bill', 'subject_id' => $c->id])->first();
+            $this->assertSame('Wrong child', $log->reason);
+            $this->actingAs($acc)->postJson(route('finance.audit.restore', $log->id))->assertJson(['ok' => true]);
+            $c = \App\Models\OptionalFeeCharge::where(['student_id' => $sr->user_id, 'group' => 'direct'])->latest('id')->first();
+            $this->assertEquals(150, $c->amount);
 
             // It is paid like any other bill, oldest first; once paid only part way it cannot be removed.
             \App\Support\Fees::applyPayment($sr->user_id, 50, 'Cash');
@@ -285,6 +291,66 @@ class SmokeTest extends TestCase
             $this->assertEquals([$standing->id, $once->id], [$post($standing->id)->fee_discount_id, $sr->fresh()->next_discount_id]);
         } finally {
             \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
+    public function testAccountantCancelsABillAndItCanBeRestored()
+    {
+        $acc = $this->user('accountant');
+        $sr = \App\Models\StudentRecord::where('grad', 0)->first();
+        if (!$sr) return $this->assertTrue(true);
+        $DB = \Illuminate\Support\Facades\DB::class;
+        $DB::beginTransaction();
+        try {
+            $year = \App\Helpers\Qs::getCurrentSession();
+            $fee = \App\Models\Payment::create(['title' => 'Cancel test', 'amount' => 500, 'student_category' => 'all', 'my_class_id' => $sr->my_class_id, 'year' => $year, 'ref_no' => uniqid()]);
+            $applied = \App\Support\Fees::appliesTo($fee, $sr, $year);
+            $pr = \App\Models\PaymentRecord::create(['student_id' => $sr->user_id, 'payment_id' => $fee->id, 'year' => $year, 'balance' => 500]);
+            $url = route('payments.cancel_bill', ['school', \App\Helpers\Qs::hash($pr->id)]);
+
+            $this->actingAs($this->user('teacher'))->delete($url, ['reason' => 'Billed by mistake']);
+            $this->assertNotNull(\App\Models\PaymentRecord::find($pr->id));
+            $this->actingAs($acc)->deleteJson($url, ['reason' => 'no'])->assertJson(['ok' => false]);
+
+            // With a payment on it, it cannot be cancelled.
+            $pr->update(['amt_paid' => 100]);
+            $this->actingAs($acc)->deleteJson($url, ['reason' => 'Billed by mistake'])->assertJson(['ok' => false]);
+            $pr->update(['amt_paid' => 0]);
+
+            $this->actingAs($acc)->deleteJson($url, ['reason' => 'Billed by mistake'])->assertJson(['ok' => true]);
+            $this->assertNull(\App\Models\PaymentRecord::find($pr->id));
+            $log = $DB::table('finance_logs')->where(['action' => 'cancel_bill', 'subject_id' => $pr->id])->first();
+            $this->assertSame('Billed by mistake', $log->reason);
+            $this->assertEquals(500, $log->amount);
+            $act = $DB::table('activity_logs')->where('action', 'Cancelled a bill')->latest('id')->first();
+            $this->assertStringContainsString('Cancel test', \App\Support\ActivityLog::readable($act->route, $act->details));
+
+            // Billing does not bring it back.
+            \App\Support\Fees::billSchoolFees($sr, $year);
+            $this->assertSame(0, \App\Models\PaymentRecord::where(['student_id' => $sr->user_id, 'payment_id' => $fee->id])->count());
+
+            $audit = $this->actingAs($this->user('super_admin'))->get(route('finance.audit'))->assertOk();
+            $this->actingAs($this->user('super_admin'))->postJson(route('finance.audit.restore', $log->id))->assertJson(['ok' => true]);
+            $back = \App\Models\PaymentRecord::where(['student_id' => $sr->user_id, 'payment_id' => $fee->id])->first();
+            $this->assertNotNull($back);
+            $this->assertEquals(500, $back->balance);
+            $this->actingAs($acc)->postJson(route('finance.audit.restore', $log->id))->assertJson(['ok' => false]);   // only once
+            if ($applied) {
+                $back->delete();
+                \App\Support\Fees::billSchoolFees($sr, $year);
+                $this->assertSame(1, \App\Models\PaymentRecord::where(['student_id' => $sr->user_id, 'payment_id' => $fee->id])->count());
+            }
+
+            // A service / direct bill.
+            $c = \App\Models\OptionalFeeCharge::create(['student_id' => $sr->user_id, 'year' => $year, 'term' => 1, 'group' => 'direct', 'label' => 'Broken chair', 'amount' => 80, 'amt_paid' => 0]);
+            $this->actingAs($acc)->deleteJson(route('payments.cancel_bill', ['optional', \App\Helpers\Qs::hash($c->id)]), ['reason' => 'Not this child'])->assertJson(['ok' => true]);
+            $this->assertNull(\App\Models\OptionalFeeCharge::find($c->id));
+            $log2 = $DB::table('finance_logs')->where(['action' => 'cancel_bill', 'subject_id' => $c->id, 'subject' => 'service_bill'])->first();
+            $this->actingAs($acc)->postJson(route('finance.audit.restore', $log2->id))->assertJson(['ok' => true]);
+            $this->assertSame(1, \App\Models\OptionalFeeCharge::where(['student_id' => $sr->user_id, 'label' => 'Broken chair', 'amount' => 80])->count());
+        } finally {
+            $DB::rollBack();
+            \App\Support\BillCancel::forget();
         }
     }
 

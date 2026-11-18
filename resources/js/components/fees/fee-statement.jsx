@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
 import { toast } from 'sonner';
-import { ChevronRight, Download, FileText, MoreHorizontal, Printer, Receipt, RotateCcw } from 'lucide-react';
+import { ChevronRight, Download, FileText, MoreHorizontal, Printer, Receipt, RotateCcw, XCircle } from 'lucide-react';
 import { EmptyState, Panel } from '@/components/app/page';
 import { usePaged } from '@/components/app/data-table';
 import { Meter } from '@/components/app/charts';
@@ -121,6 +121,7 @@ export function SchoolFeesInvoice({ records, onPaid, confirm, actions }) {
                                                         label={r.title}
                                                         receiptUrl={r.receipts.length ? r.urls.receipt : null}
                                                         onReset={r.paid > 0 && r.urls.reset ? () => reversePayments(r.urls.reset, r.title, r.paid, onPaid) : null}
+                                                        onCancel={r.paid <= 0 && r.urls.cancel ? () => cancelBill(r.urls.cancel, r.title, r.amount, onPaid) : null}
                                                     />
                                                 )}
                                             </td>
@@ -202,7 +203,13 @@ export function OptionalFeesInvoice({ charges, onPaid, confirm }) {
                                                 <td className={cn('px-3 text-right font-semibold', c.balance > 0 ? 'text-danger-fg' : 'text-success-fg')}>{formatMoney(c.balance)}</td>
                                                 {payable && <td className="px-3 py-2">{c.balance > 0 ? <PayInline title={c.label} balance={c.balance} url={c.urls.pay} onPaid={onPaid} /> : <Badge tone="success">Paid</Badge>}</td>}
                                                 <td className="px-4 text-right">
-                                                    {c.urls?.reset && c.paid > 0 && <RowMenu label={c.label} onReset={() => reversePayments(c.urls.reset, c.label, c.paid, onPaid)} />}
+                                                    {c.urls && (
+                                                        <RowMenu
+                                                            label={c.label}
+                                                            onReset={c.urls.reset && c.paid > 0 ? () => reversePayments(c.urls.reset, c.label, c.paid, onPaid) : null}
+                                                            onCancel={c.urls.cancel && c.paid <= 0 ? () => cancelBill(c.urls.cancel, c.label, c.amount, onPaid) : null}
+                                                        />
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))}
@@ -247,8 +254,21 @@ async function reversePayments(url, label, paid, onDone) {
     if (r.ok) onDone?.();
 }
 
-function RowMenu({ label, receiptUrl, onReset }) {
-    if (!receiptUrl && !onReset) return null;
+/** Cancel a bill with nothing paid on it (accountant or super admin). Kept in the audit trail, where it can be restored. */
+async function cancelBill(url, label, amount, onDone) {
+    const reason = window.prompt(`Cancel the bill "${label}" (${formatMoney(amount)})?\n\nGive the reason:`);
+    if (reason === null) return;
+    if (reason.trim().length < 5) {
+        toast.error('Give a reason of at least 5 characters.');
+        return;
+    }
+    const r = await submitForm(url, { reason: reason.trim() }, { method: 'delete' });
+    r.ok ? toast.success(r.message) : toast.error(r.message);
+    if (r.ok) onDone?.();
+}
+
+function RowMenu({ label, receiptUrl, onReset, onCancel }) {
+    if (!receiptUrl && !onReset && !onCancel) return null;
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -269,6 +289,12 @@ function RowMenu({ label, receiptUrl, onReset }) {
                     <DropdownMenuItem destructive onSelect={onReset}>
                         <RotateCcw />
                         Reverse payments
+                    </DropdownMenuItem>
+                )}
+                {onCancel && (
+                    <DropdownMenuItem destructive onSelect={onCancel}>
+                        <XCircle />
+                        Cancel bill
                     </DropdownMenuItem>
                 )}
             </DropdownMenuContent>

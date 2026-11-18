@@ -73,6 +73,9 @@ export default function Login({ urls }) {
                                     id="identity"
                                     name="identity"
                                     autoComplete="username"
+                                    autoCapitalize="none"
+                                    autoCorrect="off"
+                                    spellCheck={false}
                                     autoFocus
                                     required
                                     aria-label="Username or email"
@@ -92,6 +95,9 @@ export default function Login({ urls }) {
                                     name="password"
                                     type={showPassword ? 'text' : 'password'}
                                     autoComplete="current-password"
+                                    autoCapitalize="none"
+                                    autoCorrect="off"
+                                    spellCheck={false}
                                     required
                                     aria-label="Password"
                                     placeholder="Password"

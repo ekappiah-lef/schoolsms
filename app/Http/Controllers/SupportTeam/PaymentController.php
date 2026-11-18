@@ -566,6 +566,20 @@ class PaymentController extends Controller
      * Reverse every payment on a bill (administrators only, with a reason). The receipts are kept in
      * the finance audit trail with who reversed them and why; the bill returns to unpaid.
      */
+    /** Cancel a bill raised for a student (accountant or super admin). Kept in the audit trail and the activity log. */
+    public function cancelBill(Request $req, $kind, $id)
+    {
+        if (!\App\Support\BillCancel::allowed()) return Qs::json(__('msg.denied'), false);
+        $reason = trim((string) $req->input('reason'));
+        if (mb_strlen($reason) < 5) return Qs::json('Give a reason for cancelling this bill (at least 5 characters).', false);
+        [$ok, $msg, $bill] = $kind === 'school'
+            ? \App\Support\BillCancel::school(\App\Models\PaymentRecord::findOrFail($id), $reason)
+            : \App\Support\BillCancel::charge(\App\Models\OptionalFeeCharge::findOrFail($id), $reason);
+        if ($bill) $req->merge(['bill' => $bill]);   // the bill is gone; the activity log keeps what it was
+
+        return Qs::json($msg, $ok);
+    }
+
     public function reset_record(Request $req, $id)
     {
         if (!Qs::userIsSuperAdmin()) {

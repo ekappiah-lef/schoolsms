@@ -6,7 +6,6 @@ import { ModuleHeader } from '@/components/app/module';
 import { EmptyState, Panel } from '@/components/app/page';
 import { usePaged } from '@/components/app/data-table';
 import { Button } from '@/components/ui/button';
-import { ConfirmDialog } from '@/components/ui/dialog';
 import { Select } from '@/components/ui/select';
 import { formatDate, formatMoney } from '@/lib/utils';
 import { submitForm } from '@/lib/http';
@@ -18,16 +17,20 @@ const TERMS = { 1: '1st term', 2: '2nd term', 3: '3rd term' };
 export default function DirectBills({ bills }) {
     const [year, setYear] = useState('');
     const [term, setTerm] = useState('');
-    const [removing, setRemoving] = useState(null);
-    const [busy, setBusy] = useState(false);
     const years = useMemo(() => [...new Set(bills.map((b) => b.year))].map((y) => ({ value: y, label: y })), [bills]);
     const rows = bills.filter((b) => (!year || b.year === year) && (!term || String(b.term) === term));
     const { shown, pager } = usePaged(rows, 25, 'bills');
-    const remove = async () => {
-        setBusy(true);
-        const r = await submitForm(removing.remove, {}, { method: 'delete' });
-        setBusy(false);
-        setRemoving(null);
+    const remove = async (b) => {
+        const reason = window.prompt(`Cancel this bill for ${b.student}?
+${b.label} · GHS ${formatMoney(b.amount)}
+
+Give the reason:`);
+        if (reason === null) return;
+        if (reason.trim().length < 5) {
+            toast.error('Give a reason of at least 5 characters.');
+            return;
+        }
+        const r = await submitForm(b.remove, { reason: reason.trim() }, { method: 'delete' });
         if (r.ok) {
             toast.success(r.message);
             router.reload({ only: ['bills'], preserveScroll: true });
@@ -77,8 +80,8 @@ export default function DirectBills({ bills }) {
                                                 <td className="tabular px-3 py-2 text-right">{formatMoney(b.paid)}</td>
                                                 <td className="px-4 py-2 text-right">
                                                     {b.remove && (
-                                                        <Button size="sm" variant="ghost" onClick={() => setRemoving(b)}>
-                                                            Remove
+                                                        <Button size="sm" variant="ghost" onClick={() => remove(b)}>
+                                                            Cancel bill
                                                         </Button>
                                                     )}
                                                 </td>
@@ -94,15 +97,6 @@ export default function DirectBills({ bills }) {
                     )}
                 </Panel>
             </div>
-            <ConfirmDialog
-                open={!!removing}
-                onOpenChange={(o) => !o && !busy && setRemoving(null)}
-                title={`Remove this bill for ${removing?.student ?? ''}?`}
-                description={removing ? `${removing.label} · GHS ${formatMoney(removing.amount)}` : ''}
-                confirmLabel="Remove"
-                loading={busy}
-                onConfirm={remove}
-            />
         </>
     );
 }

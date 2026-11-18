@@ -58,7 +58,7 @@ class AssignServicesController extends Controller
         return array_map(function ($i) use ($start) { return ($start - $i).'-'.($start - $i + 1); }, [0, 1, 2, 3]);
     }
 
-    /** Every direct bill; only the super admin can remove one, and only while nothing is paid on it. */
+    /** Every direct bill; the accountant or super admin can cancel one while nothing is paid on it (kept in the audit trail). */
     public function directBills()
     {
         return Inertia::render('Finance/DirectBills', [
@@ -67,7 +67,7 @@ class AssignServicesController extends Controller
                 ->get(['c.id', 'c.label', 'c.year', 'c.term', 'c.amount', 'c.amt_paid', 'c.created_at', 'u.name'])
                 ->map(function ($c) {
                     return ['id' => $c->id, 'student' => $c->name, 'label' => $c->label, 'year' => $c->year, 'term' => (int) $c->term, 'amount' => (float) $c->amount, 'paid' => (float) $c->amt_paid, 'date' => $c->created_at,
-                        'remove' => Qs::userIsSuperAdmin() && (float) $c->amt_paid <= 0 ? route('finance.assign.direct.remove', $c->id) : null];
+                        'remove' => \App\Support\BillCancel::allowed() && (float) $c->amt_paid <= 0 ? route('finance.assign.direct.remove', $c->id) : null];
                 }),
         ]);
     }
@@ -88,17 +88,16 @@ class AssignServicesController extends Controller
     }
 
     /** A direct bill entered by mistake: removed only while nothing has been paid on it. */
-    public function removeDirect($charge)
+    public function removeDirect(Request $req, $charge)
     {
-        if (!Qs::userIsSuperAdmin()) return Qs::json(__('msg.denied'), false);
+        if (!\App\Support\BillCancel::allowed()) return Qs::json(__('msg.denied'), false);
         $c = OptionalFeeCharge::where('group', 'direct')->find((int) $charge);
         if (!$c) return Qs::json(__('msg.rnf'), false);
-        if ($c->amt_paid > 0) return Qs::json('This bill has payments on it and cannot be removed.', false);
-        $student = (int) $c->student_id;
-        $c->delete();
-        \App\Support\ClearEnroll::studentChanged($student);
+        $reason = trim((string) $req->input('reason')) ?: 'Direct bill removed';
+        [$ok, $msg, $bill] = \App\Support\BillCancel::charge($c, $reason);
+        if ($bill) $req->merge(['bill' => $bill]);
 
-        return Qs::json('Removed.', true);
+        return Qs::json($ok ? 'Removed.' : $msg, $ok);
     }
 
     public function save(Request $req)

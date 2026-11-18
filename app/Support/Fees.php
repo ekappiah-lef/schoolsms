@@ -72,6 +72,7 @@ class Fees
     {
         $category = $p->student_category ?: 'all';
         if (!in_array($category, ['all', 'old', 'new'], true)) return false;
+        if (BillCancel::isCancelled((int) $sr->user_id, (int) $p->id, $year)) return false;   // cancelled for this student
         // Promoted into a later year: their new class's fees must not be billed to the year they left.
         if ($sr->session && $sr->session > $year) return false;
         if ($sr->admitted_session !== $year) return $category !== 'new';
@@ -548,6 +549,7 @@ class Fees
                 'urls' => $withUrls ? [
                     'pay' => route('payments.pay_now', Qs::hash($pr->id)),
                     'reset' => Qs::userIsSuperAdmin() ? route('payments.reset_record', Qs::hash($pr->id)) : null,
+                    'cancel' => BillCancel::urlFor('school', $pr->id),
                     'receipt' => route('payments.receipts', Qs::hash($pr->id)),
                 ] : null,
             ];
@@ -576,6 +578,7 @@ class Fees
                 'urls' => $withUrls ? [
                     'pay' => route('optional_fees.pay', Qs::hash($c->id)),
                     'reset' => Qs::userIsSuperAdmin() ? route('optional_fees.reset', Qs::hash($c->id)) : null,
+                    'cancel' => BillCancel::urlFor('optional', $c->id),
                 ] : null,
             ];
         })->values();

@@ -165,6 +165,7 @@ Route::group(['middleware' => 'auth'], function () {
             Route::post('select_year', 'PaymentController@select_year')->name('payments.select_year');
             Route::post('select_class', 'PaymentController@select_class')->name('payments.select_class');
             Route::delete('reset_record/{id}', 'PaymentController@reset_record')->name('payments.reset_record');
+            Route::delete('cancel/{kind}/{id}', 'PaymentController@cancelBill')->where('kind', 'school|optional')->name('payments.cancel_bill');
             Route::post('pay_now/{id}', 'PaymentController@pay_now')->name('payments.pay_now');
             Route::post('invoice/{id}/send', 'PaymentController@sendInvoice')->name('payments.send_invoice');
             Route::post('invoice/{id}/momo', '\App\Http\Controllers\MomoController@staffStart')->name('payments.momo');
@@ -190,6 +191,7 @@ Route::group(['middleware' => 'auth'], function () {
         Route::get('finance/payment-mode', 'FinanceDashboardController@paymentMode')->name('finance.payment_mode');
         Route::get('finance/fee-students', 'FinanceDashboardController@feeStudents')->name('finance.fee_students');
         Route::get('finance/audit-trail', 'FinanceAuditController@index')->name('finance.audit');
+        Route::post('finance/audit-trail/{log}/restore', 'FinanceAuditController@restore')->name('finance.audit.restore');
         Route::get('finance/fee-breakdown', 'FeeBreakdownController@index')->name('finance.fee_breakdown');
         Route::get('finance/sales', 'SalesController@index')->name('finance.sales');
         Route::post('finance/sales/items', 'SalesController@storeItem')->name('finance.sales.items.store');

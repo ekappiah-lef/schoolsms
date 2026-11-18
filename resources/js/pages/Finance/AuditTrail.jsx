@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { submitForm } from '@/lib/http';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { ModuleHeader } from '@/components/app/module';
 import { EmptyState } from '@/components/app/page';
@@ -28,7 +31,7 @@ export default function AuditTrail({ rows, actions, totals }) {
                     title="Audit trail"
                 />
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="flex flex-col gap-2 rounded-lg bg-surface p-5 shadow-card">
                         <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">Payments reversed</span>
                         <span className="tabular text-3xl font-semibold tracking-tight">{totals.reversedCount}</span>
@@ -36,6 +39,14 @@ export default function AuditTrail({ rows, actions, totals }) {
                     <div className="flex flex-col gap-2 rounded-lg bg-surface p-5 shadow-card">
                         <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">Amount reversed</span>
                         <span className="tabular text-3xl font-semibold tracking-tight text-danger-fg">{formatMoney(totals.reversed)}</span>
+                    </div>
+                    <div className="flex flex-col gap-2 rounded-lg bg-surface p-5 shadow-card">
+                        <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">Bills cancelled</span>
+                        <span className="tabular text-3xl font-semibold tracking-tight">{totals.cancelledCount}</span>
+                    </div>
+                    <div className="flex flex-col gap-2 rounded-lg bg-surface p-5 shadow-card">
+                        <span className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">Amount cancelled</span>
+                        <span className="tabular text-3xl font-semibold tracking-tight text-danger-fg">{formatMoney(totals.cancelled)}</span>
                     </div>
                 </div>
 
@@ -64,7 +75,7 @@ export default function AuditTrail({ rows, actions, totals }) {
                                                 <div className="text-xs text-fg-muted">{r.by ?? '—'}</div>
                                             </td>
                                             <td className="px-3 py-3">
-                                                <span className={cn('rounded px-1.5 py-0.5 text-2xs font-semibold uppercase', r.action === 'update_entry' ? 'bg-warning-soft text-warning-fg' : 'bg-danger-soft text-danger-fg')}>{r.label}</span>
+                                                <span className={cn('rounded px-1.5 py-0.5 text-2xs font-semibold uppercase', r.action === 'update_entry' || r.action === 'restore_bill' ? 'bg-warning-soft text-warning-fg' : 'bg-danger-soft text-danger-fg')}>{r.label}</span>
                                                 {r.student && (
                                                     <div className="mt-1">
                                                         <Link href={r.student_url} className="font-medium hover:text-primary hover:underline">
@@ -95,8 +106,33 @@ export default function AuditTrail({ rows, actions, totals }) {
 
 AuditTrail.layout = withAppLayout;
 
+async function restoreBill(url) {
+    if (!window.confirm('Put this bill back on the student\'s account?')) return;
+    const res = await submitForm(url, {});
+    res.ok ? toast.success(res.message) : toast.error(res.message);
+    if (res.ok) router.reload({ preserveScroll: true });
+}
+
 function Details({ r }) {
     const b = r.before ?? {};
+    if (r.action === 'cancel_bill' || r.action === 'restore_bill') {
+        return (
+            <div className="text-xs text-fg-muted">
+                <div className="font-medium text-fg">{b.bill}</div>
+                {b.group && <div>{b.group}</div>}
+                {r.after?.restored_at && (
+                    <div>
+                        Restored {formatDate(r.after.restored_at, 'dd/MM/yyyy HH:mm')} · {r.after.restored_by}
+                    </div>
+                )}
+                {r.restore_url && (
+                    <Button size="sm" variant="outline" className="mt-2" onClick={() => restoreBill(r.restore_url)}>
+                        Restore
+                    </Button>
+                )}
+            </div>
+        );
+    }
     if (r.action === 'void_receipt') {
         return (
             <div className="text-xs text-fg-muted">

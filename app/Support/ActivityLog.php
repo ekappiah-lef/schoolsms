@@ -51,7 +51,7 @@ class ActivityLog
         'name' => 'Name', 'title' => 'Title', 'term' => 'Term', 'year' => 'Year', 'type' => 'Type', 'category' => 'Category', 'description' => 'Description',
         'date' => 'Date', 'gender' => 'Gender', 'dob' => 'Date of birth', 'phone' => 'Phone', 'email' => 'Email', 'username' => 'Username',
         'job_title' => 'Job title', 'address' => 'Address', 'capacity' => 'Capacity', 'slug' => 'Short name', 'direction' => 'Direction',
-        'kind' => 'Bill', 'student_category' => 'Students', 'action' => 'Step', 'term_days' => 'School days', 'admission_date' => 'Admission date',
+        'kind' => 'Bill', 'bill' => 'Bill', 'student_category' => 'Students', 'action' => 'Step', 'term_days' => 'School days', 'admission_date' => 'Admission date',
     ];
     /** Fields that are too long or too technical to show; summarised instead. */
     const SUMMARY = ['template' => 'Report card design', 'items' => 'Fee items', 'services' => 'Services', 'prices' => 'Prices', 'section_teachers' => 'Teachers by section', 'terms' => 'Term dates', 'events' => 'Holidays, exams & events'];
@@ -127,7 +127,7 @@ class ActivityLog
     {
         $name = optional($req->route())->getName();
         $labels = [
-            'payments.pay_now' => 'Recorded a payment', 'payments.reset_record' => 'Reversed payments on a bill', 'optional_fees.pay' => 'Recorded a service payment',
+            'payments.pay_now' => 'Recorded a payment', 'payments.reset_record' => 'Reversed payments on a bill', 'payments.cancel_bill' => 'Cancelled a bill', 'finance.audit.restore' => 'Restored a cancelled bill', 'optional_fees.pay' => 'Recorded a service payment',
             'optional_fees.reset' => 'Reversed payments on a service', 'payments.store' => 'Created a fee', 'payments.update' => 'Edited a fee', 'payments.destroy' => 'Deleted a fee',
             'students.store' => 'Admitted a student', 'students.update' => 'Edited a student', 'students.destroy' => 'Deleted a student',
             'users.store' => 'Created a user', 'users.update' => 'Edited a user', 'users.destroy' => 'Deleted a user', 'users.reset_pass' => 'Reset a password',
