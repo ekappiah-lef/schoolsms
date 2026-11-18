@@ -162,7 +162,7 @@ class MarkController extends Controller
                     })->values(),
                     'total' => $exr->total, 'ave' => $exr->ave, 'class_ave' => $exr->class_ave,
                     'pos' => \App\Support\School::has('subject_positions_only') ? null : $exr->pos,
-                    't_comment' => $exr->t_comment, 'p_comment' => $exr->p_comment, 'conduct' => $exr->conduct, 'interests' => $exr->interests,
+                    't_comment' => $exr->t_comment, 'p_comment' => $exr->p_comment, 'conduct' => $exr->conduct, 'interests' => $exr->interests, 'assessments' => (object) json_decode((string) $exr->assessments, true),
                     'af' => $ratings($exr->af, $af->count()), 'ps' => $ratings($exr->ps, $ps->count()),
                     'urls' => [
                         'print' => route('marks.print', [$hash, $ex->id, $year]),
@@ -190,6 +190,7 @@ class MarkController extends Controller
             'skills' => ['af' => $af, 'ps' => $ps],
             'canComment' => Qs::userIsTeamSAT(),
             'canHeadComment' => Qs::userIsAcademicLead(),
+            'assessmentNames' => \App\Support\ReportTemplate::for($ctId)['assessments'] ?? [],
             'extraFields' => collect(['conduct', 'interests'])->filter(function ($k) use ($ctId) { return !empty(\App\Support\ReportTemplate::for($ctId)['comments'][$k]); })->mapWithKeys(function ($k) use ($ctId) { return [$k => \App\Support\ReportTemplate::for($ctId)['comments'][$k.'_label']]; }),
         ];
     }
@@ -618,6 +619,15 @@ class MarkController extends Controller
         }
         $d = Qs::userIsAcademicLead() ? $req->only(['t_comment', 'p_comment', 'conduct', 'interests']) : $req->only(['t_comment', 'conduct', 'interests']);
         foreach (['conduct', 'interests'] as $k) if (array_key_exists($k, $d)) $d[$k] = mb_substr(trim((string) $d[$k]), 0, 120) ?: null;
+        if ($req->has('assessments')) {
+            // Only the written assessments in the design of the student's class type, each up to 1000 characters.
+            $exr = \App\Models\ExamRecord::find($exr_id);
+            $names = \App\Support\ReportTemplate::for(optional($this->my_class->findTypeByClass(optional($exr)->my_class_id))->id)['assessments'] ?? [];
+            $in = (array) json_decode((string) $req->input('assessments'), true);
+            $kept = (array) json_decode((string) optional($exr)->assessments, true);
+            foreach ($names as $n) if (array_key_exists($n, $in)) $kept[$n] = mb_substr(trim((string) $in[$n]), 0, 1000);
+            $d['assessments'] = json_encode(array_filter($kept, 'strlen'));
+        }
 
         $this->exam->updateRecord(['id' => $exr_id], $d);
         return Qs::jsonUpdateOk();

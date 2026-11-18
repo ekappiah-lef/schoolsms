@@ -72,8 +72,9 @@ class SmokeTest extends TestCase
         $tpl['layout'] = 'detailed';
         $tpl['head_id'] = $admin->id;
         $tpl['comments']['conduct'] = true;
+        $tpl['assessments'] = ['Well-being assessment'];
         $html = $this->actingAs($admin)->post($url, ['template' => json_encode($tpl)])->assertOk()->getContent();
-        foreach (['END OF FIRST TERM', 'Number On Roll', 'General remarks', 'CONDUCT: <strong>SATISFACTORY', 'HEADTEACHER&#039;S NAME: <strong>'.strtoupper($admin->name), 'Summative (Scoring) assessment explanation'] as $text) {
+        foreach (['END OF FIRST TERM', 'Number On Roll', 'General remarks', 'CONDUCT: <strong>Satisfactory', 'WELL-BEING ASSESSMENT:<br><strong>Shows good understanding', 'HEADTEACHER&#039;S NAME: <strong>'.strtoupper($admin->name), 'Summative (Scoring) assessment explanation'] as $text) {
             $this->assertStringContainsString($text, $html);
         }
     }
@@ -341,6 +342,27 @@ class SmokeTest extends TestCase
     {
         $this->actingAs($user);
         return \App\Support\TeacherScope::viewSectionIds();
+    }
+
+    public function testClassTeacherWritesConductAndAssessments()
+    {
+        $exr = \App\Models\ExamRecord::first();
+        if (!$exr) return $this->assertTrue(true);
+        $type = \Illuminate\Support\Facades\DB::table('my_classes')->where('id', $exr->my_class_id)->value('class_type_id');
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $tpl = \App\Support\ReportTemplate::for((int) $type);
+            $tpl['assessments'] = ['WELL-BEING ASSESSMENT'];
+            \App\Support\ReportTemplate::save((int) $type, $tpl);
+            $this->actingAs($this->user('admin'))->put(route('marks.comment_update', $exr->id), [
+                't_comment' => 'Good', 'conduct' => 'Satisfactory', 'assessments' => json_encode(['WELL-BEING ASSESSMENT' => 'Kind to others.', 'NOT IN DESIGN' => 'x']),
+            ])->assertOk();
+            $exr->refresh();
+            $this->assertSame('Satisfactory', $exr->conduct);
+            $this->assertSame(['WELL-BEING ASSESSMENT' => 'Kind to others.'], json_decode($exr->assessments, true));
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
     }
 
     public function testOneStaffMemberCanBeGivenClassesAndSubjects()

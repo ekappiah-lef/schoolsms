@@ -13,6 +13,13 @@
                 <td>Present {{ $attendance['present'] }} of {{ $attendance['days'] }} days marked{{ $attendance['late'] ? ' (late '.$attendance['late'].')' : '' }} · Absent {{ $attendance['absent'] }}</td>
             </tr>
         @endif
+        @php $written = (array) json_decode((string) ($exr->assessments ?? ''), true); @endphp
+        @foreach($tpl['assessments'] ?? [] as $a)
+            <tr>
+                <td><strong>{{ strtoupper($a) }}:</strong></td>
+                <td>  {{ $written[$a] ?? '' }}</td>
+            </tr>
+        @endforeach
         @foreach(['conduct', 'interests'] as $k)
             @if(!empty($cm[$k]))
                 <tr>

@@ -13,7 +13,7 @@ import { cn, ordinal } from '@/lib/utils';
 const dash = (v) => (v === null || v === undefined || v === '' || v === 0 ? '—' : v);
 
 /** A student's results for a year: each exam's scores, comments and skill ratings, with print links. */
-export default function MarkSheet({ student, year, years, exams, skills, canComment, canHeadComment, scoreColumns = [], extraFields = {} }) {
+export default function MarkSheet({ student, year, years, exams, skills, canComment, canHeadComment, scoreColumns = [], extraFields = {}, assessmentNames = [] }) {
     return (
         <>
             <Head title={`Results · ${student.name}`} />
@@ -50,7 +50,7 @@ export default function MarkSheet({ student, year, years, exams, skills, canComm
                 </div>
 
                 {exams.length ? (
-                    exams.map((ex) => <ExamCard key={ex.id} ex={ex} skills={skills} scoreColumns={scoreColumns} canComment={canComment} canHeadComment={canHeadComment} extraFields={extraFields} />)
+                    exams.map((ex) => <ExamCard key={ex.id} ex={ex} skills={skills} scoreColumns={scoreColumns} canComment={canComment} canHeadComment={canHeadComment} extraFields={extraFields} assessmentNames={assessmentNames} />)
                 ) : (
                     <EmptyState title="No results for this year" />
                 )}
@@ -61,7 +61,7 @@ export default function MarkSheet({ student, year, years, exams, skills, canComm
 
 MarkSheet.layout = withAppLayout;
 
-function ExamCard({ ex, skills, scoreColumns, canComment, canHeadComment, extraFields }) {
+function ExamCard({ ex, skills, scoreColumns, canComment, canHeadComment, extraFields, assessmentNames }) {
     // Staff see the comment boxes straight away; parents and students open them if they want.
     const [open, setOpen] = useState(!!canComment);
     const hasSkills = skills.af.length > 0 || skills.ps.length > 0;
@@ -132,7 +132,7 @@ function ExamCard({ ex, skills, scoreColumns, canComment, canHeadComment, extraF
                     </button>
                     {open && (
                         <div className="grid gap-6 px-5 pb-5 lg:grid-cols-2">
-                            {canComment ? <Comments ex={ex} canHead={canHeadComment} extraFields={extraFields} /> : <ReadComments ex={ex} />}
+                            {canComment ? <Comments ex={ex} canHead={canHeadComment} extraFields={extraFields} assessmentNames={assessmentNames} /> : <ReadComments ex={ex} />}
                             {canComment && hasSkills && <Skills ex={ex} skills={skills} />}
                         </div>
                     )}
@@ -157,19 +157,26 @@ function ReadComments({ ex }) {
     );
 }
 
-function Comments({ ex, canHead, extraFields = {} }) {
+function Comments({ ex, canHead, extraFields = {}, assessmentNames = [] }) {
+    const [written, setWritten] = useState(() => Object.fromEntries(assessmentNames.map((n) => [n, ex.assessments?.[n] ?? ''])));
     const [d, setD] = useState({ t_comment: ex.t_comment ?? '', p_comment: ex.p_comment ?? '', conduct: ex.conduct ?? '', interests: ex.interests ?? '' });
     const [busy, setBusy] = useState(false);
     const save = async () => {
         setBusy(true);
         const mine = { t_comment: d.t_comment };
         Object.keys(extraFields).forEach((k) => (mine[k] = d[k]));
+        if (assessmentNames.length) mine.assessments = JSON.stringify(written);
         const r = await submitForm(ex.urls.comment, canHead ? { ...mine, p_comment: d.p_comment } : mine, { method: 'put' });
         setBusy(false);
         r.ok ? toast.success(r.message) : toast.error(r.message);
     };
     return (
         <div className="flex flex-col gap-3">
+            {assessmentNames.map((n) => (
+                <Field key={n} label={n.charAt(0) + n.slice(1).toLowerCase()}>
+                    <textarea className={cn(fieldInput, 'h-20 py-2')} value={written[n]} maxLength={1000} onChange={(e) => setWritten({ ...written, [n]: e.target.value })} />
+                </Field>
+            ))}
             {Object.entries(extraFields).map(([k, label]) => (
                 <Field key={k} label={label.charAt(0) + label.slice(1).toLowerCase()}>
                     <input className={fieldInput} value={d[k]} maxLength={120} onChange={(e) => setD({ ...d, [k]: e.target.value })} />

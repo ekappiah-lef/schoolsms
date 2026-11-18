@@ -111,17 +111,22 @@
             $cm['conduct'] ? [strtoupper($cm['conduct_label']), $exr->conduct ?? ''] : null,
             $cm['interests'] ? [strtoupper($cm['interests_label']), $exr->interests ?? ''] : null,
             $cm['teacher'] ? [strtoupper($cm['teacher_label']), $exr->t_comment ?? ''] : null,
-            $cm['teacher'] ? ["TEACHER'S NAME", $extra['teacher'] ?? ''] : null,
+            $cm['teacher'] ? ["TEACHER'S NAME", strtoupper($extra['teacher'] ?? '')] : null,
             $cm['head'] ? [strtoupper($cm['head_label']), $exr->p_comment ?? ''] : null,
-            $cm['head'] ? ["HEADTEACHER'S NAME", \App\Support\ReportTemplate::headName($tpl)] : null,
+            $cm['head'] ? ["HEADTEACHER'S NAME", strtoupper(\App\Support\ReportTemplate::headName($tpl))] : null,
         ]);
         $fees = $cm['next_term_fees'] ? ($nextFees ?? null) : null;
+        $written = (array) json_decode((string) ($exr->assessments ?? ''), true);
+        $assess = $tpl['assessments'] ?? [];
     @endphp
-    @if(count($remarks) || $fees)
+    @if(count($remarks) || $fees || count($assess))
         <table width="100%" class="td-left" style="border-collapse:collapse; margin-top: 14px;">
             <tr style="{{ $dark }}"><td style="{{ $cell }} font-weight:bold;">General remarks &amp; comments</td></tr>
+            @foreach($assess as $a)
+                <tr><td style="{{ $cell }}">{{ strtoupper($a) }}:<br><strong>{{ $written[$a] ?? '' }}</strong></td></tr>
+            @endforeach
             @foreach($remarks as [$label, $val])
-                <tr><td style="{{ $cell }}">{{ $label }}: <strong>{{ strtoupper($val) }}</strong></td></tr>
+                <tr><td style="{{ $cell }}">{{ $label }}: <strong>{{ $val }}</strong></td></tr>
             @endforeach
             @if($fees)
                 <tr><td style="{{ $cell }}">NEXT TERM FEES: <strong>

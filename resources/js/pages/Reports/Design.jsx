@@ -229,6 +229,17 @@ export default function ReportDesign({ types, type, template, standard, canEdit,
                             </div>
                         </Panel>
 
+                        <Panel title="Written assessments">
+                            <Field label="One per line (up to 5)" hint="e.g. Well-being assessment, Sustainability assessment">
+                                <textarea
+                                    className={cn(fieldInput, 'h-24 py-2')}
+                                    value={(t.assessments ?? []).join('\n')}
+                                    onChange={(e) => set('assessments', e.target.value.split('\n'))}
+                                    onBlur={(e) => set('assessments', toLines(e.target.value).slice(0, 5))}
+                                />
+                            </Field>
+                        </Panel>
+
                         <Panel title="Signature lines">
                             <Field label="One per line (up to 4)" hint="e.g. Class teacher, Head teacher, Parent">
                                 <textarea

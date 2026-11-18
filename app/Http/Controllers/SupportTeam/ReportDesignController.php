@@ -95,7 +95,8 @@ class ReportDesignController extends Controller
             'subjects' => $subjects, 'marks' => $marks,
             'exr' => (object) ['total' => $marks->sum('tex1'), 'ave' => round($marks->avg('tex1'), 1), 'class_ave' => 72.4, 'pos' => 3,
                 'af' => $vals(count(optional($groups['af'] ?? null)['items'] ?? [])), 'ps' => $vals(count(optional($groups['ps'] ?? null)['items'] ?? [])),
-                't_comment' => 'A hardworking pupil. Keep it up.', 'p_comment' => 'Good result.', 'conduct' => 'Satisfactory', 'interests' => 'Singing and dancing'],
+                't_comment' => 'A hardworking pupil. Keep it up.', 'p_comment' => 'Good result.', 'conduct' => 'Satisfactory', 'interests' => 'Singing and dancing',
+                'assessments' => json_encode(collect($tpl['assessments'] ?? [])->mapWithKeys(function ($a) { return [$a => 'Shows good understanding and applies it in class and at home.']; }))],
             'extra' => ['on_roll' => 20, 'class_total' => round($marks->sum('tex1') * 1.04, 2), 'class_ave' => 74.87, 'teacher' => 'Class Teacher', 'promoted' => null, 'section' => 'A'],
             'nextFees' => ['set' => true, 'label' => '2nd Term '.str_replace('-', ' – ', Qs::getCurrentSession()), 'school' => 1750, 'services' => 500, 'owed' => 0, 'total' => 2250],
             'attendance' => ['days' => 60, 'present' => 57, 'late' => 2, 'absent' => 3],
@@ -137,6 +138,7 @@ class ReportDesignController extends Controller
                 'next_term_begins' => !empty($t['comments']['next_term_begins']), 'next_term_fees' => !empty($t['comments']['next_term_fees']),
             ],
             'signatures' => $lines($t['signatures'] ?? [], 4),
+            'assessments' => $lines($t['assessments'] ?? [], 5),
             'footer' => $text($t['footer'] ?? '', 200),
         ];
     }
