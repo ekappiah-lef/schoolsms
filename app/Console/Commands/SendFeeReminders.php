@@ -48,7 +48,7 @@ class SendFeeReminders extends Command
             $parent = optional($sr->my_parent)->name ? strtok($sr->my_parent->name, ' ') : 'Parent';
             $link = Notices::statementUrl($sr->user_id);
             $body = "Dear {$parent}, this is a reminder that GHS ".Money::fmt($owed)." is outstanding on {$sr->user->name}'s school fees. "
-                ."See the statement and pay here: {$link} If you have already paid, please ignore this message. — {$school}";
+                ."See the statement and pay here: {$link} If you have already paid, please contact Administrator. — {$school}";
             foreach (array_unique($to['phones']) as $p) $messages += $this->log($sr->user_id, 'sms', $p, Notices::sms($p, $body));
             foreach (array_unique($to['emails']) as $e) $messages += $this->log($sr->user_id, 'email', $e, Notices::email($e, "Fees reminder: {$sr->user->name}", $body));
             $parents++;
