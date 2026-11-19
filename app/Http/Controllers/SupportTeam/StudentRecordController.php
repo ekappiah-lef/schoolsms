@@ -420,7 +420,7 @@ class StudentRecordController extends Controller
         if ($req->input('form_version') === '2') {
             StudentDetail::updateOrCreate(['user_id' => $sr->user_id], $req->only(StudentDetail::FIELDS));
             if ($discountChanged) {
-                Fees::applyDiscount($sr->fresh());
+                Fees::changeDiscount($sr->fresh(), $sr->fee_discount_id);
             }
 
             // Services set here start next term; this term's stay as billed (Assign services bills this term).

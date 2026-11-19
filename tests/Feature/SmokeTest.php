@@ -815,6 +815,64 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testDaysOnlySlotHoldsADifferentActivityEachDay()
+    {
+        $admin = $this->user('super_admin');
+        $class = \App\Models\MyClass::first();
+        if (!$class) return $this->assertTrue(true);
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $ttr = \App\Models\TimeTableRecord::create(['name' => 'Activities test', 'my_class_id' => $class->id, 'year' => \App\Helpers\Qs::getCurrentSession()]);
+            $this->actingAs($admin)->post(route('ts.store'), ['ttr_id' => $ttr->id, 'hour_from' => 8, 'min_from' => '45', 'meridian_from' => 'AM', 'hour_to' => 9, 'min_to' => '30', 'meridian_to' => 'AM',
+                'label' => '', 'days' => 'Wednesday,Thursday', 'day_names' => json_encode(['Wednesday' => 'Worship', 'Thursday' => 'Sports'])])->assertOk();
+            $ts = \App\Models\TimeSlot::where('ttr_id', $ttr->id)->first();
+            $this->assertSame(['Wednesday', 'Thursday'], $ts->days);
+            $this->assertSame('Worship', $ts->nameOn('Wednesday'));
+            $this->assertSame('Sports', $ts->nameOn('Thursday'));
+
+            $grid = $this->actingAs($admin)->get(route('ttr.show', $ttr->id))->assertOk()->viewData('page')['props'];
+            if ($grid) {
+                $byDay = collect($grid['rows'])->keyBy('day');
+                $this->assertSame('Worship', $byDay['Wednesday']['cells'][0]['text']);
+                $this->assertSame('Sports', $byDay['Thursday']['cells'][0]['text']);
+                $this->assertSame('empty', $byDay['Monday']['cells'][0]['kind']);
+            }
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
+    public function testDiscountTypeChangeReachesAnImportedBill()
+    {
+        $sr = \App\Models\StudentRecord::where('grad', 0)->first();
+        if (!$sr) return $this->assertTrue(true);
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $year = \App\Helpers\Qs::getCurrentSession();
+            $fee = \App\Models\Payment::create(['title' => 'Import test fee', 'amount' => 1000, 'student_category' => 'all', 'my_class_id' => $sr->my_class_id, 'year' => $year, 'term' => 1, 'ref_no' => 'IMP'.mt_rand(1000, 9999)]);
+            $fee->items()->create(['name' => 'Tuition Fee', 'amount' => 800, 'sort' => 0]);
+            $fee->items()->create(['name' => 'Books', 'amount' => 200, 'sort' => 1]);
+            // Imported: its own amount and a set discount of GHS 10.
+            $pr = \App\Models\PaymentRecord::create(['student_id' => $sr->user_id, 'payment_id' => $fee->id, 'year' => $year, 'amount' => 1200, 'discount' => 10, 'discount_fixed' => true, 'amt_paid' => 0, 'balance' => 1190, 'paid' => 0]);
+            $d = \App\Models\FeeDiscount::create(['name' => 'Test 20', 'kind' => 'percent', 'percent' => 20, 'next_term_only' => false, 'active' => true]);
+            $previous = $sr->fee_discount_id;
+            $sr->update(['fee_discount_id' => $d->id]);
+
+            \App\Support\Fees::changeDiscount($sr->fresh(), $previous, $year);
+            $pr->refresh();
+            $was = $previous && ($old = \App\Support\Fees::standingDiscount($previous)) ? $old->offFor($fee) : 0;
+            $this->assertEquals(round(10 - $was + 160, 2), $pr->discount);
+            $this->assertEquals(round(1200 - $pr->discount, 2), $pr->balance);
+
+            // Taking the type off again puts the bill back.
+            $sr->update(['fee_discount_id' => null]);
+            \App\Support\Fees::changeDiscount($sr->fresh(), $d->id, $year);
+            $this->assertEquals(round(10 - $was, 2) > 0 ? round(10 - $was, 2) : 0, $pr->fresh()->discount);
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testWeightedTotalIsTheSumOfTheRoundedHalves()
     {
         $w = ['class' => 0.5, 'exam' => 0.5];

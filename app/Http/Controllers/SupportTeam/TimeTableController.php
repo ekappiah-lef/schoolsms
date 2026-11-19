@@ -174,7 +174,7 @@ class TimeTableController extends Controller
             'isExam' => $isExam,
             'days' => $isExam ? $tts->pluck('exam_date')->filter()->unique()->sort()->values() : Qs::getDaysOfTheWeek(),
             'slots' => $slots->map(function ($t) use ($parse) {
-                return ['id' => $t->id, 'full' => $t->full, 'label' => $t->label, 'days' => $t->days ?: [], 'from' => $parse($t->time_from), 'to' => $parse($t->time_to),
+                return ['id' => $t->id, 'full' => $t->full, 'label' => $t->label, 'days' => $t->days ?: [], 'names' => (object) ($t->day_names ?: []), 'from' => $parse($t->time_from), 'to' => $parse($t->time_to),
                     'urls' => ['update' => route('ts.update', $t->id), 'destroy' => route('ts.destroy', $t->id)]];
             })->values(),
             'entries' => $tts->map(function ($e) {
@@ -197,7 +197,7 @@ class TimeTableController extends Controller
         $data = $req->all();
         $tms = $this->tt->findTimeSlot($req->ts_id);
         if (!self::slotFree($tms, $req->day ?: null) && !$req->exam_date) {
-            return Qs::json($tms->label.' takes this time on '.$req->day.'.', false);
+            return Qs::json($tms->nameOn($req->day).' takes this time on '.$req->day.'.', false);
         }
         $d_date = $req->exam_date ?? $req->day;
         $data['timestamp_from'] = strtotime($d_date.' '.$tms->time_from);
@@ -238,8 +238,7 @@ class TimeTableController extends Controller
         $data['timestamp_from'] = strtotime('2000-01-01 '.$tf);   // the time of day only, so slots sort by the clock
         $data['timestamp_to'] = strtotime('2000-01-01 '.$tt);
         $data['full'] = $tf.' - '.$tt;
-        $data['label'] = trim((string) $req->label) ?: null;
-        $data['days'] = $data['label'] ? self::slotDays($req->input('days')) : null;
+        [$data['label'], $data['days'], $data['day_names']] = self::slotNames($req);
 
         if($tf == $tt){
             return response()->json(['msg' => __('msg.invalid_time_slot'), 'ok' => FALSE]);
@@ -247,6 +246,22 @@ class TimeTableController extends Controller
 
         $this->tt->createTimeSlot($data);
         return Qs::jsonStoreOk();
+    }
+
+    /** [name, days, the activity on each day] of a slot: a lesson period, a break, or held on some days only. */
+    protected static function slotNames($req): array
+    {
+        $days = self::slotDays($req->input('days'));
+        if (!$days) return [trim((string) $req->label) ?: null, null, null];
+        $in = (array) json_decode((string) $req->input('day_names'), true);
+        $names = [];
+        foreach ($days as $d) {
+            $v = mb_substr(trim((string) ($in[$d] ?? '')), 0, 40);
+            if ($v !== '') $names[$d] = $v;
+        }
+        $label = trim((string) $req->label) ?: (reset($names) ?: null);
+
+        return [$label, $label ? $days : null, $label && $names ? $names : null];
     }
 
     /** The days a labelled slot is held on (none: every day, i.e. a break). */
@@ -298,8 +313,7 @@ class TimeTableController extends Controller
         $data['timestamp_from'] = strtotime('2000-01-01 '.$tf);   // the time of day only, so slots sort by the clock
         $data['timestamp_to'] = strtotime('2000-01-01 '.$tt);
         $data['full'] = $tf.' - '.$tt;
-        $data['label'] = trim((string) $req->label) ?: null;
-        $data['days'] = $data['label'] ? self::slotDays($req->input('days')) : null;
+        [$data['label'], $data['days'], $data['day_names']] = self::slotNames($req);
 
         if($tf == $tt){
             return back()->with('flash_danger', __('msg.invalid_time_slot'));
@@ -368,7 +382,7 @@ class TimeTableController extends Controller
                 // Held on some days only (Assembly on Monday …): its own cell on those days, a period on the others.
                 if ($ts->label && in_array($day, $ts->days, true)) {
                     if ($cells) $cells[count($cells) - 1]['open'] = false;
-                    $cells[] = ['kind' => 'activity', 'text' => $ts->label, 'colspan' => 1, 'rowspan' => 1, 'open' => false];
+                    $cells[] = ['kind' => 'activity', 'text' => $ts->nameOn($day), 'colspan' => 1, 'rowspan' => 1, 'open' => false];
                     continue;
                 }
                 $e = $tts->where('ts_id', $ts->id)->where($key, $day)->first();
@@ -429,7 +443,7 @@ class TimeTableController extends Controller
         $d_time = [];
         foreach ($days as $day) {
             foreach ($tms as $tm) {
-                $d_time[] = ['day' => $day, 'time' => $tm->full, 'subject' => $tm->label ?: (optional(optional($tts->where('ts_id', $tm->id)->where($key, $day)->first())->subject)->name)];
+                $d_time[] = ['day' => $day, 'time' => $tm->full, 'subject' => $tm->label && (!$tm->days || in_array($day, $tm->days, true)) ? $tm->nameOn($day) : (optional(optional($tts->where('ts_id', $tm->id)->where($key, $day)->first())->subject)->name)];
             }
         }
 

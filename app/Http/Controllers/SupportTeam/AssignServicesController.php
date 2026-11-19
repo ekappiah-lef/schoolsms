@@ -118,9 +118,10 @@ class AssignServicesController extends Controller
         elseif ($picked) $standing = $picked->id;
         elseif ($standing) $standing = null;
         else $once = null;
-        $discountChanged = (int) $sr->fee_discount_id !== (int) $standing;
+        $previous = $sr->fee_discount_id;
+        $discountChanged = (int) $previous !== (int) $standing;
         $sr->update(['fee_discount_id' => $standing, 'next_discount_id' => $once, 'staff_child' => $req->boolean('staff_child')]);
-        if ($discountChanged) Fees::applyDiscount($sr->fresh(), $year);
+        if ($discountChanged) Fees::changeDiscount($sr->fresh(), $previous, $year);
 
         // Next term: this term's services and bills stay as they are. This term: billed now.
         $kept = [];

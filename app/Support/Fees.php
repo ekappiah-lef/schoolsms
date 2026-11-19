@@ -213,6 +213,31 @@ class Fees
             });
     }
 
+    /**
+     * The student's discount type was changed (Assign services). Bills with a set discount (imported bills, or
+     * an early-payment discount) move by the difference between the old and new types; the rest follow the new type.
+     */
+    public static function changeDiscount(StudentRecord $sr, $previousId, ?string $year = null): void
+    {
+        $year = $year ?: Qs::getCurrentSession();
+        $old = self::standingDiscount($previousId);
+        $new = self::standingDiscount($sr->fee_discount_id);
+
+        PaymentRecord::where(['student_id' => $sr->user_id, 'year' => $year])->with('payment.items')->get()
+            ->each(function (PaymentRecord $pr) use ($old, $new) {
+                if (!$pr->discount_fixed || !$pr->payment) {
+                    self::writeDiscount($pr, $new);
+                    return;
+                }
+                $was = $old ? $old->offFor($pr->payment) : 0.0;
+                $now = $new ? $new->offFor($pr->payment) : 0.0;
+                if (Money::r($was) === Money::r($now)) return;
+                $discount = Money::r(min(max(Money::r($pr->discount) - $was + $now, 0), $pr->billAmount()));
+                $bal = Money::r($pr->billAmount() - $discount - Money::r($pr->amt_paid));
+                $pr->update(['discount' => $discount, 'balance' => max($bal, 0), 'paid' => $bal <= 0 ? 1 : 0]);
+            });
+    }
+
     /** After a fee's amount/breakdown changes, refresh every student's discount on it. */
     public static function refreshPaymentDiscounts(Payment $payment): void
     {

@@ -16,7 +16,7 @@ const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1));
 const MINUTES = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
 const WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const blankSlot = { hour_from: '', min_from: '', meridian_from: 'AM', hour_to: '', min_to: '', meridian_to: 'AM', label: '' };
-const BREAK_NAMES = ['Break', 'First break', 'Second break', 'Lunch', 'Registration', 'Assembly', 'Worship'];
+const BREAK_NAMES = ['Break', 'First break', 'Second break', 'Lunch', 'Registration', 'Assembly', 'Worship', 'Sports', 'Club activities'];
 
 /**
  * Timetable builder: set the time slots, then click a cell of the grid to put a
@@ -117,7 +117,7 @@ export default function TimetableManage({ record, isExam, days, slots, entries, 
                                     <li key={s.id} className="flex items-center gap-2 px-4 py-2 text-sm">
                                         <span className="tabular flex-1">
                                             {s.full}
-                                            {s.label && <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-2xs font-semibold uppercase text-fg-muted">{s.label}{s.days?.length ? ` · ${s.days.map((x) => x.slice(0, 3)).join(', ')}` : ''}</span>}
+                                            {s.label && <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-2xs font-semibold uppercase text-fg-muted">{s.days?.length ? s.days.map((x) => `${x.slice(0, 3)} ${s.names?.[x] || s.label}`).join(' · ') : s.label}</span>}
                                         </span>
                                         <RowIconButton icon={Pencil} title="Edit" onClick={() => setSlotDialog(s)} />
                                         {canDelete && (
@@ -174,7 +174,7 @@ export default function TimetableManage({ record, isExam, days, slots, entries, 
                                                     if (s.label && s.days.includes(c)) {
                                                         return (
                                                             <td key={c} className="p-1">
-                                                                <div className="flex h-10 items-center justify-center rounded-md bg-muted/70 px-2 text-xs font-semibold uppercase tracking-[0.1em] text-fg-muted">{s.label}</div>
+                                                                <div className="flex h-10 items-center justify-center rounded-md bg-muted/70 px-2 text-xs font-semibold uppercase tracking-[0.1em] text-fg-muted">{s.names?.[c] || s.label}</div>
                                                             </td>
                                                         );
                                                     }
@@ -227,18 +227,21 @@ function SlotDialog({ slot, ttrId, url, onClose, onSaved }) {
     const [busy, setBusy] = useState(false);
     const [kind, setKind] = useState(slot.label ? (slot.days?.length ? 'some' : 'break') : 'lesson');
     const [days, setDays] = useState(slot.days ?? []);
-    const isBreak = kind !== 'lesson';
-    const ok = d.hour_from && d.min_from && d.hour_to && d.min_to && (!isBreak || d.label.trim()) && (kind !== 'some' || days.length);
-    const sendDays = kind === 'some' ? days.join(',') : '';
+    const [names, setNames] = useState(() => Object.fromEntries((slot.days ?? []).map((x) => [x, slot.names?.[x] || slot.label || ''])));
+    const isBreak = kind === 'break';
+    const some = kind === 'some';
+    const ok = d.hour_from && d.min_from && d.hour_to && d.min_to && (!isBreak || d.label.trim()) && (!some || (days.length && days.every((x) => (names[x] ?? '').trim())));
+    const sendDays = some ? SLOT_DAYS.filter((x) => days.includes(x)).join(',') : '';
+    const extra = some ? { label: '', day_names: JSON.stringify(Object.fromEntries(days.map((x) => [x, (names[x] ?? '').trim()]))) } : { label: isBreak ? d.label.trim() : '', day_names: '' };
     const save = async () => {
         if (`${d.hour_from}:${d.min_from} ${d.meridian_from}` === `${d.hour_to}:${d.min_to} ${d.meridian_to}`) return toast.error('The start and end times are the same.');
         if (editing) {
             // Updating redirects back to the builder with a message.
-            router.put(slot.urls.update, { ...d, label: isBreak ? d.label.trim() : '', days: sendDays, ttr_id: ttrId }, { preserveScroll: true, onStart: () => setBusy(true), onFinish: () => setBusy(false), onSuccess: onClose });
+            router.put(slot.urls.update, { ...d, ...extra, days: sendDays, ttr_id: ttrId }, { preserveScroll: true, onStart: () => setBusy(true), onFinish: () => setBusy(false), onSuccess: onClose });
             return;
         }
         setBusy(true);
-        const r = await submitForm(url, { ...d, label: isBreak ? d.label.trim() : '', days: sendDays, ttr_id: ttrId });
+        const r = await submitForm(url, { ...d, ...extra, days: sendDays, ttr_id: ttrId });
         setBusy(false);
         if (r.ok && r.data?.ok !== false) {
             toast.success(r.message);
@@ -293,28 +296,43 @@ function SlotDialog({ slot, ttrId, url, onClose, onSaved }) {
                     <NativeSelect value={kind} onChange={setKind}>
                         <option value="lesson">A lesson period</option>
                         <option value="break">A break (every day)</option>
-                        <option value="some">On some days only</option>
+                        <option value="some">Days only</option>
                     </NativeSelect>
                 </Field>
+                <datalist id="break-names">
+                    {BREAK_NAMES.map((b) => (
+                        <option key={b} value={b} />
+                    ))}
+                </datalist>
                 {isBreak && (
                     <Field label="Name" required>
                         <input list="break-names" className={fieldInput} value={d.label} onChange={(e) => setD({ ...d, label: e.target.value })} maxLength={40} />
-                        <datalist id="break-names">
-                            {BREAK_NAMES.map((b) => (
-                                <option key={b} value={b} />
-                            ))}
-                        </datalist>
                     </Field>
                 )}
-                {kind === 'some' && (
+                {some && (
                     <Field label="Days" required>
-                        <div className="flex flex-wrap gap-2">
-                            {SLOT_DAYS.map((w) => (
-                                <label key={w} className={cn('flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm', days.includes(w) ? 'border-primary bg-primary-soft/60' : 'border-border')}>
-                                    <input type="checkbox" checked={days.includes(w)} onChange={() => setDays((x) => (x.includes(w) ? x.filter((y) => y !== w) : [...x, w]))} />
-                                    {w.slice(0, 3)}
-                                </label>
-                            ))}
+                        <div className="grid gap-2">
+                            {SLOT_DAYS.map((w) => {
+                                const on = days.includes(w);
+                                return (
+                                    <div key={w} className="flex items-center gap-2">
+                                        <label className={cn('flex w-32 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm', on ? 'border-primary bg-primary-soft/60' : 'border-border')}>
+                                            <input type="checkbox" checked={on} onChange={() => setDays((x) => (x.includes(w) ? x.filter((y) => y !== w) : [...x, w]))} />
+                                            {w}
+                                        </label>
+                                        {on && (
+                                            <input
+                                                list="break-names"
+                                                className={fieldInput}
+                                                value={names[w] ?? ''}
+                                                onChange={(e) => setNames({ ...names, [w]: e.target.value })}
+                                                maxLength={40}
+                                                aria-label={`${w} activity`}
+                                            />
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </Field>
                 )}
