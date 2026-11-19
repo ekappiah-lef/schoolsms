@@ -146,7 +146,7 @@ class MarkApprovals
             $s->submitted_at = $now;
             $s->note = $note;
         } elseif ($action === 'withdraw') {
-            $s->note = $note ?: 'Withdrawn by the teacher to correct.';
+            $s->note = $note ?: 'Withdrawn by the subject teacher for correction.';
         } else {
             $s->reviewed_by = Auth::id();
             $s->reviewed_at = $now;

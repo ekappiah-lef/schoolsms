@@ -27,7 +27,7 @@ const ASK = {
  * Heads of department approval of one subject's marks (switch hod_marks_approval):
  * status, the last note, the next step for this user and the history.
  */
-export function ApprovalBar({ approval, url, dirty }) {
+export function ApprovalBar({ approval, url, dirty, changes = null }) {
     const [ask, setAsk] = useState(null);
     const [note, setNote] = useState('');
     const [busy, setBusy] = useState(false);
@@ -63,10 +63,10 @@ export function ApprovalBar({ approval, url, dirty }) {
                 </Badge>
                 {approval.hod && <span className="text-sm text-fg-muted">HOD: {approval.hod}</span>}
                 <div className="ml-auto flex flex-wrap gap-2">
-                    {approval.history.length > 0 && (
+                    {(approval.history.length > 0 || changes) && (
                         <Button size="sm" variant="ghost" onClick={() => setShowHistory(true)}>
                             <History />
-                            History
+                            History (Marks)
                         </Button>
                     )}
                     {approval.canWithdraw && (
@@ -121,7 +121,7 @@ export function ApprovalBar({ approval, url, dirty }) {
                 </label>
             </Modal>
 
-            <Modal open={showHistory} onOpenChange={setShowHistory} title="History of these marks">
+            <Modal open={showHistory} onOpenChange={setShowHistory} title="History (Marks)" className="max-w-xl">
                 <ol className="flex flex-col gap-3">
                     {approval.history.map((h, i) => (
                         <li key={i} className="text-sm">
@@ -133,6 +133,7 @@ export function ApprovalBar({ approval, url, dirty }) {
                         </li>
                     ))}
                 </ol>
+                {showHistory && changes}
             </Modal>
         </div>
     );

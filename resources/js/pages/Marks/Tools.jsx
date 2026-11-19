@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { toast } from 'sonner';
 import { Mail, Printer, Search } from 'lucide-react';
-import { ConfirmDialog, Sheet } from '@/components/ui/dialog';
+import { ConfirmDialog, Modal } from '@/components/ui/dialog';
 import { ReportRemarks } from '@/components/app/report-remarks';
 import { withAppLayout } from '@/layouts/AppLayout';
 import { Field, ModuleHeader, NativeSelect } from '@/components/app/module';
@@ -188,9 +188,9 @@ function Tabulation({ sheet }) {
                 </table>
             </div>
             {pager}
-            <Sheet open={open !== null} onOpenChange={(o) => !o && setOpen(null)} title={at >= 0 ? sheet.rows[at].name : ''} className="max-w-2xl">
+            <Modal open={open !== null} onOpenChange={(o) => !o && setOpen(null)} title={at >= 0 ? sheet.rows[at].name : ''} className="top-[6vh] max-w-4xl">
                 {open && <ReportRemarks url={open} next={at >= 0 && at < sheet.rows.length - 1 ? () => setOpen(sheet.rows[at + 1].remarks) : null} />}
-            </Sheet>
+            </Modal>
         </Panel>
     );
 }

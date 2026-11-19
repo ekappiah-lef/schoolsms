@@ -204,7 +204,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                             <Button asChild>
                                 <a href={urls.register} target="_blank" rel="noreferrer">
                                     <Printer />
-                                    Register
+                                    View marks (PDF)
                                 </a>
                             </Button>
                         )}
@@ -216,7 +216,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                                 </a>
                             </Button>
                         )}
-                        {urls.history && <MarkHistory url={urls.history} />}
+                        {urls.history && !approval && <MarkHistory url={urls.history} />}
                         <Button
                             onClick={() =>
                                 downloadCsv(`marks-${context.subject}-${context.class}${context.section}.csv`, [
@@ -239,7 +239,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                 <MarkSelector compact exams={exams} classes={classes} current={current} urls={urls} />
             </div>
 
-            {approval && <ApprovalBar approval={approval} url={urls.approval} dirty={dirty} />}
+            {approval && <ApprovalBar approval={approval} url={urls.approval} dirty={dirty} changes={urls.history ? <MarkChanges url={urls.history} /> : null} />}
 
             <Panel flush className="relative">
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-border px-4 py-2.5 text-sm">
@@ -445,8 +445,8 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                 open={confirming}
                 onOpenChange={(o) => !saving && setConfirming(o)}
                 title={`Save marks for ${dirtyIds.length} ${dirtyIds.length === 1 ? 'student' : 'students'}?`}
-                description={`Have you cross-checked every score against your register?${blanks ? ` ${blanks} of them still ${blanks === 1 ? 'has' : 'have'} empty boxes.` : ''} You can open this page again to correct any mark.`}
-                confirmLabel="Yes, save marks"
+                description={blanks ? `${blanks} ${blanks === 1 ? 'student has' : 'students have'} incomplete scores.` : undefined}
+                confirmLabel="Save marks"
                 tone="primary"
                 loading={saving}
                 onConfirm={save}
@@ -456,6 +456,39 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
 }
 
 MarksManage.layout = withAppLayout;
+
+/** Score changes on this sheet, listed inside the approval history. */
+function MarkChanges({ url }) {
+    const [rows, setRows] = useState(null);
+    useEffect(() => {
+        fetch(url, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then((r) => r.json())
+            .then((j) => setRows(j.ok === false ? [] : j.rows))
+            .catch(() => setRows([]));
+    }, [url]);
+    const fmt = (v) => (v === null || v === undefined || v === '' ? '—' : v);
+    if (!rows || !rows.length) return null;
+    return (
+        <div className="mt-4 border-t border-border pt-3">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-muted">Score changes</div>
+            <ol className="flex max-h-[40vh] flex-col gap-2 overflow-auto">
+                {rows.map((r) => (
+                    <li key={r.id} className="text-sm">
+                        <div className="font-medium">{r.student}</div>
+                        {r.changes.map((c, i) => (
+                            <div key={i} className="tabular">
+                                {c.label}: {fmt(c.from)} → <span className="font-semibold">{fmt(c.to)}</span>
+                            </div>
+                        ))}
+                        <div className="text-xs text-fg-muted">
+                            {r.by ?? '—'} · {formatDate(r.at, 'd MMM yyyy, HH:mm')}
+                        </div>
+                    </li>
+                ))}
+            </ol>
+        </div>
+    );
+}
 
 /** Who changed which mark on this sheet, when, and from what to what. */
 function MarkHistory({ url }) {
@@ -477,9 +510,9 @@ function MarkHistory({ url }) {
         <>
             <Button onClick={show}>
                 <History />
-                History
+                History (Marks)
             </Button>
-            <Modal open={open} onOpenChange={setOpen} title="Changes to these marks" className="max-w-2xl">
+            <Modal open={open} onOpenChange={setOpen} title="History (Marks)" className="max-w-2xl">
                 {rows === null ? (
                     <p className="text-sm text-fg-muted">Loading…</p>
                 ) : rows.length === 0 ? (

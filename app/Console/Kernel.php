@@ -34,6 +34,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('fees:remind')->dailyAt('09:00');
         // Next term's bills on the term's last day, once the director has approved them.
         $schedule->command('fees:next-bills')->dailyAt('08:00');
+        // Report cards to parents on vacation day at 3 pm (schools with reports_on_vacation).
+        $schedule->command('reports:vacation')->dailyAt('15:00');
     }
 
     /**

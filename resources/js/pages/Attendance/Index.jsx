@@ -121,14 +121,6 @@ export default function Attendance({ sections, sectionId, date, saved, students,
                                                     <div className="text-xs text-fg-muted">{s.adm_no}</div>
                                                 </div>
                                                 {s.alerted && <Badge tone="info">Parent alerted</Badge>}
-                                                {m.status !== 'present' && (
-                                                    <input
-                                                        className="h-8 w-44 rounded-md border border-border bg-surface px-2 text-sm"
-                                                        placeholder="Note (optional)"
-                                                        value={m.note ?? ''}
-                                                        onChange={(e) => set(s.id, 'note', e.target.value)}
-                                                    />
-                                                )}
                                                 <div className="flex gap-1.5">
                                                     {MARKS.map((o) => (
                                                         <button
@@ -185,7 +177,7 @@ export default function Attendance({ sections, sectionId, date, saved, students,
                 open={alertOpen}
                 onOpenChange={(o) => !alerting && setAlertOpen(o)}
                 title={`Send absence alerts for ${toAlert.length} ${toAlert.length === 1 ? 'child' : 'children'}?`}
-                description="Their parents get an SMS (and email) saying the child was not in school, asking after them and hoping to see them soon. Each child is alerted once per day."
+                description="Parents will be notified by SMS and email."
                 confirmLabel="Send alerts"
                 tone="primary"
                 loading={alerting}

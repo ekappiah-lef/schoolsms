@@ -75,6 +75,9 @@ class MarkController extends Controller
             if ($this->student->exists($student_id) && $years->count()) {
                 return redirect()->route('marks.show', [Qs::hash($student_id), $years->sortByDesc('year')->first()->year]);
             }
+            if ($this->student->exists($student_id)) {
+                return back()->with('flash_danger', 'No results have been entered for '.optional(\App\User::find($student_id))->name.' yet.');
+            }
             return $this->noStudentRecord();
         }
 
@@ -321,6 +324,29 @@ class MarkController extends Controller
         if (!\App\Support\School::has('report_after_fees_cleared')) return 0.0;
 
         return max(\App\Support\Money::r(\App\Support\Fees::termInvoice($studentId)['total']), 0.0);
+    }
+
+    /**
+     * Every report card for an exam to the parents (vacation day): held while the pupil owes fees or a subject's
+     * marks in their class are not approved. Returns the counts.
+     */
+    public function sendTermReports(int $examId, string $year): array
+    {
+        $n = ['sent' => 0, 'owing' => 0, 'unapproved' => 0, 'failed' => 0];
+        foreach (\App\Models\ExamRecord::where(['exam_id' => $examId, 'year' => $year])->get() as $exr) {
+            $sr = $this->student->getRecord(['user_id' => $exr->student_id])->first();
+            if (!$sr) continue;
+            if (\App\Support\MarkApprovals::unapproved($examId, $exr->my_class_id, $exr->section_id, $year)) { $n['unapproved']++; continue; }
+            if ($this->owedBeforeReport((int) $sr->user_id) > 0) { $n['owing']++; continue; }
+            try {
+                $sent = collect($this->sendReport($sr, $examId, $year))->where('status', 'sent')->count();
+            } catch (\Throwable $e) {
+                $sent = 0;
+            }
+            $sent ? $n['sent']++ : $n['failed']++;
+        }
+
+        return $n;
     }
 
     protected function sendReport($sr, $exam_id, $year): array

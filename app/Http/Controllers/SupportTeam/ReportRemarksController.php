@@ -62,9 +62,23 @@ class ReportRemarksController extends Controller
         [$statements, $assess, $fields] = self::parts($tpl, (int) $sr->my_class_id);
         $r = ExamRecord::where(['exam_id' => (int) $exam, 'student_id' => $sr->user_id, 'year' => $year])->first();
         $canWrite = self::canWrite((int) $sr->section_id);
+        $term = (int) DB::table('exams')->where('id', (int) $exam)->value('term');
+        $tex = 'tex'.$term;
+        $marks = \App\Models\Mark::where(['exam_id' => (int) $exam, 'student_id' => $sr->user_id, 'year' => $year])->with('grade')->get()->keyBy('subject_id');
+        $subjects = \App\Support\School::orderSubjects(\App\Support\ReportSubjects::filter(\App\Models\Subject::where('my_class_id', $sr->my_class_id)->orderBy('name')->get())->values())
+            ->filter(function ($s) use ($marks) { return isset($marks[$s->id]); });
 
         return response()->json([
             'name' => optional($sr->user)->name,
+            'results' => [
+                'columns' => array_column(\App\Support\Assessment::summaryColumns(), 'label'),
+                'subjects' => $subjects->map(function ($s) use ($marks, $tex) {
+                    $mk = $marks[$s->id];
+                    return ['name' => $s->name, 'scores' => array_values(\App\Support\Assessment::summary($mk)), 'total' => $mk->$tex === null ? null : $mk->$tex + 0,
+                        'grade' => optional($mk->grade)->name, 'pos' => $mk->grade ? $mk->sub_pos : null];
+                })->values(),
+                'total' => optional($r)->total, 'ave' => optional($r)->ave, 'position' => true,
+            ],
             'areas' => $statements ? Benchmarks::forClass($tpl, (int) $sr->my_class_id) : [],
             'remarks' => (object) json_decode((string) optional($r)->benchmarks, true),
             'assessments' => (object) json_decode((string) optional($r)->assessments, true),
