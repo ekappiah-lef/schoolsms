@@ -61,7 +61,10 @@ class Navigation
                 // Class teachers write report remarks from here (HODs read their department's).
                 $exams[] = self::item('Tabulation sheet', null, 'marks.tabulation');
             }
-            $exams[] = self::item('Marks entry', null, 'marks.index', ['marks.index', 'marks.manage']);
+            // Not for a teacher whose classes all have a benchmarks report (creche, nursery: no marks).
+            if (!\App\Support\TeacherScope::applies() || array_diff(\App\Support\TeacherScope::markClassIds(), \App\Support\ReportTemplate::benchmarkClassIds())) {
+                $exams[] = self::item('Marks entry', null, 'marks.index', ['marks.index', 'marks.manage']);
+            }
             // Heads of department (and the academic admin / admins) check and approve submitted marks.
             if (\App\Support\MarkApprovals::on() && (Qs::userIsAcademicLead() || \App\Support\MarkApprovals::isHod())) {
                 $exams[] = self::item('Marks approval', null, 'marks.approvals');

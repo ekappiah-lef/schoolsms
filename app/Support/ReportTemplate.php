@@ -73,6 +73,17 @@ class ReportTemplate
         return School::has('detailed_reports');
     }
 
+    /** Ids of the classes whose report is benchmarks only (creche, nursery): no marks are entered for them. */
+    public static function benchmarkClassIds(): array
+    {
+        if (!self::detailedOn()) return [];
+        $types = \App\Models\MyClass::distinct()->pluck('class_type_id')->filter()->filter(function ($t) {
+            return (self::for((int) $t)['layout'] ?? '') === 'benchmarks';
+        })->all();
+
+        return \App\Models\MyClass::whereIn('class_type_id', $types)->pluck('id')->map(function ($id) { return (int) $id; })->all();
+    }
+
     /** The design for a class type: what was saved, with anything missing filled from the defaults. */
     public static function for(?int $classTypeId): array
     {

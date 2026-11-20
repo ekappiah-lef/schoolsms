@@ -50,14 +50,16 @@ class MarkController extends Controller
     /** Options for the exam/class/section/subject picker (sections & subjects load per class via /ajax). */
     protected function selectorProps($exams, ?array $current): array
     {
+        $noMarks = \App\Support\ReportTemplate::benchmarkClassIds();
+
         return [
             'session' => $this->year,
             'current' => $current,
             'exams' => $exams->map(function ($e) {
                 return ['id' => $e->id, 'name' => $e->name, 'term' => $e->term];
             })->values(),
-            'classes' => ClassOrder::sort($this->my_class->all())->filter(function ($c) {
-                return !TeacherScope::applies() || in_array((int) $c->id, TeacherScope::markClassIds(), true);
+            'classes' => ClassOrder::sort($this->my_class->all())->filter(function ($c) use ($noMarks) {
+                return !in_array((int) $c->id, $noMarks, true) && (!TeacherScope::applies() || in_array((int) $c->id, TeacherScope::markClassIds(), true));
             })->map(function ($c) {
                 return ['id' => $c->id, 'name' => $c->name];
             })->values(),
@@ -362,6 +364,9 @@ class MarkController extends Controller
         if (!TeacherScope::canMark((int) $req->my_class_id, (int) $req->section_id, (int) $req->subject_id)) {
             return back()->with('pop_error', 'You can only enter marks for your own class, or for the subjects you teach.');
         }
+        if (in_array((int) $req->my_class_id, \App\Support\ReportTemplate::benchmarkClassIds(), true)) {
+            return back()->with('pop_error', 'This class has no marks entry. Its report is written from the Tabulation sheet.');
+        }
         $data = $req->only(['exam_id', 'my_class_id', 'section_id', 'subject_id']);
         $d2 = $req->only(['exam_id', 'my_class_id', 'section_id']);
         $d = $req->only(['my_class_id', 'section_id']);
@@ -383,6 +388,9 @@ class MarkController extends Controller
 
     public function manage($exam_id, $class_id, $section_id, $subject_id)
     {
+        if (in_array((int) $class_id, \App\Support\ReportTemplate::benchmarkClassIds(), true)) {
+            return redirect()->route('marks.index')->with('flash_danger', 'This class has no marks entry. Its report is written from the Tabulation sheet.');
+        }
         // HODs may open the marks of their department's subjects (to check them; they do not edit).
         $canMark = TeacherScope::canMark((int) $class_id, (int) $section_id, (int) $subject_id);
         if (!$canMark && !\App\Support\MarkApprovals::canReview($subject_id)) {

@@ -2,6 +2,11 @@
 
 Auth::routes();
 
+/* Is the user still signed in? Used by the page to keep an active session alive and before showing a page from history. */
+Route::get('/session/ping', function () {
+    return response()->json(['signed_in' => \Illuminate\Support\Facades\Auth::check()])->header('Cache-Control', 'no-store');
+})->name('session.ping');
+
 /* Health check for deployments and monitoring: the app is up and can reach its database. */
 Route::get('/healthz', function () {
     try {

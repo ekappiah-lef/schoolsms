@@ -389,6 +389,15 @@ class SmokeTest extends TestCase
             $this->assertStringContainsString('BENCHMARKS', $html);
             $this->assertStringContainsString('001 Maths', $html);
             $this->assertStringContainsString('PERSONAL CARE SKILLS/INDEPENDENT SKILLS', $html);
+
+            // No marks entry for a benchmarks class.
+            $this->assertContains((int) $section->my_class_id, \App\Support\ReportTemplate::benchmarkClassIds());
+            $page = $this->actingAs($admin)->get(route('marks.index'))->assertOk()->viewData('page');
+            if ($page) $this->assertNotContains((int) $section->my_class_id, collect($page['props']['classes'])->pluck('id')->map(function ($i) { return (int) $i; })->all());
+            $subject = \App\Models\Subject::where('my_class_id', $section->my_class_id)->first();
+            if ($subject) {
+                $this->actingAs($admin)->get(route('marks.manage', [$exam->id, $section->my_class_id, $section->id, $subject->id]))->assertRedirect(route('marks.index'));
+            }
         } finally {
             \Illuminate\Support\Facades\DB::rollBack();
         }
@@ -813,6 +822,15 @@ class SmokeTest extends TestCase
         } finally {
             \Illuminate\Support\Facades\DB::rollBack();
         }
+    }
+
+    public function testSignedInPagesAreNotStored()
+    {
+        $this->get(route('session.ping'))->assertOk()->assertJson(['signed_in' => false]);
+        $admin = $this->user('super_admin');
+        $this->actingAs($admin)->get(route('session.ping'))->assertJson(['signed_in' => true]);
+        $r = $this->actingAs($admin)->get(route('tt.index'));
+        $this->assertStringContainsString('no-store', (string) $r->headers->get('Cache-Control'));
     }
 
     public function testDaysOnlySlotHoldsADifferentActivityEachDay()
