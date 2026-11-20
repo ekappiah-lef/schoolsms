@@ -474,9 +474,9 @@ class StudentRecordController extends Controller
             ->leftJoin('sections as s', 's.id', '=', 'sr.section_id')
             ->leftJoin('users as p', 'p.id', '=', 'sr.my_parent_id')
             ->where('sr.grad', $grad)
-            // Teachers only see the students of the section(s) they are class teacher of.
+            // Teachers only see the students of the section(s) they are class teacher of (a department head: their department's).
             ->when(\App\Support\TeacherScope::applies(), function ($q) {
-                $q->whereIn('sr.section_id', \App\Support\TeacherScope::ownSectionIds());
+                $q->whereIn('sr.section_id', \App\Support\TeacherScope::viewSectionIds());
             })
             ->select(
                 'sr.id', 'sr.user_id', 'sr.adm_no', 'sr.my_class_id', 'sr.section_id', 'sr.year_admitted', 'sr.grad_date', 'sr.status', 'sr.away_until', 'sr.left_on',
