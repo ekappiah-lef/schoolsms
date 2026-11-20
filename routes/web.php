@@ -127,7 +127,7 @@ Route::group(['middleware' => 'auth'], function () {
         Route::group(['prefix' => 'timetables'], function(){
             Route::get('/', 'TimeTableController@index')->name('tt.index');
 
-            Route::group(['middleware' => 'academicLead'], function() {
+            Route::group(['middleware' => 'timetableEditor'], function() {
                 Route::post('/', 'TimeTableController@store')->name('tt.store');
                 Route::put('/{tt}', 'TimeTableController@update')->name('tt.update');
                 Route::delete('/{tt}', 'TimeTableController@delete')->name('tt.delete');
@@ -136,7 +136,7 @@ Route::group(['middleware' => 'auth'], function () {
             /*************** TimeTable Records *****************/
             Route::group(['prefix' => 'records'], function(){
 
-                Route::group(['middleware' => 'academicLead'], function(){
+                Route::group(['middleware' => 'timetableEditor'], function(){
                     Route::get('manage/{ttr}', 'TimeTableController@manage')->name('ttr.manage');
                     Route::post('/', 'TimeTableController@store_record')->name('ttr.store');
                     Route::get('edit/{ttr}', 'TimeTableController@edit_record')->name('ttr.edit');
@@ -150,7 +150,7 @@ Route::group(['middleware' => 'auth'], function () {
             });
 
             /*************** Time Slots *****************/
-            Route::group(['prefix' => 'time_slots', 'middleware' => 'academicLead'], function(){
+            Route::group(['prefix' => 'time_slots', 'middleware' => 'timetableEditor'], function(){
                 Route::post('/', 'TimeTableController@store_time_slot')->name('ts.store');
                 Route::post('/use/{ttr}', 'TimeTableController@use_time_slot')->name('ts.use');
                 Route::get('edit/{ts}', 'TimeTableController@edit_time_slot')->name('ts.edit');

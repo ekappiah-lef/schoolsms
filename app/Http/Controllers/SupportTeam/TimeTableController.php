@@ -27,6 +27,35 @@ class TimeTableController extends Controller
         $this->my_class = $mc;
         $this->exam = $exam;
         $this->year = Qs::getCurrentSession();
+
+        // A department head builds the timetables of their department's classes only.
+        $this->middleware(function ($req, $next) {
+            $ids = self::editableClassIds();
+            if ($ids === null) return $next($req);
+            $classes = [];
+            $ttrOf = function ($id) { return \App\Models\TimeTableRecord::where('id', (int) $id)->value('my_class_id'); };
+            if ($req->route('ttr')) $classes[] = $ttrOf($req->route('ttr'));
+            if ($req->route('tt')) $classes[] = $ttrOf(\App\Models\TimeTable::where('id', (int) $req->route('tt'))->value('ttr_id'));
+            if ($req->route('ts')) $classes[] = $ttrOf(\App\Models\TimeSlot::where('id', (int) $req->route('ts'))->value('ttr_id'));
+            if ($req->filled('ttr_id') && !$req->routeIs('ts.use')) $classes[] = $ttrOf($req->input('ttr_id'));
+            if ($req->filled('my_class_id')) $classes[] = $req->input('my_class_id');
+            foreach ($classes as $c) {
+                if (!in_array((int) $c, $ids, true)) {
+                    $msg = 'You can only build timetables for the classes in your department.';
+                    return $req->expectsJson() || $req->ajax() ? Qs::json($msg, false) : redirect()->route('tt.index')->with('flash_danger', $msg);
+                }
+            }
+            return $next($req);
+        })->only(['manage', 'store_record', 'edit_record', 'update_record', 'store', 'update', 'delete', 'store_time_slot', 'use_time_slot', 'edit_time_slot', 'delete_time_slot', 'update_time_slot']);
+    }
+
+    /** Classes whose timetables the user may build: null for the academic leads (all), a department head's department classes. */
+    public static function editableClassIds(): ?array
+    {
+        if (Qs::userIsAcademicLead()) return null;
+        $types = \App\Support\TeacherScope::isDepartmentHead() ? \App\Support\TeacherScope::headedClassTypeIds() : [];
+
+        return \App\Models\MyClass::whereIn('class_type_id', $types)->pluck('id')->map(function ($v) { return (int) $v; })->all();
     }
 
     /**
@@ -36,7 +65,9 @@ class TimeTableController extends Controller
     protected function visibleClassIds(): ?array
     {
         if (Qs::userIsTeacher()) {
-            return \App\Support\TeacherScope::markClassIds();
+            // A department head also sees the timetables of their department's classes.
+            $dept = \App\Models\Section::whereIn('id', \App\Support\TeacherScope::viewSectionIds())->pluck('my_class_id')->map(function ($v) { return (int) $v; })->all();
+            return array_values(array_unique(array_merge(\App\Support\TeacherScope::markClassIds(), $dept)));
         }
         if (Qs::userIsStudent()) {
             return DB::table('student_records')->where('user_id', Auth::id())->pluck('my_class_id')->all();
@@ -82,6 +113,8 @@ class TimeTableController extends Controller
         $periods = DB::table('time_tables')->groupBy('ttr_id')->select('ttr_id', DB::raw('count(*) as n'))->pluck('n', 'ttr_id');
         $slots = DB::table('time_slots')->groupBy('ttr_id')->select('ttr_id', DB::raw('count(*) as n'))->pluck('n', 'ttr_id');
         $isSA = Qs::userIsAcademicLead();
+        $editable = self::editableClassIds();
+        $canEdit = function ($classId) use ($editable) { return $editable === null || in_array((int) $classId, $editable, true); };
         $classes = ClassOrder::sort($this->my_class->all()->load('class_type'));
 
         // A parent sees which of their children each timetable is for.
@@ -90,7 +123,8 @@ class TimeTableController extends Controller
                 ->orderBy('u.name')->get(['u.name', 'sr.my_class_id'])->groupBy('my_class_id')->map(function ($g) { return $g->pluck('name')->values(); })
             : collect();
 
-        $rows = $records->sortByDesc('year')->map(function ($r) use ($periods, $slots, $isSA, $childrenOf) {
+        $rows = $records->sortByDesc('year')->map(function ($r) use ($periods, $slots, $isSA, $childrenOf, $canEdit) {
+            $edits = $isSA || (!Qs::userIsParent() && !Qs::userIsStudent() && $canEdit($r->my_class_id));
             return [
                 'id' => $r->id,
                 'name' => $r->name,
@@ -105,8 +139,8 @@ class TimeTableController extends Controller
                 'urls' => array_filter([
                     'show' => route('ttr.show', $r->id),
                     'print' => route('ttr.print', $r->id),
-                    'manage' => $isSA ? route('ttr.manage', $r->id) : null,
-                    'edit' => $isSA ? route('ttr.edit', $r->id) : null,
+                    'manage' => $edits ? route('ttr.manage', $r->id) : null,
+                    'edit' => $edits ? route('ttr.edit', $r->id) : null,
                     'destroy' => Qs::userIsSuperAdmin() ? route('ttr.destroy', $r->id) : null,
                 ]),
             ];
@@ -116,7 +150,7 @@ class TimeTableController extends Controller
 
         return [
             'session' => $this->year,
-            'canCreate' => $isSA,
+            'canCreate' => $isSA || ($editable !== null && count($editable) > 0),
             // staff | student | parent: parents and students only see their own classes, to view and print.
             'viewer' => Qs::userIsParent() ? 'parent' : (Qs::userIsStudent() ? 'student' : 'staff'),
             'records' => $rows,
@@ -127,7 +161,7 @@ class TimeTableController extends Controller
                 'updated' => $rows->max('updated'),
             ],
             // Class options grouped by class type, like the design's <optgroup>s.
-            'classGroups' => $classes->groupBy(function ($c) { return optional($c->class_type)->name ?? 'Other'; })->map(function ($g, $type) {
+            'classGroups' => $classes->filter(function ($c) use ($canEdit) { return $canEdit($c->id); })->groupBy(function ($c) { return optional($c->class_type)->name ?? 'Other'; })->map(function ($g, $type) {
                 return ['label' => $type, 'options' => $g->map(function ($c) { return ['id' => $c->id, 'name' => $c->name]; })->values()];
             })->values(),
             'exams' => $this->exam->getExam(['year' => $this->year])->map(function ($e) { return ['id' => $e->id, 'name' => $e->name, 'term' => $e->term]; })->values(),
@@ -426,7 +460,7 @@ class TimeTableController extends Controller
                 'others' => $others,
                 'urls' => array_filter([
                     'print' => route('ttr.print', $ttr->id),
-                    'manage' => Qs::userIsAcademicLead() ? route('ttr.manage', $ttr->id) : null,
+                    'manage' => (Qs::userIsAcademicLead() || (($e = self::editableClassIds()) && in_array((int) $ttr->my_class_id, $e, true))) ? route('ttr.manage', $ttr->id) : null,
                     'index' => Qs::userIsStudent() ? null : route('tt.index'),
                 ]),
             ];

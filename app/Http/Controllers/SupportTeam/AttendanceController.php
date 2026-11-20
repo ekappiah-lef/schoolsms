@@ -126,12 +126,12 @@ class AttendanceController extends Controller
         return Qs::json("Absence alerts sent to the parents of {$sent} {$noun}".($held ? " ({$held} not sent: demo mode or no contact)" : '').'.', true);
     }
 
-    /** Sections this user can take the register for, as [{id, name}] labelled "Class Section". */
+    /** Sections this user can take the register for (a department head: their department's), as [{id, name}] labelled "Class Section". */
     protected function sections()
     {
         $q = Section::with('my_class');
         if (TeacherScope::applies()) {
-            $q->whereIn('id', TeacherScope::ownSectionIds());
+            $q->whereIn('id', TeacherScope::viewSectionIds());
         }
         $rows = $q->get()->filter(function ($s) { return $s->my_class; })->map(function ($s) {
             return ['id' => (int) $s->id, 'name' => $s->my_class->name.' '.$s->name, 'class_type_id' => $s->my_class->class_type_id];
@@ -145,7 +145,7 @@ class AttendanceController extends Controller
     protected function allowedSection(int $id): ?Section
     {
         $section = Section::find($id);
-        if (!$section || (TeacherScope::applies() && !in_array($id, TeacherScope::ownSectionIds(), true))) {
+        if (!$section || (TeacherScope::applies() && !in_array($id, TeacherScope::viewSectionIds(), true))) {
             return null;
         }
 

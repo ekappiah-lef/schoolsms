@@ -125,9 +125,9 @@ class HomeController extends Controller
             $d['enrolment'] = $this->enrolmentByClass();
             $d['performance'] = $this->latestExamPerformance($session);
             $d['classMonitor'] = $this->classMonitor($d['enrolment']);
-            // Teachers: only the class(es) they are class teacher of.
+            // Teachers: only the class(es) they are class teacher of (a department head: their department's).
             if (\App\Support\TeacherScope::applies()) {
-                $own = \App\Models\Section::whereIn('id', \App\Support\TeacherScope::ownSectionIds())->pluck('my_class_id')->map(function ($v) { return (int) $v; })->all();
+                $own = \App\Models\Section::whereIn('id', \App\Support\TeacherScope::viewSectionIds())->pluck('my_class_id')->map(function ($v) { return (int) $v; })->all();
                 $d['classMonitor'] = array_values(array_filter($d['classMonitor'], function ($c) use ($own) { return in_array((int) $c['id'], $own, true); }));
             }
             $d['exams'] = $this->sessionExams($session);

@@ -337,6 +337,17 @@ class SmokeTest extends TestCase
             $this->actingAs($teacher)->get(route('attendance.report'))->assertOk();
             $this->actingAs($teacher)->get(route('marks.bulk', [$section->my_class_id, $section->id]))->assertOk();
 
+            // The department's classes in the register and student list; timetables for the department only.
+            $page = $this->actingAs($teacher)->get(route('attendance.index'))->viewData('page');
+            if ($page && isset($page['props']['sections'])) $this->assertContains((int) $section->id, collect($page['props']['sections'])->pluck('id')->all());
+            $ttr = \App\Models\TimeTableRecord::create(['name' => 'Dept TT test', 'my_class_id' => $section->my_class_id, 'year' => \App\Helpers\Qs::getCurrentSession()]);
+            $this->actingAs($teacher)->get(route('ttr.manage', $ttr->id))->assertOk();
+            $other = \App\Models\MyClass::where('class_type_id', '!=', $section->my_class->class_type_id)->first();
+            if ($other) {
+                $ttr2 = \App\Models\TimeTableRecord::create(['name' => 'Other TT test', 'my_class_id' => $other->id, 'year' => \App\Helpers\Qs::getCurrentSession()]);
+                $this->actingAs($teacher)->get(route('ttr.manage', $ttr2->id))->assertRedirect(route('tt.index'));
+            }
+
             // A subject off the report card is not counted in totals.
             $sub = \App\Models\Subject::where('my_class_id', $section->my_class_id)->first();
             if ($sub) {

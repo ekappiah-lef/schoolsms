@@ -70,6 +70,7 @@ class Kernel extends HttpKernel
         'teamSA' => \App\Http\Middleware\Custom\TeamSA::class,
         'classesAccess' => \App\Http\Middleware\Custom\ClassesAccess::class,
         'academicLead' => \App\Http\Middleware\Custom\TeamAcademicLead::class,
+        'timetableEditor' => \App\Http\Middleware\Custom\TimetableEditor::class,
         'teamAdmin' => \App\Http\Middleware\Custom\TeamAdmin::class,
         'teamSAT' => \App\Http\Middleware\Custom\TeamSAT::class,
         'teamAccount' => \App\Http\Middleware\Custom\TeamAccount::class,
