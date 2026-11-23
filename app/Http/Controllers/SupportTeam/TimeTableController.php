@@ -432,10 +432,27 @@ class TimeTableController extends Controller
             $rows[] = ['day' => $day, 'cells' => array_map(function ($c) { unset($c['open']); return $c; }, $cells)];
         }
 
+        // One day at a time (phones): each slot in order with what is on.
+        $byDay = [];
+        foreach ($days as $day) {
+            $list = [];
+            foreach ($slots as $ts) {
+                if ($ts->label && (!$ts->days || in_array($day, $ts->days, true))) {
+                    $list[] = ['from' => $ts->time_from, 'to' => $ts->time_to, 'kind' => $ts->days ? 'activity' : 'break', 'text' => $ts->nameOn($day)];
+                    continue;
+                }
+                $e = $tts->where('ts_id', $ts->id)->where($key, $day)->first();
+                $name = $e ? optional($e->subject)->name : null;
+                $list[] = ['from' => $ts->time_from, 'to' => $ts->time_to, 'kind' => $name ? 'subject' : 'empty', 'text' => $name, 'colour' => $e ? ($colours[$e->subject_id] ?? 0) : null];
+            }
+            $byDay[] = ['day' => $day, 'periods' => $list];
+        }
+
         return [
             'isExam' => $isExam,
             'slots' => $slots->map(function ($t) { return ['id' => $t->id, 'from' => $t->time_from, 'to' => $t->time_to, 'label' => $t->days ? null : $t->label]; })->values()->all(),
             'rows' => $rows,
+            'byDay' => $byDay,
         ];
     }
 

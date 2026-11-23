@@ -150,7 +150,9 @@ export default function TimetableManage({ record, isExam, days, slots, entries, 
                         }
                     >
                         {slots.length && columns.length ? (
-                            <div className="scrollbar-thin overflow-x-auto">
+                            <>
+                            <DayBuilder columns={columns} slots={slots} isExam={isExam} at={at} onPick={(c, s, e) => setCell({ entry: e, ts_id: s.id, ...(isExam ? { exam_date: c } : { day: c }) })} />
+                            <div className="scrollbar-thin hidden overflow-x-auto md:block">
                                 <table className="w-full min-w-[640px] table-fixed text-sm">
                                     <thead>
                                         <tr className="border-b border-border bg-canvas text-2xs font-semibold uppercase text-fg-muted">
@@ -199,6 +201,7 @@ export default function TimetableManage({ record, isExam, days, slots, entries, 
                                     </tbody>
                                 </table>
                             </div>
+                            </>
                         ) : (
                             <EmptyState compact title={slots.length ? 'No exam dates yet' : 'Add time slots first'} />
                         )}
@@ -216,6 +219,46 @@ export default function TimetableManage({ record, isExam, days, slots, entries, 
 TimetableManage.layout = withAppLayout;
 
 const SLOT_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** Phones: one day at a time; tap a period to put a subject in it. */
+function DayBuilder({ columns, slots, isExam, at, onPick }) {
+    const today = new Date().toLocaleDateString('en-GB', { weekday: 'long' });
+    const [day, setDay] = useState(() => (columns.includes(today) ? today : columns[0]));
+    const c = columns.includes(day) ? day : columns[0];
+    return (
+        <div className="md:hidden">
+            <div className="scrollbar-thin flex gap-1.5 overflow-x-auto border-b border-border p-3">
+                {columns.map((d) => (
+                    <button key={d} type="button" onClick={() => setDay(d)} className={cn('h-10 min-w-14 shrink-0 rounded-md px-3 text-sm font-semibold', d === c ? 'bg-primary text-white' : 'bg-muted text-fg-muted')}>
+                        {isExam ? formatDate(d, 'EEE dd/MM') : d.slice(0, 3)}
+                    </button>
+                ))}
+            </div>
+            <ol className="flex flex-col divide-y divide-border">
+                {slots.map((s) => {
+                    const fixed = s.label && (!s.days?.length || s.days.includes(c));
+                    const e = fixed ? null : at(s.id, c);
+                    return (
+                        <li key={s.id} className="flex items-stretch gap-3 px-3 py-2">
+                            <div className="tabular w-20 shrink-0 whitespace-pre-line py-1 text-xs leading-tight text-fg-muted">{s.full.replace(' - ', '\n')}</div>
+                            {fixed ? (
+                                <div className="flex min-h-11 flex-1 items-center rounded-md bg-muted/70 px-3 text-xs font-semibold uppercase tracking-[0.1em] text-fg-muted">{s.names?.[c] || s.label}</div>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => onPick(c, s, e)}
+                                    className={cn('flex min-h-11 flex-1 items-center rounded-md border px-3 text-left text-sm', e ? 'border-transparent bg-primary-soft/60 font-medium text-primary-hover' : 'border-dashed border-border text-fg-subtle')}
+                                >
+                                    {e ? e.subject : '+'}
+                                </button>
+                            )}
+                        </li>
+                    );
+                })}
+            </ol>
+        </div>
+    );
+}
 
 function SlotDialog({ slot, ttrId, url, onClose, onSaved }) {
     const editing = !!slot.id;

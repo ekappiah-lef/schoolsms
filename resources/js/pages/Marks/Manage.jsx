@@ -122,6 +122,21 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
         }
     };
 
+    // Phones: Next on the keyboard goes to the next box, then the next student's first box.
+    const focusMobile = (rowIndex, colIndex) => {
+        let r = rowIndex;
+        let c = colIndex;
+        if (c >= COLUMNS.length) {
+            r += 1;
+            c = 0;
+        }
+        const row = rows[r];
+        if (!row) return;
+        const el = inputs.current[`m:${row.id}.${COLUMNS[c].key}`];
+        el?.focus();
+        el?.select();
+    };
+
     // Box sums for the register layout: each group's total and the class total.
     const sumOf = (id, keys) => {
         const v = values[id] ?? {};
@@ -235,7 +250,7 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                 }
             />
 
-            <div className="panel mb-4 px-4 py-3">
+            <div className="panel mb-4 hidden px-4 py-3 md:block">
                 <MarkSelector compact exams={exams} classes={classes} current={current} urls={urls} />
             </div>
 
@@ -270,7 +285,68 @@ export default function MarksManage({ context, rows, grades, generalGrades, exam
                     </Tooltip>
                 </div>
 
-                <div className="scrollbar-thin overflow-x-auto">
+                {/* Phones: one card per student */}
+                <ol className="divide-y divide-border md:hidden">
+                    {rows.map((r, ri) => {
+                        const { total, grade } = computed(r.id);
+                        const changed = dirtyIds.includes(r.id);
+                        return (
+                            <li key={r.id} className={cn('px-3 py-3', changed && 'bg-warning-soft/50')}>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="tabular w-5 shrink-0 text-sm text-fg-subtle">{ri + 1}</span>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="text-sm font-medium leading-snug">{r.name}</div>
+                                        <div className="tabular text-xs text-fg-muted">{r.adm_no}</div>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        <span className={cn('tabular text-base font-semibold', total > 100 && 'text-danger-fg')}>{total ?? <span className="text-fg-subtle">—</span>}</span>
+                                        {grade && (
+                                            <Badge tone={gradeTone(grade.name)} shape="tag">
+                                                {grade.name}
+                                            </Badge>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="mt-2 grid grid-cols-3 gap-2 pl-7">
+                                    {COLUMNS.map((c, ci) => {
+                                        const err = errors[`${r.id}.${c.key}`];
+                                        return (
+                                            <label key={c.key} className="flex flex-col gap-1">
+                                                <span className="text-2xs font-semibold uppercase text-fg-muted">
+                                                    {c.label} <span className="font-normal text-fg-subtle">/{c.max}</span>
+                                                </span>
+                                                <input
+                                                    ref={(el) => (inputs.current[`m:${r.id}.${c.key}`] = el)}
+                                                    value={values[r.id]?.[c.key] ?? ''}
+                                                    onChange={(e) => setCell(r.id, c.key, e.target.value)}
+                                                    readOnly={!canEdit}
+                                                    onFocus={(e) => e.target.select()}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            focusMobile(ri, ci + 1);
+                                                        }
+                                                    }}
+                                                    inputMode="decimal"
+                                                    enterKeyHint="next"
+                                                    aria-label={`${c.label} for ${r.name}`}
+                                                    aria-invalid={err ? true : undefined}
+                                                    className={cn(
+                                                        'tabular h-11 w-full rounded-md border bg-surface text-center text-base focus:border-primary focus:shadow-focus focus:outline-none',
+                                                        !canEdit && 'cursor-default border-transparent bg-transparent',
+                                                        err ? 'border-danger bg-danger-soft text-danger-fg' : 'border-fg-subtle',
+                                                    )}
+                                                />
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </li>
+                        );
+                    })}
+                </ol>
+
+                <div className="scrollbar-thin hidden overflow-x-auto md:block">
                     <table className="w-full border-collapse text-left [&_td]:border [&_td]:border-fg-muted/70 [&_th]:border [&_th]:border-fg-muted/70">
                         <thead>
                             {groups ? (

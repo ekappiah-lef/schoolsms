@@ -209,7 +209,16 @@ class UserController extends Controller
 
         $this->user->update($user->id, ['password' => Hash::make($d['password']), 'remember_token' => null]);
 
-        return Qs::json('Password changed for '.$user->name.'.');
+        return Qs::json('Password changed for '.$user->name.'.'.self::loginSms($req, $user, $d['password']));
+    }
+
+    /** " SMS sent to …" / " SMS not sent: …" when the admin ticked Send by SMS. */
+    public static function loginSms(\Illuminate\Http\Request $req, $user, string $password): string
+    {
+        if (!$req->boolean('send_sms')) return '';
+        [$sent, $info] = \App\Support\Notices::sendLogin($user, $password);
+
+        return $sent ? ' SMS sent to '.$info.'.' : ' SMS not sent: '.$info.'.';
     }
 
     public function store(UserRequest $req)

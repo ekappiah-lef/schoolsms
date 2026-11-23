@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { cn, formatDate } from '@/lib/utils';
 
 // Soft colours, one per subject, in the order subjects first appear.
-const COLOURS = [
+export const COLOURS = [
     'bg-sky-100 text-sky-900',
     'bg-rose-100 text-rose-900',
     'bg-lime-100 text-lime-900',
@@ -78,6 +79,52 @@ export function TimetableGrid({ isExam, slots, rows }) {
                     ))}
                 </tbody>
             </table>
+        </div>
+    );
+}
+
+/** Phones: one day at a time, each period on its own line, breaks and activities as their own rows. */
+export function TimetableDay({ isExam, byDay }) {
+    const today = new Date().toLocaleDateString('en-GB', { weekday: 'long' });
+    const [at, setAt] = useState(() => Math.max(0, byDay.findIndex((d) => d.day === today)));
+    const day = byDay[at];
+    const label = (d) => (isExam ? formatDate(d, 'EEE dd/MM') : d.slice(0, 3));
+    if (!day) return null;
+    return (
+        <div className="flex flex-col">
+            <div className="scrollbar-thin flex gap-1.5 overflow-x-auto border-b border-border p-3">
+                {byDay.map((d, i) => (
+                    <button
+                        key={d.day}
+                        type="button"
+                        onClick={() => setAt(i)}
+                        className={cn('h-10 min-w-14 shrink-0 rounded-md px-3 text-sm font-semibold', i === at ? 'bg-primary text-white' : 'bg-muted text-fg-muted')}
+                    >
+                        {label(d.day)}
+                    </button>
+                ))}
+            </div>
+            <ol className="flex flex-col divide-y divide-border">
+                {day.periods.map((p, i) => (
+                    <li key={i} className="flex items-stretch gap-3 px-3 py-2">
+                        <div className="tabular w-20 shrink-0 py-1 text-xs leading-tight text-fg-muted">
+                            {p.from}
+                            <br />
+                            {p.to}
+                        </div>
+                        <div
+                            className={cn(
+                                'flex min-h-11 flex-1 items-center rounded-md px-3 text-sm',
+                                p.kind === 'subject' && cn('font-medium', COLOURS[p.colour % COLOURS.length]),
+                                (p.kind === 'break' || p.kind === 'activity') && 'bg-muted/70 text-xs font-semibold uppercase tracking-[0.1em] text-fg-muted',
+                                p.kind === 'empty' && 'text-fg-subtle',
+                            )}
+                        >
+                            {p.text || '—'}
+                        </div>
+                    </li>
+                ))}
+            </ol>
         </div>
     );
 }

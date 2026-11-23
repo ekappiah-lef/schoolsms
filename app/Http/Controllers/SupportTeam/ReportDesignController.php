@@ -20,6 +20,11 @@ class ReportDesignController extends Controller
     public function __construct()
     {
         $this->middleware('teamSAT');
+        // Schools with report_design_leads_only: admins, the academic admin and HODs only (not teachers).
+        $this->middleware(function ($req, $next) {
+            if (\App\Support\School::has('report_design_leads_only') && !Qs::userIsAcademicLead()) return redirect()->route('dashboard');
+            return $next($req);
+        });
     }
 
     /** Class types this user may see: all for admins / academic admin, their own class's type for a teacher. */

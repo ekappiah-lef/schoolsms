@@ -70,10 +70,8 @@ class Navigation
                 $exams[] = self::item('Marks approval', null, 'marks.approvals');
             }
             $exams[] = self::item('Results by class', null, 'marks.bulk', ['marks.bulk', 'marks.show']);
-            // Admins, the academic admin and class teachers (for their own class type) design the report card.
-            // Remarks are written on each student's results (Results by class): the class teacher's by the
-            // class teacher, the head teacher's by the academic admin or an admin.
-            if (Qs::userIsAcademicLead() || \App\Support\TeacherScope::ownSectionIds()) {
+            // Admins, the academic admin, HODs and (unless report_design_leads_only) class teachers for their own class type.
+            if (Qs::userIsAcademicLead() || (!\App\Support\School::has('report_design_leads_only') && \App\Support\TeacherScope::ownSectionIds())) {
                 $exams[] = self::item('Report cards', null, 'reports.design');
             }
             $academics[] = self::group('Examinations', 'notebook-pen', $exams);

@@ -39,14 +39,20 @@ export default function Approvals({ status, counts, rows, urls }) {
                             sort: (r) => r.subject,
                             exportValue: (r) => r.subject,
                             cell: (r) => (
-                                <Link href={r.url} className="font-semibold hover:text-primary">
-                                    {r.subject}
-                                </Link>
+                                <div>
+                                    <Link href={r.url} className="font-semibold hover:text-primary">
+                                        {r.subject}
+                                    </Link>
+                                    <div className="text-xs text-fg-muted sm:hidden">
+                                        {r.class}
+                                        {r.teacher ? ` · ${r.teacher}` : ''}
+                                    </div>
+                                </div>
                             ),
                         },
-                        { key: 'class', header: 'Class', sort: (r) => r.class, exportValue: (r) => r.class, cell: (r) => r.class },
-                        { key: 'exam', header: 'Exam', sort: (r) => r.exam, exportValue: (r) => r.exam, cell: (r) => r.exam },
-                        { key: 'teacher', header: 'Teacher', sort: (r) => r.teacher, exportValue: (r) => r.teacher, cell: (r) => r.teacher ?? '—' },
+                        { key: 'class', header: 'Class', className: 'hidden sm:table-cell', headerClassName: 'hidden sm:table-cell', sort: (r) => r.class, exportValue: (r) => r.class, cell: (r) => r.class },
+                        { key: 'exam', header: 'Exam', className: 'hidden sm:table-cell', headerClassName: 'hidden sm:table-cell', sort: (r) => r.exam, exportValue: (r) => r.exam, cell: (r) => r.exam },
+                        { key: 'teacher', header: 'Teacher', className: 'hidden sm:table-cell', headerClassName: 'hidden sm:table-cell', sort: (r) => r.teacher, exportValue: (r) => r.teacher, cell: (r) => r.teacher ?? '—' },
                         {
                             key: 'status',
                             header: 'Status',
@@ -62,6 +68,8 @@ export default function Approvals({ status, counts, rows, urls }) {
                         {
                             key: 'when',
                             header: 'Updated',
+                            className: 'hidden sm:table-cell',
+                            headerClassName: 'hidden sm:table-cell',
                             sort: (r) => r.reviewed_at ?? r.submitted_at,
                             exportValue: (r) => r.reviewed_at ?? r.submitted_at,
                             cell: (r) => <span className="text-sm text-fg-muted">{formatDate(r.reviewed_at ?? r.submitted_at, 'd MMM, HH:mm')}</span>,

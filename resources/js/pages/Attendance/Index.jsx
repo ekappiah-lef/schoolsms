@@ -113,11 +113,13 @@ export default function Attendance({ sections, sectionId, date, saved, students,
                                     {students.map((s, i) => {
                                         const m = marks[s.id];
                                         return (
-                                            <li key={s.id} className={cn('flex flex-wrap items-center gap-3 px-5 py-2.5', m.status === 'absent' && 'bg-danger-soft/30')}>
-                                                <span className="tabular w-6 text-sm text-fg-subtle">{i + 1}</span>
-                                                <Avatar src={s.photo} name={s.name} size="md" />
+                                            <li key={s.id} className={cn('flex flex-wrap items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-5', m.status === 'absent' && 'bg-danger-soft/30')}>
+                                                <span className="tabular w-5 text-sm text-fg-subtle sm:w-6">{i + 1}</span>
+                                                <span className="hidden sm:inline-flex">
+                                                    <Avatar src={s.photo} name={s.name} size="md" />
+                                                </span>
                                                 <div className="min-w-0 flex-1">
-                                                    <div className="truncate font-medium">{s.name}</div>
+                                                    <div className="font-medium leading-snug sm:truncate">{s.name}</div>
                                                     <div className="text-xs text-fg-muted">{s.adm_no}</div>
                                                 </div>
                                                 {s.alerted && <Badge tone="info">Parent alerted</Badge>}
@@ -129,7 +131,7 @@ export default function Attendance({ sections, sectionId, date, saved, students,
                                                             aria-pressed={m.status === o.value}
                                                             onClick={() => set(s.id, 'status', o.value)}
                                                             className={cn(
-                                                                'h-8 rounded-md border px-3 text-sm font-medium transition-colors',
+                                                                'h-10 rounded-md border px-3 text-sm font-medium transition-colors sm:h-8',
                                                                 m.status === o.value ? o.on : 'border-border bg-surface text-fg-muted hover:bg-muted',
                                                             )}
                                                         >

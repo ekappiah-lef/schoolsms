@@ -17,12 +17,14 @@ export function useResetPassword() {
     const [show, setShow] = useState(true);
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
+    const [sms, setSms] = useState(true);
 
     const open = (t) => {
         setTarget(t);
         setPassword('');
         setShow(true);
         setError('');
+        setSms(true);
     };
     const close = () => !busy && setTarget(null);
 
@@ -33,10 +35,10 @@ export function useResetPassword() {
             return;
         }
         setBusy(true);
-        const r = await submitForm(target.url, { password }, { method: 'put' });
+        const r = await submitForm(target.url, { password, send_sms: sms ? 1 : 0 }, { method: 'put' });
         setBusy(false);
         if (r.ok) {
-            toast.success(r.message);
+            (r.message?.includes('SMS not sent') ? toast.warning : toast.success)(r.message);
             setTarget(null);
         } else {
             setError(r.errors?.password || r.message);
@@ -87,6 +89,10 @@ export function useResetPassword() {
                     </button>
                 </div>
                 {error && <p className="text-xs text-danger">{error}</p>}
+                <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm">
+                    <input type="checkbox" className="size-4" checked={sms} onChange={(e) => setSms(e.target.checked)} />
+                    Send by SMS
+                </label>
             </form>
         </Modal>
     );

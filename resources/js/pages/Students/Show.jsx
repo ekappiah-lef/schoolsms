@@ -258,7 +258,7 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                                         { label: 'Section', value: student.section },
                                         { label: 'Date of admission', value: student.admission_date ? formatDate(student.admission_date, 'dd/MM/yyyy') : student.year_admitted },
                                         { label: 'Previous school', value: student.details?.past_school },
-                                        { label: 'Fee discount', value: student.discount ? `${student.discount.name} (${student.discount.label})` : 'None' },
+                                        ...(tabs.fees ? [{ label: 'Fee discount', value: student.discount ? `${student.discount.name} (${student.discount.label})` : 'None' }] : []),
                                         ...(student.next_discount ? [{ label: 'Next term', value: `${student.next_discount.name} (${student.next_discount.label})` }] : []),
                                         { label: 'Year', value: student.session },
                                         { label: 'Sport house', value: student.house },

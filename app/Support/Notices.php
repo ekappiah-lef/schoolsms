@@ -462,6 +462,29 @@ class Notices
         return in_array($norm($recipient), $allowed, true) ? null : 'Demo mode: not sent. Only contacts in NOTICE_ALLOWLIST receive messages.';
     }
 
+    /**
+     * A new password by SMS after an admin sets it: username, password and the portal link. Goes to the user's
+     * phone (a student's: their parent's). The password is not kept in the log. Returns [sent, phone or reason].
+     */
+    public static function sendLogin(\App\User $user, string $password): array
+    {
+        $phone = $user->phone;
+        if ($user->user_type === 'student') {
+            $parent = optional(StudentRecord::where('user_id', $user->id)->first())->my_parent_id;
+            $phone = $parent ? \App\User::where('id', $parent)->value('phone') : null;
+        }
+        $to = $phone ? self::normalisePhone((string) $phone) : null;
+        if (!$to) return [false, 'no phone number on record'];
+
+        $who = $user->user_type === 'student' ? "{$user->name}'s" : 'Your';
+        $msg = Qs::getSystemName().": {$who} portal login.\nUsername: {$user->username}\nPassword: {$password}\nSign in: ".url('/login');
+        $error = self::sms($to, $msg);
+        NotificationLog::create(['student_id' => $user->user_type === 'student' ? $user->id : null, 'channel' => 'sms', 'kind' => 'login', 'recipient' => $to,
+            'status' => $error ? 'failed' : 'sent', 'error' => $error ? mb_substr($error, 0, 1000) : null, 'sent_by' => \Illuminate\Support\Facades\Auth::id()]);
+
+        return $error ? [false, $error] : [true, $phone];
+    }
+
     /** Returns null when sent, otherwise the error message. */
     public static function sms(string $phone, string $message): ?string
     {

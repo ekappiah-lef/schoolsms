@@ -59,7 +59,7 @@ class StudentRecordController extends Controller
         $d = $req->validate(['password' => 'required|string|min:6|max:50'], [], ['password' => 'Password']);
         $this->user->update($user->id, ['password' => Hash::make($d['password']), 'remember_token' => null]);
 
-        return Qs::json('Password changed for '.$user->name.'.');
+        return Qs::json('Password changed for '.$user->name.'.'.UserController::loginSms($req, $user, $d['password']));
     }
 
     /** All students, filterable by class/section/gender, server-side paginated. */
@@ -606,8 +606,8 @@ class StudentRecordController extends Controller
         $parent = $sr->my_parent;
 
         $canFees = Qs::userIsTeamAccount();
-        // The academic admin sees what a student owes (read-only) but cannot open finance pages.
-        $seesFees = $canFees || Qs::userIsAcademicAdmin();
+        // The academic admin sees what a student owes (read-only), except where fees are for the finance team only.
+        $seesFees = $canFees || (Qs::userIsAcademicAdmin() && !\App\Support\School::has('academic_admin_no_fees'));
         $resultsLocked = Mk::examIsLocked() && !Qs::userIsTeamSA();
 
         $props = [
@@ -624,7 +624,7 @@ class StudentRecordController extends Controller
                 'away_until' => $sr->away_until,
                 'left_on' => $sr->left_on,
                 'status_reason' => $sr->status_reason,
-                'not_billed' => (bool) $sr->not_billed,
+                'not_billed' => $seesFees && (bool) $sr->not_billed,
                 'grad_date' => $sr->grad_date,
                 'gender' => $u->gender,
                 'dob' => $u->dob,
@@ -642,8 +642,8 @@ class StudentRecordController extends Controller
                 'dorm' => optional($sr->dorm)->name,
                 'dorm_room_no' => $sr->dorm_room_no,
                 'admission_date' => $sr->admission_date,
-                'discount' => ($fd = \App\Support\Fees::standingDiscount($sr->fee_discount_id)) ? ['name' => $fd->name, 'label' => $fd->label()] : null,
-                'next_discount' => $sr->next_discount_id && ($nd = \App\Models\FeeDiscount::find($sr->next_discount_id)) ? ['name' => $nd->name, 'label' => $nd->label()] : null,
+                'discount' => $seesFees && ($fd = \App\Support\Fees::standingDiscount($sr->fee_discount_id)) ? ['name' => $fd->name, 'label' => $fd->label()] : null,
+                'next_discount' => $seesFees && $sr->next_discount_id && ($nd = \App\Models\FeeDiscount::find($sr->next_discount_id)) ? ['name' => $nd->name, 'label' => $nd->label()] : null,
                 'details' => Qs::userIsTeamSAT() || \App\Support\School::accountantSeesStudents() || Auth::id() === $u->id || Qs::userIsMyChild($u->id, Auth::id())
                     ? optional(StudentDetail::where('user_id', $u->id)->first())->only(StudentDetail::FIELDS)
                     : null,

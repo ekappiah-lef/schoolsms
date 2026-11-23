@@ -337,6 +337,10 @@ class SmokeTest extends TestCase
             $this->actingAs($teacher)->get(route('attendance.report'))->assertOk();
             $this->actingAs($teacher)->get(route('marks.bulk', [$section->my_class_id, $section->id]))->assertOk();
 
+            // The report card design is not for teachers where report_design_leads_only is on.
+            \App\Support\SchoolConfig::set('features', array_values(array_unique(array_merge(\App\Support\School::features(), ['report_design_leads_only']))));
+            $this->actingAs($teacher)->get(route('reports.design'))->assertRedirect();
+
             // The department's classes in the register and student list; timetables for the department only.
             $page = $this->actingAs($teacher)->get(route('attendance.index'))->viewData('page');
             if ($page && isset($page['props']['sections'])) $this->assertContains((int) $section->id, collect($page['props']['sections'])->pluck('id')->all());
@@ -832,6 +836,57 @@ class SmokeTest extends TestCase
             $this->assertNull(\App\Models\TimeSlot::where(['ttr_id' => $ttr->id, 'label' => 'Break'])->value('days'));
         } finally {
             \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
+    public function testPasswordResetCanSendTheLoginBySms()
+    {
+        $admin = $this->user('super_admin');
+        $teacher = \App\User::where('user_type', 'teacher')->first();
+        if (!$teacher) return $this->assertTrue(true);
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $teacher->update(['phone' => '0241234567']);
+            $url = route('users.reset_pass', \App\Helpers\Qs::hash($teacher->id));
+            $this->actingAs($admin)->putJson($url, ['password' => 'secret123'])->assertOk()->assertJsonMissing(['msg' => 'SMS']);
+            $before = \App\Models\NotificationLog::where('kind', 'login')->count();
+            $r = $this->actingAs($admin)->putJson($url, ['password' => 'secret123', 'send_sms' => 1])->assertOk();
+            $this->assertStringContainsString('SMS', (string) ($r->json('msg') ?? $r->json('message')));
+            $log = \App\Models\NotificationLog::where('kind', 'login')->latest('id')->first();
+            $this->assertSame($before + 1, \App\Models\NotificationLog::where('kind', 'login')->count());
+            $this->assertSame('233241234567', $log->recipient);
+            $this->assertStringNotContainsString('secret123', (string) $log->error);
+            $this->assertTrue(\Illuminate\Support\Facades\Hash::check('secret123', $teacher->fresh()->password));
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
+    public function testAcademicAdminSeesNoFeesOnAStudentProfile()
+    {
+        $sr = \App\Models\StudentRecord::where('grad', 0)->first();
+        $aa = \App\User::where('user_type', 'academic_admin')->first();
+        $acc = \App\User::where('user_type', 'accountant')->first();
+        if (!$sr || !$aa) return $this->assertTrue(true);
+        $url = route('students.show', \App\Helpers\Qs::hash($sr->id));
+        $before = \App\Support\SchoolConfig::get('features');
+        \App\Support\SchoolConfig::set('features', ['academic_admin_no_fees']);
+        try {
+        $props = $this->actingAs($aa)->get($url)->assertOk()->viewData('page')['props'] ?? null;
+        if ($props) {
+            $this->assertFalse($props['tabs']['fees']);
+            $this->assertNull($props['fees'] ?? null);
+            $this->assertNull($props['student']['discount']);
+        }
+        $admin = $this->user('super_admin');
+        $props = $this->actingAs($admin)->get($url)->assertOk()->viewData('page')['props'] ?? null;
+        if ($props) $this->assertTrue($props['tabs']['fees']);
+        // Other schools: the academic admin still sees fees (read-only).
+        \App\Support\SchoolConfig::set('features', []);
+        $props = $this->actingAs($aa)->get($url)->assertOk()->viewData('page')['props'] ?? null;
+        if ($props) $this->assertTrue($props['tabs']['fees']);
+        } finally {
+            \App\Support\SchoolConfig::set('features', $before);
         }
     }
 

@@ -4,10 +4,10 @@ import { withAppLayout } from '@/layouts/AppLayout';
 import { ModuleHeader } from '@/components/app/module';
 import { EmptyState, Panel } from '@/components/app/page';
 import { Button } from '@/components/ui/button';
-import { TimetableGrid } from '@/components/timetable-grid';
+import { TimetableDay, TimetableGrid } from '@/components/timetable-grid';
 
 /** A class or exam timetable: days down the side, periods across, breaks as tall columns. */
-export default function TimetableShow({ record, isExam, slots, rows, others = [], urls }) {
+export default function TimetableShow({ record, isExam, slots, rows, byDay = [], others = [], urls }) {
     return (
         <>
             <Head title={record.name} />
@@ -42,7 +42,14 @@ export default function TimetableShow({ record, isExam, slots, rows, others = []
                 />
                 <Panel flush>
                     {rows.length && slots.length ? (
-                        <TimetableGrid isExam={isExam} slots={slots} rows={rows} />
+                        <>
+                            <div className="md:hidden">
+                                <TimetableDay isExam={isExam} byDay={byDay} />
+                            </div>
+                            <div className="hidden md:block">
+                                <TimetableGrid isExam={isExam} slots={slots} rows={rows} />
+                            </div>
+                        </>
                     ) : (
                         <EmptyState title="Nothing scheduled yet" />
                     )}

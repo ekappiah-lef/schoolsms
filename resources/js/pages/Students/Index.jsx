@@ -76,6 +76,12 @@ export default function StudentsIndex({ variant, showParent = true, students, su
                                 <Link href={s.urls.show} className="block truncate font-medium text-fg hover:text-primary" onClick={(e) => e.stopPropagation()}>
                                     {s.name}
                                 </Link>
+                                {s.class && (
+                                    <div className="text-xs text-fg-muted sm:hidden">
+                                        {s.class}
+                                        {s.section ? ` ${s.section}` : ''}
+                                    </div>
+                                )}
                                 {s.status === 'away' && (
                                     <Badge tone="warning" dot className="mt-0.5">
                                         Away{s.away_until ? ` until ${formatDate(s.away_until, 'd MMM')}` : ''}
@@ -100,7 +106,7 @@ export default function StudentsIndex({ variant, showParent = true, students, su
             {
                 id: 'class',
                 header: 'Class',
-                meta: { sortKey: 'class', label: 'Class', className: 'whitespace-nowrap' },
+                meta: { sortKey: 'class', label: 'Class', hideBelow: 'sm', className: 'whitespace-nowrap' },
                 cell: ({ row }) => (
                     <span className="inline-flex items-center gap-1.5">
                         <Badge tone="outline" shape="tag">
