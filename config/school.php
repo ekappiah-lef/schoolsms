@@ -19,7 +19,7 @@ return [
         'report_after_fees_cleared' => 'A report sheet is not sent to parents while the student owes fees (bills still can be).',
         'core_elective_subjects' => 'Subjects are core or elective: report cards, result sheets and mark entry group them.',
         'service_prices_by_level' => 'Services (lunch, breakfast, clubs) can cost differently per class type; a student who starts mid-term pays only the school days left (Settings: school days in the term).',
-        'report_design_leads_only' => 'Only admins, the academic admin and HODs open the report card design (not class teachers).',
+        'report_design_leads_only' => 'Only admins, the academic admin and HODs open the report card design (not class teachers), and the headteacher on the report is chosen from the HODs.',
         'academic_admin_no_fees' => 'The academic admin does not see fees, discounts or billing on a student profile (the finance team only).',
         'reports_on_vacation' => 'Report cards are emailed to parents automatically at 3 pm on the last day of term (held while fees are owed or marks are not approved).',
         'detailed_reports' => 'Report cards use the detailed or benchmarks layout (school header, student details, general remarks, grading explanation; benchmarks for creche and nursery), and class teachers write remarks for the whole class on the Report remarks page.',

@@ -62,6 +62,12 @@ class ReportTemplate
     /** Staff who can be chosen as headteacher on the detailed report card. */
     const HEAD_TYPES = ['super_admin', 'admin', 'academic_admin', 'academic_head', 'teacher'];
 
+    /** Who can be picked as headteacher in the design: HODs only where the design is for the academic leads. */
+    public static function headChoices(): array
+    {
+        return School::has('report_design_leads_only') ? ['academic_head'] : self::HEAD_TYPES;
+    }
+
     public static function headName(array $t): string
     {
         return !empty($t['head_id']) ? (string) DB::table('users')->where('id', (int) $t['head_id'])->whereIn('user_type', self::HEAD_TYPES)->value('name') : '';

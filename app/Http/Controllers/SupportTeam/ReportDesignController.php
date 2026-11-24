@@ -52,7 +52,7 @@ class ReportDesignController extends Controller
             'classes' => $type ? DB::table('my_classes')->where('class_type_id', $type->id)->orderBy('name')->get(['id', 'name'])->map(function ($c) { return ['id' => $c->id, 'name' => $c->name]; })->values() : [],
             'defaultOptions' => \App\Support\Benchmarks::OPTIONS,
             'layouts' => ReportTemplate::detailedOn() ? ['detailed' => 'Detailed', 'benchmarks' => 'Benchmarks'] : null,
-            'staff' => DB::table('users')->whereIn('user_type', ReportTemplate::HEAD_TYPES)->orderBy('name')->get(['id', 'name'])->map(function ($u) { return ['id' => $u->id, 'name' => $u->name]; })->values(),
+            'staff' => DB::table('users')->whereIn('user_type', ReportTemplate::headChoices())->orderBy('name')->get(['id', 'name'])->map(function ($u) { return ['id' => $u->id, 'name' => $u->name]; })->values(),
             'canEdit' => (bool) $type,   // only the class types this user may design are listed
             'urls' => $type ? ['save' => route('reports.design.save', $type->id), 'preview' => route('reports.design.preview', $type->id)] : null,
         ]);
@@ -131,7 +131,7 @@ class ReportDesignController extends Controller
             'benchmarks' => collect((array) ($t['benchmarks'] ?? []))->filter(function ($v, $k) { return ($k === 'all' || ctype_digit((string) $k)) && trim((string) $v) !== ''; })
                 ->map(function ($v) { return mb_substr((string) $v, 0, 8000); })->all(),
             'benchmark_options' => $lines($t['benchmark_options'] ?? [], 30),
-            'head_id' => !empty($t['head_id']) && DB::table('users')->where('id', (int) $t['head_id'])->whereIn('user_type', ReportTemplate::HEAD_TYPES)->exists() ? (int) $t['head_id'] : null,
+            'head_id' => !empty($t['head_id']) && DB::table('users')->where('id', (int) $t['head_id'])->whereIn('user_type', ReportTemplate::headChoices())->exists() ? (int) $t['head_id'] : null,
             'columns' => collect($t['columns'] ?? [])->filter(function ($c) { return isset(ReportTemplate::COLUMNS[$c['key'] ?? '']); })
                 ->map(function ($c) use ($text) { return ['key' => $c['key'], 'label' => $text($c['label'] ?? '', 40) ?: ReportTemplate::COLUMNS[$c['key']], 'show' => !empty($c['show'])]; })->values()->all(),
             'summary' => !empty($t['summary']),
