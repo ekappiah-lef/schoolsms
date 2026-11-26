@@ -177,6 +177,23 @@ class ControlApiController extends Controller
         return response()->json(['ok' => true, 'username' => $user->username, 'password' => $pass]);
     }
 
+    /** A test SMS or email from this school to the number or address the Control Centre gives. */
+    public function testMessage(Request $req)
+    {
+        $d = $req->validate(['channel' => 'required|in:sms,email', 'to' => 'required|string|max:120']);
+        $school = \App\Helpers\Qs::getSystemName();
+        if ($d['channel'] === 'sms') {
+            $phone = \App\Support\Notices::normalisePhone($d['to']);
+            if (!$phone) return response()->json(['ok' => false, 'message' => 'Enter a valid phone number.'], 422);
+            $error = \App\Support\Notices::sms($phone, "{$school}: test SMS from EduNetwork. SMS is working.");
+        } else {
+            if (!filter_var($d['to'], FILTER_VALIDATE_EMAIL)) return response()->json(['ok' => false, 'message' => 'Enter a valid email address.'], 422);
+            $error = \App\Support\Notices::email($d['to'], "Test email from {$school}", "This is a test email from {$school} on EduNetwork. Email is working.");
+        }
+
+        return response()->json(['ok' => true, 'sent' => $error === null, 'error' => $error]);
+    }
+
     /** A scheme built in the Control Centre must be complete and add up. */
     public static function schemeError(array $s): ?string
     {

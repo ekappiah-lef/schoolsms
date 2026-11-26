@@ -122,6 +122,7 @@ class ControlController extends Controller
                 'config' => route('control.config', $slug), 'keys' => route('control.keys', $slug), 'action' => route('control.action', $slug),
                 'password' => route('control.password', $slug), 'logins_seen' => route('control.logins_seen', $slug),
                 'payouts' => route('control.payouts', $slug),
+                'messages_mode' => route('control.messages_mode', $slug), 'test_message' => route('control.test_message', $slug),
             ],
         ]);
     }
@@ -179,6 +180,29 @@ class ControlController extends Controller
         Control::dispatch('set_env', ['slug' => $slug, 'values' => $values], $slug);
 
         return Qs::json('Saving '.count($values).' setting(s); the school restarts in about a minute.', true);
+    }
+
+    /** Messages to parents: live (everyone) or demo (only the contacts listed). */
+    public function messagesMode(Request $req, $slug)
+    {
+        self::school($slug);
+        $d = $req->validate(['mode' => 'required|in:live,demo', 'contacts' => 'nullable|string|max:500'], [], ['contacts' => 'contacts']);
+        $contacts = collect(preg_split('/[\s,;]+/', (string) ($d['contacts'] ?? '')))->map('trim')->filter()->unique()->implode(',');
+        if ($d['mode'] === 'demo' && $contacts === '') return Qs::json('Add at least one phone number or email for demo mode.', false);
+        Control::dispatch('set_env', ['slug' => $slug, 'values' => ['NOTICE_ALLOWLIST' => $d['mode'] === 'live' ? '' : $contacts]], $slug);
+
+        return Qs::json(($d['mode'] === 'live' ? 'Switching to live' : 'Switching to demo').'; the school restarts in about a minute.', true);
+    }
+
+    /** Send a test SMS or email from the school, to check its keys. */
+    public function testMessage(Request $req, $slug)
+    {
+        $s = self::school($slug);
+        $d = $req->validate(['channel' => 'required|in:sms,email', 'to' => 'required|string|max:120'], [], ['to' => $req->input('channel') === 'email' ? 'email address' : 'phone number']);
+        $r = Control::call($s, 'post', 'test-message', $d);
+        if (empty($r['ok'])) return Qs::json($r['message'] ?? 'Not sent.', false);
+
+        return Qs::json($r['sent'] ? 'Test '.($d['channel'] === 'sms' ? 'SMS' : 'email').' sent to '.$d['to'].'.' : 'Not sent: '.$r['error'], (bool) $r['sent']);
     }
 
     public function action(Request $req, $slug)

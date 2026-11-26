@@ -862,6 +862,19 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testControlCentreCanSendATestMessageFromASchool()
+    {
+        config(['services.control.token' => 'test-token-123', 'sms.allowlist' => '+233200000000']);
+        $this->postJson('/control-api/test-message', ['channel' => 'sms', 'to' => '0531234567'])->assertStatus(401);
+        $auth = ['Authorization' => 'Bearer test-token-123'];
+        $this->postJson('/control-api/test-message', ['channel' => 'sms', 'to' => 'abc'], $auth)->assertStatus(422);
+        $this->postJson('/control-api/test-message', ['channel' => 'email', 'to' => 'not-an-email'], $auth)->assertStatus(422);
+        // Demo mode holds the message back, and says so.
+        $r = $this->postJson('/control-api/test-message', ['channel' => 'sms', 'to' => '0531234567'], $auth)->assertOk();
+        $this->assertFalse($r->json('sent'));
+        $this->assertStringContainsString('Demo mode', (string) $r->json('error'));
+    }
+
     public function testDeactivatedAndExitedStudentsHaveTheirOwnLists()
     {
         $admin = $this->user('super_admin');

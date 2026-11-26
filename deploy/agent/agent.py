@@ -169,6 +169,8 @@ def create_school(job):
                 'DB_DATABASE': db, 'DB_USERNAME': db, 'DB_PASSWORD': dbpass, 'MARIADB_DATABASE': db, 'MARIADB_USER': db, 'MARIADB_PASSWORD': dbpass,
                 'MARIADB_ROOT_PASSWORD': root, 'CLEARENROLL_API_KEY': '', 'MOMO_DRIVER': 'fake', 'CONTROL_API_TOKEN': token,
                 'MAIL_FROM_ADDRESS': f'{slug}@{MAIL_DOMAIN}',
+                # A real school sends to everyone from the start (live); demo mode is switched on in the Control Centre if wanted.
+                'NOTICE_ALLOWLIST': '',
                 # MoMo belongs to each school's own MTN merchant account: never the test school's keys.
                 'MOMO_DRIVER': 'fake', 'MOMO_COLLECTION_SUBSCRIPTION_KEY': '', 'MOMO_API_USER': '', 'MOMO_API_KEY': '', 'MOMO_CALLBACK_URL': '',
                 'PAYSTACK_SECRET_KEY': '', 'PAYSTACK_PUBLIC_KEY': '', 'PAYSTACK_SUBACCOUNT': ''})

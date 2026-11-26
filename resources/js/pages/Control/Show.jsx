@@ -19,12 +19,14 @@ const SECRET = /PASSWORD|_KEY$|TOKEN|API_USER/;
 const SERVICES = [
     {
         title: 'SMS',
+        test: 'sms',
         fields: [['SMS_SENDER_ID', 'Sender name'], ['SMSONLINEGH_API_KEY', 'SMSOnlineGH API key'], ['SMS_DRIVER', 'Provider']],
         ready: (k) => k.SMSONLINEGH_API_KEY?.set && k.SMS_DRIVER?.value !== 'log',
         summary: (k) => k.SMS_SENDER_ID?.value,
     },
     {
         title: 'Email',
+        test: 'email',
         fields: [
             ['MAIL_FROM_ADDRESS', 'Sender email'], ['MAIL_FROM_NAME', 'Sender name'], ['MAIL_USERNAME', 'SMTP login'], ['MAIL_PASSWORD', 'SMTP password'],
             ['MAIL_HOST', 'SMTP server'], ['MAIL_PORT', 'Port'], ['MAIL_ENCRYPTION', 'Encryption'], ['MAIL_DRIVER', 'Mailer'],
@@ -34,6 +36,7 @@ const SERVICES = [
     },
     {
         title: 'Messages to parents',
+        mode: true,
         fields: [['NOTICE_ALLOWLIST', 'Only these contacts (demo)']],
         ready: (k) => !k.NOTICE_ALLOWLIST?.set,
         on: 'Live',
@@ -114,7 +117,7 @@ export default function ControlShow({ school, live, liveError, logins, features,
                 {logins && <FirstLogins logins={logins} url={school.url} doneUrl={urls.logins_seen} />}
                 {live && <Config live={live} features={features} schemes={schemes} url={urls.config} />}
                 {live && <Payouts school={school} payouts={payouts} url={urls.payouts} />}
-                {live && <Keys url={urls.keys} keys={live.keys ?? {}} />}
+                {live && <Keys url={urls.keys} keys={live.keys ?? {}} urls={urls} />}
                 {school.status !== 'creating' && <Actions urls={urls} />}
                 {jobs.length > 0 && <JobLog jobs={jobs} />}
             </div>
@@ -223,8 +226,9 @@ function Config({ live, features, schemes, url }) {
     );
 }
 
-function Keys({ url, keys }) {
+function Keys({ url, keys, urls }) {
     const [editing, setEditing] = useState(null);
+    const [testing, setTesting] = useState(null);
     return (
         <Panel title="Services" flush>
             <ul>
@@ -238,15 +242,123 @@ function Keys({ url, keys }) {
                                 {hint && <div className="truncate text-sm text-fg-muted">{hint}</div>}
                             </div>
                             <Badge tone={ok ? 'success' : 'neutral'}>{ok ? svc.on ?? 'Set up' : svc.off ?? 'Not set'}</Badge>
+                            {svc.test && (
+                                <Button size="sm" onClick={() => setTesting(svc.test)}>
+                                    Test
+                                </Button>
+                            )}
                             <Button size="sm" onClick={() => setEditing(svc)}>
-                                Edit
+                                {svc.mode ? 'Change' : 'Edit'}
                             </Button>
                         </li>
                     );
                 })}
             </ul>
-            {editing && <KeyEditor svc={editing} keys={keys} url={url} onClose={() => setEditing(null)} />}
+            {editing && (editing.mode ? <ModeEditor keys={keys} url={urls.messages_mode} onClose={() => setEditing(null)} /> : <KeyEditor svc={editing} keys={keys} url={url} onClose={() => setEditing(null)} />)}
+            {testing && <TestMessage channel={testing} url={urls.test_message} onClose={() => setTesting(null)} />}
         </Panel>
+    );
+}
+
+/** Messages to parents: live (everyone) or demo (only the listed contacts). */
+function ModeEditor({ keys, url, onClose }) {
+    const [mode, setMode] = useState(keys.NOTICE_ALLOWLIST?.set ? 'demo' : 'live');
+    const [contacts, setContacts] = useState(keys.NOTICE_ALLOWLIST?.value ?? '');
+    const [saving, setSaving] = useState(false);
+    const save = async () => {
+        setSaving(true);
+        const r = await submitForm(url, { mode, contacts: mode === 'demo' ? contacts : '' });
+        setSaving(false);
+        r.ok ? toast.success(r.message) : toast.error(r.message);
+        if (r.ok) {
+            onClose();
+            router.reload();
+        }
+    };
+    return (
+        <Modal
+            open
+            onOpenChange={(o) => !o && !saving && onClose()}
+            title="Messages to parents"
+            footer={
+                <>
+                    <Button variant="secondary" onClick={onClose} disabled={saving}>
+                        Cancel
+                    </Button>
+                    <Button variant="primary" onClick={save} loading={saving}>
+                        Save
+                    </Button>
+                </>
+            }
+        >
+            <div className="grid gap-4">
+                <div className="grid grid-cols-2 gap-2">
+                    {[
+                        ['live', 'Live'],
+                        ['demo', 'Demo'],
+                    ].map(([v, label]) => (
+                        <button
+                            key={v}
+                            type="button"
+                            onClick={() => setMode(v)}
+                            className={`h-11 rounded-md border text-sm font-semibold ${mode === v ? 'border-primary bg-primary-soft/60 text-primary-hover' : 'border-border text-fg-muted'}`}
+                        >
+                            {label}
+                        </button>
+                    ))}
+                </div>
+                {mode === 'demo' && (
+                    <Field label="Only these contacts">
+                        <textarea className={`${fieldInput} min-h-24 py-2`} value={contacts} onChange={(e) => setContacts(e.target.value)} />
+                    </Field>
+                )}
+            </div>
+        </Modal>
+    );
+}
+
+/** Send a test SMS or email from the school to a number or address typed here. */
+function TestMessage({ channel, url, onClose }) {
+    const [to, setTo] = useState('');
+    const [sending, setSending] = useState(false);
+    const send = async (e) => {
+        e?.preventDefault();
+        if (!to.trim()) return;
+        setSending(true);
+        const r = await submitForm(url, { channel, to: to.trim() });
+        setSending(false);
+        r.ok ? toast.success(r.message) : toast.error(r.message);
+        if (r.ok) onClose();
+    };
+    return (
+        <Modal
+            open
+            onOpenChange={(o) => !o && !sending && onClose()}
+            title={channel === 'sms' ? 'Send a test SMS' : 'Send a test email'}
+            footer={
+                <>
+                    <Button variant="secondary" onClick={onClose} disabled={sending}>
+                        Cancel
+                    </Button>
+                    <Button variant="primary" onClick={send} loading={sending} disabled={!to.trim()}>
+                        Send test
+                    </Button>
+                </>
+            }
+        >
+            <form onSubmit={send}>
+                <Field label={channel === 'sms' ? 'Phone number' : 'Email address'}>
+                    <input
+                        className={fieldInput}
+                        type={channel === 'sms' ? 'tel' : 'email'}
+                        inputMode={channel === 'sms' ? 'tel' : 'email'}
+                        autoFocus
+                        value={to}
+                        onChange={(e) => setTo(e.target.value)}
+                    />
+                </Field>
+            </form>
+        </Modal>
     );
 }
 

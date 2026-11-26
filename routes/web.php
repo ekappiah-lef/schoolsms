@@ -39,6 +39,7 @@ Route::get('control-api/status', 'ControlApiController@status')->middleware('thr
 Route::put('control-api/config', 'ControlApiController@config')->middleware('throttle:60,1');
 Route::post('control-api/init', 'ControlApiController@init')->middleware('throttle:10,1');
 Route::post('control-api/password', 'ControlApiController@password')->middleware('throttle:10,1');
+Route::post('control-api/test-message', 'ControlApiController@testMessage')->middleware('throttle:10,1');
 
 /* Staff clock-in devices (no login: checked by device serial number / token) */
 Route::get('iclock/cdata', 'StaffClockController@admsHandshake');
@@ -62,6 +63,8 @@ Route::group(['middleware' => 'auth'], function () {
             Route::put('schools/{slug}/config', 'ControlController@config')->name('control.config');
             Route::post('schools/{slug}/keys', 'ControlController@keys')->name('control.keys');
             Route::post('schools/{slug}/action', 'ControlController@action')->name('control.action');
+            Route::post('schools/{slug}/messages-mode', 'ControlController@messagesMode')->name('control.messages_mode');
+            Route::post('schools/{slug}/test-message', 'ControlController@testMessage')->name('control.test_message');
             Route::post('schools/{slug}/password', 'ControlController@password')->name('control.password');
             Route::post('schools/{slug}/logins-seen', 'ControlController@loginsSeen')->name('control.logins_seen');
             Route::post('schools/{slug}/payouts', 'ControlController@payouts')->name('control.payouts');
