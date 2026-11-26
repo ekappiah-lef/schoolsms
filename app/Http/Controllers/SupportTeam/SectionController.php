@@ -38,7 +38,7 @@ class SectionController extends Controller
 
     protected function pageProps($editing = null): array
     {
-        $students = DB::table('student_records')->where('grad', 0)->groupBy('section_id')->select('section_id', DB::raw('count(*) as n'))->pluck('n', 'section_id');
+        $students = \App\Models\StudentRecord::inSchoolWhere(DB::table('student_records'))->groupBy('section_id')->select('section_id', DB::raw('count(*) as n'))->pluck('n', 'section_id');
         $classes = ClassOrder::sort($this->my_class->all());
         $order = $classes->pluck('id')->flip();
 

@@ -38,7 +38,7 @@ class MyClassController extends Controller
 
     protected function pageProps($editing = null): array
     {
-        $students = DB::table('student_records')->where('grad', 0)->groupBy('my_class_id')->select('my_class_id', DB::raw('count(*) as n'))->pluck('n', 'my_class_id');
+        $students = \App\Models\StudentRecord::inSchoolWhere(DB::table('student_records'))->groupBy('my_class_id')->select('my_class_id', DB::raw('count(*) as n'))->pluck('n', 'my_class_id');
         $subjects = DB::table('subjects')->groupBy('my_class_id')->select('my_class_id', DB::raw('count(*) as n'))->pluck('n', 'my_class_id');
 
         return [

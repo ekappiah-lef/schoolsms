@@ -80,7 +80,7 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                 <Breadcrumbs
                     items={[
                         { label: 'Academics' },
-                        urls.back ? { label: student.status === 'graduated' || student.status === 'left' ? 'Graduated & left' : 'Students', href: urls.back } : { label: 'Students' },
+                        urls.back ? { label: { left: 'Exited students', away: 'Deactivated students', graduated: 'Graduated students' }[student.status] ?? 'Students', href: urls.back } : { label: 'Students' },
                         { label: 'Profile' },
                     ]}
                 />
@@ -107,7 +107,7 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                                 )}
                                 {student.status === 'left' && (
                                     <Badge tone="danger" dot>
-                                        Left {student.left_on ? formatDate(student.left_on, 'd MMM yyyy') : ''}
+                                        Exited {student.left_on ? formatDate(student.left_on, 'd MMM yyyy') : ''}
                                     </Badge>
                                 )}
                             </div>
@@ -178,7 +178,7 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                                     {urls.leave && (
                                         <DropdownMenuItem onSelect={() => setStatusForm('left')}>
                                             <DoorOpen />
-                                            Mark as left
+                                            Exit school
                                         </DropdownMenuItem>
                                     )}
                                     {urls.readmit && (
@@ -195,7 +195,7 @@ export default function StudentShow({ student, guardian, siblings = [], urls, ta
                                                 onSelect={() =>
                                                     confirm({
                                                         title: `Delete ${student.name}?`,
-                                                        description: 'Only for a student added by mistake. A student with payments, results or attendance cannot be deleted; mark them as left instead.',
+                                                        description: 'Only for a student added by mistake. A student with payments, results or attendance cannot be deleted; exit them from the school instead.',
                                                         confirmLabel: 'Delete student',
                                                         method: 'delete',
                                                         url: urls.destroy,
@@ -771,7 +771,7 @@ function gradeTone(grade = '') {
     return 'danger';
 }
 
-/** Deactivate (away for a while) or mark as left, with the dates and a reason. */
+/** Deactivate (away for a while) or exit the school, with the dates and a reason. */
 function StatusForm({ kind, student, url, onClose }) {
     const today = formatDate(new Date(), 'yyyy-MM-dd');
     const [data, setData] = useState({});
@@ -795,14 +795,14 @@ function StatusForm({ kind, student, url, onClose }) {
         <Modal
             open={!!kind}
             onOpenChange={(o) => !o && !busy && onClose()}
-            title={kind === 'away' ? `Deactivate ${student.name}` : `${student.name} has left`}
+            title={kind === 'away' ? `Deactivate ${student.name}` : `Exit ${student.name} from school`}
             footer={
                 <>
                     <Button variant="secondary" onClick={onClose} disabled={busy}>
                         Cancel
                     </Button>
                     <Button variant={kind === 'away' ? 'primary' : 'danger'} onClick={save} loading={busy}>
-                        {kind === 'away' ? 'Deactivate' : 'Mark as left'}
+                        {kind === 'away' ? 'Deactivate' : 'Exit school'}
                     </Button>
                 </>
             }
@@ -821,7 +821,7 @@ function StatusForm({ kind, student, url, onClose }) {
                     </>
                 ) : (
                     <label className="flex flex-col gap-1.5 text-sm font-medium">
-                        Date left
+                        Date of exit
                         <DatePicker value={data.left_on} onChange={(v) => set('left_on', v)} fromYear={year - 5} toYear={year} defaultMonth={new Date()} />
                     </label>
                 )}

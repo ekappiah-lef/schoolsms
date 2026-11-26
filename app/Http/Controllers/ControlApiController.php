@@ -47,7 +47,7 @@ class ControlApiController extends Controller
             'initialized' => (bool) SchoolConfig::get('initialized'),
             'session' => Qs::getCurrentSession(),
             'counts' => [
-                'students' => DB::table('student_records')->where('grad', 0)->count(),
+                'students' => \App\Models\StudentRecord::inSchool()->count(),
                 'teachers' => $count('teacher'),
                 'staff' => $count(['teacher', 'non_teaching', 'accountant', 'academic_admin', 'academic_head', 'admin', 'librarian']),
                 'parents' => $count('parent'),

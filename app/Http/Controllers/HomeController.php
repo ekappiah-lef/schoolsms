@@ -95,9 +95,9 @@ class HomeController extends Controller
             $counts = User::select('user_type', DB::raw('count(*) as total'))->groupBy('user_type')->pluck('total', 'user_type');
 
             $d['stats'] = [
-                'students' => StudentRecord::where('grad', 0)->count(),
-                'male' => StudentRecord::where('grad', 0)->whereHas('user', function ($q) { $q->where('gender', 'Male'); })->count(),
-                'female' => StudentRecord::where('grad', 0)->whereHas('user', function ($q) { $q->where('gender', 'Female'); })->count(),
+                'students' => StudentRecord::inSchool()->count(),
+                'male' => StudentRecord::inSchool()->whereHas('user', function ($q) { $q->where('gender', 'Male'); })->count(),
+                'female' => StudentRecord::inSchool()->whereHas('user', function ($q) { $q->where('gender', 'Female'); })->count(),
                 'graduated' => StudentRecord::where('grad', 1)->count(),
                 'teachers' => (int) ($counts['teacher'] ?? 0),
                 'parents' => (int) ($counts['parent'] ?? 0),
@@ -152,7 +152,7 @@ class HomeController extends Controller
                     return [
                         'id' => $s->id,
                         'name' => optional($s->my_class)->name.' '.$s->name,
-                        'students' => StudentRecord::where(['section_id' => $s->id, 'grad' => 0])->count(),
+                        'students' => StudentRecord::inSchool()->where('section_id', $s->id)->count(),
                         'url' => route('students.index', ['class' => $s->my_class_id, 'section' => $s->id]),
                     ];
                 })->values(),
@@ -193,7 +193,7 @@ class HomeController extends Controller
         $rows = DB::table('student_records as sr')
             ->join('users as u', 'u.id', '=', 'sr.user_id')
             ->join('my_classes as c', 'c.id', '=', 'sr.my_class_id')
-            ->where('sr.grad', 0)
+            ->where(function ($q) { StudentRecord::inSchoolWhere($q, 'sr.'); })
             ->groupBy('c.id', 'c.name', 'c.class_type_id', 'u.gender')
             ->select('c.id', 'c.name', 'c.class_type_id', 'u.gender', DB::raw('count(*) as total'))
             ->get();
@@ -221,7 +221,7 @@ class HomeController extends Controller
         $byName = collect($enrolment)->keyBy('class');
         $total = max(1, collect($enrolment)->sum('total'));
         $subjects = DB::table('subjects')->groupBy('my_class_id')->select('my_class_id', DB::raw('count(*) as n'))->pluck('n', 'my_class_id');
-        $perSection = DB::table('student_records')->where('grad', 0)->groupBy('section_id')->select('section_id', DB::raw('count(*) as n'))->pluck('n', 'section_id');
+        $perSection = StudentRecord::inSchoolWhere(DB::table('student_records'))->groupBy('section_id')->select('section_id', DB::raw('count(*) as n'))->pluck('n', 'section_id');
 
         return ClassOrder::sort(MyClass::with(['section.teacher', 'class_type'])->get())->map(function ($c) use ($byName, $total, $subjects, $perSection) {
             $e = $byName[$c->name] ?? null;
@@ -404,7 +404,7 @@ class HomeController extends Controller
      */
     protected function attendanceToday(): array
     {
-        $active = StudentRecord::where('grad', 0);
+        $active = StudentRecord::inSchool();
         $total = (clone $active)->count();
         $marks = \App\Models\Attendance::whereDate('date', today())->whereIn('student_id', (clone $active)->pluck('user_id'));
         $absent = (clone $marks)->where('status', 'absent')->count();

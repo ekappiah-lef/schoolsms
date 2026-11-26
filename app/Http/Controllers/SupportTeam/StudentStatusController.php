@@ -8,8 +8,8 @@ use App\Models\StudentRecord;
 use Illuminate\Http\Request;
 
 /**
- * Away (deactivated for a while; still enrolled, school fees continue, services not carried into a new term,
- * off the attendance register) and Left (withdrawn: archived with the graduated students, everything kept).
+ * Deactivated (away for a while: school fees continue, services not carried into a new term, off the attendance
+ * register, not counted in the school's totals) and Exited (left the school: everything kept, listed under Exited).
  */
 class StudentStatusController extends Controller
 {
@@ -37,7 +37,7 @@ class StudentStatusController extends Controller
         if ($sr->grad) return Qs::json('Only students in school can be deactivated.', false);
         $sr->update(['status' => 'away', 'away_from' => $d['away_from'], 'away_until' => $d['away_until'] ?? null, 'status_reason' => $d['reason'] ?? null]);
 
-        return Qs::json($sr->user->name.' is marked away.', true);
+        return Qs::json($sr->user->name.' is deactivated.', true);
     }
 
     public function reactivate($student)
@@ -56,13 +56,13 @@ class StudentStatusController extends Controller
         $sr->update(['status' => 'left', 'grad' => 1, 'grad_date' => substr($d['left_on'], 0, 4), 'left_on' => $d['left_on'],
             'status_reason' => $d['reason'] ?? null, 'away_from' => null, 'away_until' => null]);
 
-        return Qs::json($sr->user->name.' is marked as left. Their records and any balance are kept.', true);
+        return Qs::json($sr->user->name.' has exited the school. Their records and any balance are kept.', true);
     }
 
     public function readmit($student)
     {
         $sr = $this->record($student);
-        if ($sr->status !== 'left') return Qs::json('Only students who left can be re-admitted here.', false);
+        if ($sr->status !== 'left') return Qs::json('Only students who exited the school can be re-admitted here.', false);
         $sr->update(['status' => 'active', 'grad' => 0, 'grad_date' => null, 'left_on' => null, 'status_reason' => null, 'session' => Qs::getCurrentSession()]);
 
         return Qs::json($sr->user->name.' is re-admitted.', true);

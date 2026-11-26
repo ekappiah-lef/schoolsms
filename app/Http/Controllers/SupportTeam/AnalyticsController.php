@@ -110,7 +110,7 @@ class AnalyticsController extends Controller
     protected function enrolment(): array
     {
         $rows = DB::table('student_records as sr')->join('users as u', 'u.id', '=', 'sr.user_id')->join('my_classes as c', 'c.id', '=', 'sr.my_class_id')
-            ->where('sr.grad', 0)->groupBy('c.id', 'c.name', 'c.class_type_id')
+            ->where(function ($q) { \App\Models\StudentRecord::inSchoolWhere($q, 'sr.'); })->groupBy('c.id', 'c.name', 'c.class_type_id')
             ->select('c.name', 'c.class_type_id', DB::raw("sum(u.gender = 'Male') as male"), DB::raw("sum(u.gender = 'Female') as female"))->get()
             ->map(function ($r) { return ['class' => $r->name, 'class_type_id' => $r->class_type_id, 'male' => (int) $r->male, 'female' => (int) $r->female]; });
 

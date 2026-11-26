@@ -10,6 +10,17 @@ class StudentRecord extends Eloquent
 {
     use HasFactory;
 
+    /** Students counted in school: not graduated or exited, and not deactivated (away). */
+    public static function inSchoolWhere($q, string $p = '')
+    {
+        return $q->where($p.'grad', 0)->where(function ($w) use ($p) { $w->where($p.'status', '!=', 'away')->orWhereNull($p.'status'); });
+    }
+
+    public function scopeInSchool($q)
+    {
+        return self::inSchoolWhere($q);
+    }
+
     protected $fillable = [
         'session', 'user_id', 'my_class_id', 'section_id', 'my_parent_id', 'dorm_id', 'dorm_room_no', 'adm_no', 'year_admitted', 'admission_date', 'staff_child', 'next_services', 'admitted_term', 'admitted_session', 'fee_discount_id', 'next_discount_id', 'not_billed', 'wd', 'wd_date', 'grad', 'grad_date', 'status', 'away_from', 'away_until', 'left_on', 'status_reason', 'house', 'age', 'clearenroll_status', 'clearenroll_checked_at'
     ];

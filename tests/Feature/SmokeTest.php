@@ -862,6 +862,43 @@ class SmokeTest extends TestCase
         }
     }
 
+    public function testDeactivatedAndExitedStudentsHaveTheirOwnLists()
+    {
+        $admin = $this->user('super_admin');
+        $srs = \App\Models\StudentRecord::where('grad', 0)->where('status', 'active')->take(2)->get();
+        if ($srs->count() < 2) return $this->assertTrue(true);
+        [$a, $b] = [$srs[0], $srs[1]];
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $props = function ($view = null) use ($admin) {
+                return $this->actingAs($admin)->get(route('students.index', array_filter(['view' => $view, 'per_page' => 100])))->assertOk()->viewData('page')['props'];
+            };
+            $ids = function ($p) { return collect($p['students']['data'])->pluck('name')->all(); };
+            $before = $props()['summary'];
+            $total = \App\Models\StudentRecord::inSchool()->count();
+
+            $this->actingAs($admin)->postJson(route('students.deactivate', \App\Helpers\Qs::hash($a->id)), ['away_from' => date('Y-m-d')])->assertOk();
+            $this->actingAs($admin)->postJson(route('students.leave', \App\Helpers\Qs::hash($b->id)), ['left_on' => date('Y-m-d')])->assertOk();
+
+            $this->assertSame($total - 2, \App\Models\StudentRecord::inSchool()->count());
+            $s = $props()['summary'];
+            $this->assertSame($before['enrolled'] - 2, $s['enrolled']);
+            $this->assertSame($before['deactivated'] + 1, $s['deactivated']);
+            $this->assertSame($before['exited'] + 1, $s['exited']);
+            $this->assertSame($before['graduated'], $s['graduated']);
+            $this->assertContains($a->user->name, $ids($props('deactivated')));
+            $this->assertContains($b->user->name, $ids($props('exited')));
+            $this->assertSame('exited', $props('exited')['variant']);
+
+            // Reactivate and re-admit bring them back.
+            $this->actingAs($admin)->postJson(route('students.reactivate', \App\Helpers\Qs::hash($a->id)))->assertOk();
+            $this->actingAs($admin)->postJson(route('students.readmit', \App\Helpers\Qs::hash($b->id)))->assertOk();
+            $this->assertSame($total, \App\Models\StudentRecord::inSchool()->count());
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+    }
+
     public function testAcademicAdminSeesNoFeesOnAStudentProfile()
     {
         $sr = \App\Models\StudentRecord::where('grad', 0)->first();

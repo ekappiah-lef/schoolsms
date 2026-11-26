@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import {
+    CirclePause,
+    DoorOpen,
     Download,
     Eye,
     GraduationCap,
@@ -36,6 +38,8 @@ import { formatDate, formatNumber } from '@/lib/utils';
 
 export default function StudentsIndex({ variant, showParent = true, students, summary, filters, classes, sections, urls }) {
     const graduated = variant === 'graduated';
+    const exited = variant === 'exited';
+    const TITLES = { active: 'Students', deactivated: 'Deactivated students', exited: 'Exited students', graduated: 'Graduated students' };
     const busy = useVisitState();
     const [confirm, confirmDialog] = useConfirmAction();
     const [resetPassword, resetDialog] = useResetPassword();
@@ -89,7 +93,7 @@ export default function StudentsIndex({ variant, showParent = true, students, su
                                 )}
                                 {s.status === 'left' && (
                                     <Badge tone="danger" dot className="mt-0.5">
-                                        Left{s.left_on ? ` ${formatDate(s.left_on, 'd MMM yyyy')}` : ''}
+                                        Exited{s.left_on ? ` ${formatDate(s.left_on, 'd MMM yyyy')}` : ''}
                                     </Badge>
                                 )}
                             </div>
@@ -128,7 +132,14 @@ export default function StudentsIndex({ variant, showParent = true, students, su
                 meta: { label: 'Parent / guardian', hideBelow: 'xl', className: 'max-w-[200px] truncate text-sm' },
                 cell: ({ row }) => row.original.parent || <span className="text-fg-subtle">Not linked</span>,
             },
-            graduated
+            exited
+                ? {
+                      id: 'left_on',
+                      header: 'Exited',
+                      meta: { sortKey: 'left_on', label: 'Exited', hideBelow: 'md', className: 'tabular whitespace-nowrap text-sm text-fg-muted' },
+                      cell: ({ row }) => (row.original.left_on ? formatDate(row.original.left_on, 'd MMM yyyy') : '—'),
+                  }
+                : graduated
                 ? {
                       id: 'grad_date',
                       header: 'Graduated',
@@ -150,16 +161,16 @@ export default function StudentsIndex({ variant, showParent = true, students, su
             },
         ].filter(Boolean),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [graduated],
+        [graduated, exited],
     );
 
-    const title = graduated ? 'Graduated & left' : 'Students';
+    const title = TITLES[variant] ?? 'Students';
 
     return (
         <>
             <Head title={title} />
             <PageHeader
-                breadcrumbs={[{ label: 'Academics' }, { label: 'Students', href: urls.active }, ...(graduated ? [{ label: 'Graduated & left' }] : [])]}
+                breadcrumbs={[{ label: 'Academics' }, { label: 'Students', href: urls.active }, ...(variant !== 'active' ? [{ label: title }] : [])]}
                 title={title}
             />
 
@@ -167,10 +178,12 @@ export default function StudentsIndex({ variant, showParent = true, students, su
                 <Segmented
                     className="mb-4"
                     value={variant}
-                    onChange={(v) => router.visit(v === 'graduated' ? urls.graduated : urls.active)}
+                    onChange={(v) => router.visit({ active: urls.active, deactivated: urls.deactivated, exited: urls.exited, graduated: urls.graduated }[v] ?? urls.active)}
                     options={[
                         { value: 'active', label: `Enrolled ${formatNumber(summary.enrolled ?? 0)}`, icon: <Users /> },
-                        { value: 'graduated', label: `Graduated & left ${formatNumber(summary.graduated ?? 0)}`, icon: <GraduationCap /> },
+                        { value: 'deactivated', label: `Deactivated ${formatNumber(summary.deactivated ?? 0)}`, icon: <CirclePause /> },
+                        { value: 'exited', label: `Exited ${formatNumber(summary.exited ?? 0)}`, icon: <DoorOpen /> },
+                        { value: 'graduated', label: `Graduated ${formatNumber(summary.graduated ?? 0)}`, icon: <GraduationCap /> },
                     ]}
                 />
             )}
@@ -258,14 +271,14 @@ export default function StudentsIndex({ variant, showParent = true, students, su
                 empty={
                     <EmptyState
                         icon={Users}
-                        title={hasFilters ? 'No students match these filters' : graduated ? 'No graduated students yet' : 'No students enrolled yet'}
+                        title={hasFilters ? 'No students match these filters' : { active: 'No students enrolled yet', deactivated: 'No deactivated students', exited: 'No students have exited', graduated: 'No graduated students yet' }[variant]}
                        
                         action={
                             hasFilters ? (
                                 <Button size="sm" onClick={() => apply({ q: '', class: '', section: '', gender: '', staff: '' })}>
                                     Clear filters
                                 </Button>
-                            ) : urls.create && !graduated ? (
+                            ) : urls.create && variant === 'active' ? (
                                 <Button size="sm" variant="primary" asChild>
                                     <Link href={urls.create}>Admit the first student</Link>
                                 </Button>

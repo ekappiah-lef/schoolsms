@@ -13,6 +13,7 @@ use App\Models\NotificationLog;
 use App\Models\ParentDetail;
 use App\Models\Section;
 use App\Models\StudentDetail;
+use App\Models\StudentRecord;
 use App\Repositories\LocationRepo;
 use App\Repositories\MyClassRepo;
 use App\Repositories\StudentRepo;
@@ -65,7 +66,10 @@ class StudentRecordController extends Controller
     /** All students, filterable by class/section/gender, server-side paginated. */
     public function index(Request $req)
     {
-        return Inertia::render('Students/Index', $this->listProps($req, 0));
+        // Enrolled; admins also open the Deactivated and Exited lists here (?view=).
+        $view = Qs::userIsTeamSA() && in_array($req->query('view'), ['deactivated', 'exited'], true) ? $req->query('view') : 'enrolled';
+
+        return Inertia::render('Students/Index', $this->listProps($req, $view));
     }
 
     /** Quick-find used by the command menu. */
@@ -76,7 +80,7 @@ class StudentRecordController extends Controller
             return [];
         }
 
-        return $this->baseQuery(0)
+        return $this->baseQuery('current')
             ->where(function ($w) use ($term) {
                 $w->where('u.name', 'like', "%{$term}%")->orWhere('sr.adm_no', 'like', "%{$term}%");
             })
@@ -281,7 +285,7 @@ class StudentRecordController extends Controller
     public function graduated(Request $req)
     {
         return Ui::render('Students/Index', function () use ($req) {
-            return $this->listProps($req, 1);
+            return $this->listProps($req, 'graduated');
         }, 'pages.support_team.students.graduated', function () {
             $data['my_classes'] = $this->my_class->all();
             $data['students'] = $this->student->allGradStudents();
@@ -466,14 +470,24 @@ class StudentRecordController extends Controller
             ?: $this->student->getGradRecord(['id' => $sr_id])->first();
     }
 
-    protected function baseQuery(int $grad)
+    /**
+     * Students in one list: enrolled (in school), deactivated (away), exited (left the school), graduated;
+     * "current" = enrolled and deactivated together (quick find).
+     */
+    protected function baseQuery(string $view)
     {
         return DB::table('student_records as sr')
             ->join('users as u', 'u.id', '=', 'sr.user_id')
             ->leftJoin('my_classes as c', 'c.id', '=', 'sr.my_class_id')
             ->leftJoin('sections as s', 's.id', '=', 'sr.section_id')
             ->leftJoin('users as p', 'p.id', '=', 'sr.my_parent_id')
-            ->where('sr.grad', $grad)
+            ->where(function ($q) use ($view) {
+                if ($view === 'enrolled') StudentRecord::inSchoolWhere($q, 'sr.');
+                elseif ($view === 'deactivated') $q->where('sr.grad', 0)->where('sr.status', 'away');
+                elseif ($view === 'exited') $q->where('sr.grad', 1)->where('sr.status', 'left');
+                elseif ($view === 'graduated') $q->where('sr.grad', 1)->where(function ($w) { $w->where('sr.status', '!=', 'left')->orWhereNull('sr.status'); });
+                else $q->where('sr.grad', 0);
+            })
             // Teachers only see the students of the section(s) they are class teacher of (a department head: their department's).
             ->when(\App\Support\TeacherScope::applies(), function ($q) {
                 $q->whereIn('sr.section_id', \App\Support\TeacherScope::viewSectionIds());
@@ -485,20 +499,22 @@ class StudentRecordController extends Controller
             );
     }
 
-    protected function listProps(Request $req, int $grad): array
+    protected function listProps(Request $req, string $view): array
     {
+        $grad = in_array($view, ['exited', 'graduated'], true) ? 1 : 0;
         $filters = [
+            'view' => in_array($view, ['deactivated', 'exited'], true) ? $view : null,
             'q' => trim((string) $req->query('q', '')),
             'class' => $req->query('class') ?: null,
             'section' => $req->query('section') ?: null,
             'gender' => $req->query('gender') ?: null,
             'staff' => $req->query('staff') ?: null,
-            'sort' => in_array($req->query('sort'), ['name', 'adm_no', 'class', 'year', 'grad_date']) ? $req->query('sort') : ($grad ? 'grad_date' : 'name'),
+            'sort' => in_array($req->query('sort'), ['name', 'adm_no', 'class', 'year', 'grad_date', 'left_on']) ? $req->query('sort') : ($view === 'exited' ? 'left_on' : ($grad ? 'grad_date' : 'name')),
             'dir' => $req->query('dir') === 'desc' ? 'desc' : ($req->query('dir') === 'asc' ? 'asc' : ($grad ? 'desc' : 'asc')),
             'per_page' => in_array((int) $req->query('per_page'), [10, 25, 50, 100]) ? (int) $req->query('per_page') : 10,
         ];
 
-        $scope = $this->baseQuery($grad);
+        $scope = $this->baseQuery($view);
         if ($filters['class']) $scope->where('sr.my_class_id', $filters['class']);
         if ($filters['section']) $scope->where('sr.section_id', $filters['section']);
         if ($filters['staff']) $scope->where('sr.staff_child', true);
@@ -521,14 +537,14 @@ class StudentRecordController extends Controller
             $scope->where('u.gender', $filters['gender']);
         }
 
-        $sortColumn = ['name' => 'u.name', 'adm_no' => 'sr.adm_no', 'class' => 'c.name', 'year' => 'sr.year_admitted', 'grad_date' => 'sr.grad_date'][$filters['sort']];
+        $sortColumn = ['name' => 'u.name', 'adm_no' => 'sr.adm_no', 'class' => 'c.name', 'year' => 'sr.year_admitted', 'grad_date' => 'sr.grad_date', 'left_on' => 'sr.left_on'][$filters['sort']];
         $page = $scope->orderBy($sortColumn, $filters['dir'])->orderBy('u.name')
             ->paginate($filters['per_page'])->appends($req->query());
 
         $isSA = Qs::userIsTeamSA();
         $isSuper = Qs::userIsSuperAdmin();
 
-        $rows = collect($page->items())->map(function ($r) use ($isSA, $isSuper, $grad) {
+        $rows = collect($page->items())->map(function ($r) use ($isSA, $isSuper, $view) {
             $srHash = Qs::hash($r->id);
             $userHash = Qs::hash($r->user_id);
 
@@ -553,14 +569,14 @@ class StudentRecordController extends Controller
                     'marksheet' => route('marks.year_selector', $userHash),
                     'edit' => $isSA ? route('students.edit', $srHash) : null,
                     'reset_pass' => Qs::userIsTeamAdmin() ? route('st.reset_pass', $userHash) : null,
-                    'not_graduated' => ($isSA && $grad) ? route('st.not_graduated', $srHash) : null,
+                    'not_graduated' => ($isSA && $view === 'graduated') ? route('st.not_graduated', $srHash) : null,
                     'destroy' => $isSuper ? route('students.destroy', $userHash) : null,
                 ]),
             ];
         });
 
         return [
-            'variant' => $grad ? 'graduated' : 'active',
+            'variant' => $view === 'enrolled' ? 'active' : $view,
             'showParent' => !Qs::userIsTeacher(),
             'students' => [
                 'data' => $rows,
@@ -575,8 +591,10 @@ class StudentRecordController extends Controller
             ],
             'summary' => [
                 // For the Enrolled / Graduated tabs.
-                'enrolled' => (int) DB::table('student_records')->where('grad', 0)->count(),
-                'graduated' => (int) DB::table('student_records')->where('grad', 1)->count(),
+                'enrolled' => (int) StudentRecord::inSchool()->count(),
+                'deactivated' => (int) StudentRecord::where('grad', 0)->where('status', 'away')->count(),
+                'exited' => (int) StudentRecord::where('grad', 1)->where('status', 'left')->count(),
+                'graduated' => (int) StudentRecord::where('grad', 1)->where(function ($w) { $w->where('status', '!=', 'left')->orWhereNull('status'); })->count(),
                 'total' => \App\Support\Money::r($genders->sum()),
                 'male' => (int) ($genders['Male'] ?? 0),
                 'female' => (int) ($genders['Female'] ?? 0),
@@ -588,7 +606,9 @@ class StudentRecordController extends Controller
                 return ['id' => $s->id, 'name' => $s->name, 'class_id' => $s->my_class_id];
             })->values(),
             'urls' => [
-                'index' => $grad ? route('students.graduated') : route('students.index'),
+                'index' => $view === 'graduated' ? route('students.graduated') : route('students.index'),
+                'deactivated' => $isSA ? route('students.index', ['view' => 'deactivated']) : null,
+                'exited' => $isSA ? route('students.index', ['view' => 'exited']) : null,
                 'create' => $isSA ? route('students.create') : null,
                 'graduated' => $isSA ? route('students.graduated') : null,
                 'active' => route('students.index'),
@@ -673,7 +693,8 @@ class StudentRecordController extends Controller
                     ];
                 })->values() : [],
             'urls' => array_filter([
-                'back' => Qs::userIsTeamSAT() ? route($sr->grad ? 'students.graduated' : 'students.index') : null,
+                'back' => Qs::userIsTeamSAT() ? ($sr->status === 'left' && Qs::userIsTeamSA() ? route('students.index', ['view' => 'exited'])
+                    : ($sr->status === 'away' && Qs::userIsTeamSA() ? route('students.index', ['view' => 'deactivated']) : route($sr->grad ? 'students.graduated' : 'students.index'))) : null,
                 'marksheet' => route('marks.year_selector', $userHash),
                 'edit' => Qs::userIsTeamSA() ? route('students.edit', $srHash) : null,
                 'reset_pass' => Qs::userIsTeamAdmin() ? route('st.reset_pass', $userHash) : null,
